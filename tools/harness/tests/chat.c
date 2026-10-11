@@ -38,5 +38,7 @@ int main(int argc,char **argv){CHECK(argc==2,"case");char const *case_name=argv[
  else CASE("suffix"){open_chat();text("hello qui goodbye",9);key(_key_tab,FALSE);CHECK(!strcmp(chat_input.result,"hello Quixote goodbye"),"suffix lost");CHECK(chat_input.edit.insertion_point_index==13,"cursor after suffix");key(_key_tab,FALSE);CHECK(!strcmp(chat_input.result,"hello Quincy goodbye"),"cycle suffix");}
  else CASE("bounds"){open_chat();char s[256];memset(s,'a',240);strcpy(s+240," qui");text(s,244);key(_key_tab,FALSE);CHECK(strlen(chat_input.result)==248,"bounded replacement");memset(s,'a',249);strcpy(s+249," qui");text(s,253);key(_key_tab,FALSE);CHECK(strlen(chat_input.result)==253,"overflowed line");}
  else CASE("scroll"){char s[256],saved[256];memset(s,'W',254);s[254]=0;strcpy(saved,s);short start=chat_input_display_start(s,254,420);CHECK(start>0&&(254-start)*9<=408,"long cursor outside input field");CHECK(!strcmp(s,saved),"display truncated the command");CHECK(chat_input_display_start(s,5,420)==0,"cursor near beginning scrolled away");strcpy(s,"iiiiiiiiii");CHECK(chat_input_display_start(s,10,60)==0,"variable-width glyphs ignored");}
- else return 2;return 0;
+ else return 2;
+ if(!strcmp(case_name,"ownership"))CHECK(began==2&&ended==2,"terminal ownership lifecycle unbalanced");
+ return 0;
 }
