@@ -11,6 +11,12 @@ strnlen() cannot collide with the game's own), which hides glibc's M_*.
 
 #include_next <math.h>
 
+/* C89 hides the host's C99 classification macros. These checks need no
+   library call and work for both float and double. */
+#ifndef isfinite
+#define isfinite(x) __builtin_isfinite(x)
+#endif
+
 #ifndef M_PI
 #define M_E 2.71828182845904523536
 #define M_LOG2E 1.44269504088896340736

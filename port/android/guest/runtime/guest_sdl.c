@@ -21,6 +21,19 @@ type that carries no pointer, which covers all the platform layer reads.
 /* guest/runtime/guest_gl.c (generated) */
 SDL_FunctionPointer guest_gl_get_proc_address(const char *name);
 
+/* Atomic integers live in guest memory; operate on them here rather than
+   passing them through the host's SDL bridge. Match SDL's full barrier. */
+bool SDL_CompareAndSwapAtomicInt(SDL_AtomicInt *value, int oldvalue, int newvalue)
+{
+	return __atomic_compare_exchange_n(&value->value, &oldvalue, newvalue,
+		false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
+}
+
+int SDL_SetAtomicInt(SDL_AtomicInt *value, int newvalue)
+{
+	return __atomic_exchange_n(&value->value, newvalue, __ATOMIC_SEQ_CST);
+}
+
 bool SDL_Init(SDL_InitFlags flags)
 {
 	return host_sdl_init(flags) != 0;
