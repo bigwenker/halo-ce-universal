@@ -49,6 +49,7 @@ static char const *tags[]={"characters\\cyborg\\cyborg","characters\\grunt\\grun
 static char const *tag_get_name(long index){return tags[index];}
 static struct damage_effect_definition *damage_effect_definition_get(long index){return &damage_def;}
 static void unit_kill(long index){killed++;last_killed=index;}
+static void chat_clear(void){}
 static void chat_note_line(char const *text){chatted++;snprintf(chat_text,sizeof(chat_text),"%s",text);}
 static void console_warning(char const *text,...){warned++;}
 static void terminal_printf(real_argb_color const *color,char const *format,...){va_list args;va_start(args,format);vsnprintf(shown_text,sizeof(shown_text),format,args);va_end(args);shown++;}
