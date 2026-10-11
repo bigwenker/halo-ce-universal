@@ -25,6 +25,7 @@ it must not manufacture homes or budgets from coop_vehicle_homes in an unknown s
 #include "scenario/scenario.h"
 #include "scenario/scenario_definitions.h"
 #include "units/vehicles.h"
+#include "units/vehicle_datum.h"
 #include "units/vehicle_definitions.h"
 #include "network_coop.h"
 #include "coop_vehicles.h"
@@ -39,6 +40,8 @@ struct coop_vehicle_definition
 	byte unused[0x2f4];
 	short type;
 };
+typedef char coop_vehicle_type_offset_assert[
+	offsetof(struct coop_vehicle_definition, type) == 0x2f4 ? 1 : -1];
 
 enum { VEHICLE_HOMES = 256, VEHICLE_SETTLE_TICKS = 15 };
 #define VEHICLE_AWAY (10.0f / 3.048f) /* hud_nav_points.c: metres per world unit */
@@ -93,7 +96,7 @@ static short vehicles_player_count(void)
 	return count;
 }
 
-static boolean vehicles_player_driving(long index, struct unit_datum const *vehicle)
+static boolean vehicles_player_driving(long index, struct vehicle_datum const *vehicle)
 {
 	struct unit_datum *driver = unit_try_and_get(vehicle->unit.driver_object_index);
 	struct player_datum *player;
@@ -106,14 +109,14 @@ static boolean vehicles_player_driving(long index, struct unit_datum const *vehi
 
 /* Capture an unloaded, upright vehicle's resting pose, rather than a
 dropship's airborne authored placement. A ray below it must find ground. */
-static boolean vehicles_anchor(struct coop_vehicle_home *home, struct unit_datum const *vehicle)
+static boolean vehicles_anchor(struct coop_vehicle_home *home, struct vehicle_datum const *vehicle)
 {
 	real_point3d above = vehicle->object.position;
 	real_vector3d down = {0.0f, 0.0f, -1.5f};
 	real_vector3d const *speed = &vehicle->object.translational_velocity;
 	struct collision_result hit;
 
-	if (vehicle->object.up.k < 0.5f || speed->i*speed->i + speed->j*speed->j + speed->k*speed->k > 0.0004f ||
+	if (vehicle->vehicle.airborne_ticks || vehicle->object.up.k < 0.5f || speed->i*speed->i + speed->j*speed->j + speed->k*speed->k > 0.0004f ||
 		TEST_FLAG(vehicle->unit.flags, _unit_possessed_by_recording_bit))
 		return FALSE;
 	above.z += 0.2f;
@@ -190,14 +193,14 @@ void coop_vehicles_new_game(void)
 
 void coop_vehicles_register(long index, struct scenario_object_datum const *source)
 {
-	struct unit_datum *vehicle;
+	struct vehicle_datum *vehicle;
 	struct coop_vehicle_definition const *definition;
 	struct coop_vehicle_home *home;
 	short number;
 
 	if (!vehicles_host())
 		return;
-	vehicle = vehicle_try_and_get(index);
+	vehicle = vehicle_datum_try_and_get(index);
 	if (!vehicle)
 		return;
 	definition = (struct coop_vehicle_definition const *)vehicle_definition_get(vehicle->definition_index);
@@ -234,7 +237,7 @@ void coop_vehicles_update(void)
 	for (number = 0; number < coop_vehicle_homes.count; number++)
 	{
 		struct coop_vehicle_home *home = &coop_vehicle_homes.homes[number];
-		struct unit_datum *vehicle = vehicle_try_and_get(home->current);
+		struct vehicle_datum *vehicle = vehicle_datum_try_and_get(home->current);
 		real dx, dy, dz;
 		long copy;
 		struct object_placement_data placement;

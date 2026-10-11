@@ -404,7 +404,7 @@
 		<string text="Pickups are as the campaign has them."/>
 		<string text="Pickups grow with the players: by the value of\n'Per Player' for each player past the first."/>
 		<string text="Vehicles are as the campaign has them."/>
-		<string text="Vehicles respawn after being driven a short distance\nbased on the number of players: by the value of 'Per Player'\nfor each player past the first."/>
+		<string text="Vehicles respawn after being driven a short distance\nbased on the number of players: by the value of\n'Per Player' for each player past the first."/>
 		<string text="For each player past the first, enemy squads/pickups\nget this much more of themselves (100%: as many again)."/>
 		<string text="For each player past the first, enemy squads/pickups\nget this much more of themselves (100%: as many again)."/>
 		<string text="For each player past the first, enemy squads/pickups\nget this much more of themselves (100%: as many again)."/>

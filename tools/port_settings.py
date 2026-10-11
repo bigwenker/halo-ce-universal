@@ -1049,7 +1049,7 @@ COOP_SETUP_SCREENS = [
         ]),
         ("coop_extra_vehicles", "EXTRA VEHICLES:", ["OFF", "ON"], [
             "Vehicles are as the campaign has them.",
-            "Vehicles respawn after being driven a short distance\\nbased on the number of players: by the value of 'Per Player'\\nfor each player past the first.",
+            "Vehicles respawn after being driven a short distance\\nbased on the number of players: by the value of\\n'Per Player' for each player past the first.",
         ]),
         ("coop_enemies_per_player", "PER PLAYER:", [f"{value}%" for value in COOP_ENEMIES_PERCENTAGES],
          ["For each player past the first, enemy squads/pickups\\nget this much more of themselves (100%: as many again)."] *

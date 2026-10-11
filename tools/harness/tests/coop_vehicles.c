@@ -1,5 +1,6 @@
 #include "harness.h"
 #include <math.h>
+#include <stddef.h>
 
 #define HALO_PORT_MAXIMUM_NETWORK_PLAYERS 128
 #define MAXIMUM_OBJECTS_PER_MAP 8192
@@ -27,7 +28,9 @@ struct test_object {
  real_vector3d forward,up,translational_velocity; float bounding_sphere_radius; short variant_number;
  float base_change_colors[12];} object;
  struct {unsigned long flags; long driver_object_index,player_index;} unit;
+ struct {byte airborne_ticks;} vehicle;
 };
+#define vehicle_datum test_object
 #define unit_datum test_object
 #define object_datum test_object
 struct object_placement_data {long definition_index; short variant_number; real_point3d position;
@@ -59,6 +62,7 @@ static struct network_game *network_game_get_game(void) {return &game;}
 static int network_player_is_valid(int const *p) {return *p;}
 static struct test_object *get(long index) {int n=index&65535;return index!=NONE&&n<1024&&identifiers[n]==index?&objects[n]:NULL;}
 #define vehicle_try_and_get get
+#define vehicle_datum_try_and_get get
 #define unit_try_and_get get
 #define object_get get
 static struct player_datum *player_try_and_get(long index) {return index==0?&player:NULL;}
@@ -133,7 +137,8 @@ static void driving(void) {
 static void delivery(void) {
  long index=reset();get(index)->object.parent_object_index=9;get(index)->object.position.z=100;settle();CHECK(!coop_vehicle_homes.homes[0].anchored,"cargo anchored");
  get(index)->object.parent_object_index=NONE;get(index)->object.position.z=.5f;floor_present=0;settle();CHECK(!coop_vehicle_homes.homes[0].anchored,"airborne anchored");
- floor_present=1;settle();CHECK(coop_vehicle_homes.homes[0].anchored&&coop_vehicle_homes.homes[0].placement.position.z==.5f,"unloaded anchor");
+ floor_present=1;get(index)->vehicle.airborne_ticks=10;settle();CHECK(!coop_vehicle_homes.homes[0].anchored,"no ground contact");
+ get(index)->vehicle.airborne_ticks=0;settle();CHECK(coop_vehicle_homes.homes[0].anchored&&coop_vehicle_homes.homes[0].placement.position.z==.5f,"unloaded anchor");
  drive(index,11);CHECK(new_count==1&&get(last_copy)->object.position.z==.5f,"copy not on ground pad");
 }
 static void chain(void) {
