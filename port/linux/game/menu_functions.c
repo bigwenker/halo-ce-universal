@@ -2378,8 +2378,6 @@ boolean ui_widget_port_unjoin_player(struct widget_instance *widget, struct even
 void network_game_server_port_set_settings(wchar_t const *name, long maximum_players);
 void network_game_server_port_set_cooperative_friendly_fire(short friendly_fire);
 void network_game_server_port_set_cooperative_player_collisions(boolean player_collisions);
-void *global_network_game_client_get(void);
-void *global_network_game_server_get(void);
 boolean network_game_is_splitscreen_local(void);
 struct advertised_game *network_game_client_get_available_games(void *client);
 boolean network_game_client_advertised_game_is_valid(struct advertised_game *game);
