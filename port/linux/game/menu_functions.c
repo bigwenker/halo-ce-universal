@@ -73,6 +73,7 @@ their handlers open opens.
 #include "interface/ui_widget_event_handler_functions.h"
 #include "main/main.h"
 #include "networking/network_game_manager.h"
+#include "networking/network_game_globals.h" /* port: typed local-player quit for co-op */
 #include "saved games/player_profile.h"
 #include "tag_files/tag_groups.h"
 #include "text/text_group.h"
