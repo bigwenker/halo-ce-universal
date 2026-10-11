@@ -334,6 +334,11 @@ the `pages` job deploys the release build to GitHub Pages: only from `main`,
 only once every platform built and the release is out, and never cancelled
 halfway. The Discord post has a Web field and the site's address.
 
+Forks build and publish the web archives without deploying a website. To
+deploy a fork's site, configure GitHub Pages to use GitHub Actions and set
+the repository variable `ENABLE_GITHUB_PAGES` to `true`. Upstream deploys
+automatically.
+
 Once, an owner of the organization sets it up:
 
 1. Organization settings → Pages → **Add a verified domain**:

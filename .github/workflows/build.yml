@@ -432,8 +432,10 @@ jobs:
     # main, only once every platform built and the release is out (the site
     # and the release are one build), and a deployment is never cancelled
     # halfway. The repository's Pages source must be GitHub Actions.
+    # Forks opt in with the ENABLE_GITHUB_PAGES repository variable after
+    # configuring their own site; building releases does not require Pages.
     needs: [release]
-    if: ${{ github.ref == 'refs/heads/main' }}
+    if: ${{ github.ref == 'refs/heads/main' && (github.repository == 'OpenCommunityEdition/OpenCE' || vars.ENABLE_GITHUB_PAGES == 'true') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
