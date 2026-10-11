@@ -129,6 +129,8 @@ enum
 
 	/* Authenticated request to kill only the sender's current unit. */
 	_distributed_message_suicide_request = 84,
+	/* co-op death text in the normal multiplayer HUD (reliable, host only) */
+	_distributed_message_coop_death = 85,
 
 	NUMBER_OF_DISTRIBUTED_MESSAGES
 };
