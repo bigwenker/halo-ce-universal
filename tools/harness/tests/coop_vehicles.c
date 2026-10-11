@@ -39,6 +39,7 @@ struct unit_definition {byte pad[0x2f4];short type;struct {struct {long index;} 
 struct mass_point_definition {real_point3d position;float radius;};
 struct tag_block {long count;void *address;};
 struct physics_definition {struct tag_block mass_points;};
+struct collision_model_instance {int unused;};
 struct collision_result {struct {real_vector3d n;} plane;};
 struct network_game {int players[128];};
 static struct network_game game;
@@ -51,8 +52,11 @@ static struct physics_definition physics;
 static struct scenario_object_datum sources[4];
 static struct {long actual_count;} headers,*object_header_data=&headers;
 static short global_structure_bsp_index;
-static int enabled,connection,coop,percent,step,blocked,sphere_blocked,floor_present,allocation_failed;
+static int enabled,connection,coop,percent,step,blocked,sphere_blocked,floor_present,allocation_failed,nearby;
 static long now,new_count,last_copy;
+static boolean collision_model_instance_new(struct collision_model_instance *p,long index) {(void)p;(void)index;return TRUE;}
+static boolean collision_model_test_sphere(struct collision_model_instance const *p,real_point3d const *c,float r) {(void)p;(void)c;(void)r;return blocked;}
+
 static int config_boolean(char const *name) {(void)name;return enabled;}
 static long config_integer(char const *name) {return !strcmp(name,"network.coop_enemies")?percent:step;}
 static int game_connection(void) {return connection;}
@@ -78,7 +82,7 @@ static boolean collision_test_vector(unsigned long f,real_point3d const *p,real_
 boolean collision_test_sphere(real_point3d const *p,float r,long ignored) {(void)p;(void)r;(void)ignored;return sphere_blocked;}
 static void scenario_location_from_point(struct location *l,real_point3d const *p) {(void)p;l->leaf_index=0;l->cluster_index=0;}
 static short objects_in_sphere(int f,unsigned long m,struct location const *l,real_point3d const *p,float r,long *indices,int max) {
- (void)f;(void)m;(void)l;(void)p;(void)r;(void)max;indices[0]=identifiers[9];return blocked;
+ (void)f;(void)m;(void)l;(void)p;(void)r;(void)max;indices[0]=identifiers[9];return blocked || nearby;
 }
 static void cross_product3d(real_vector3d const *a,real_vector3d const *b,real_vector3d *c) {
  c->i=a->j*b->k-a->k*b->j;c->j=a->k*b->i-a->i*b->k;c->k=a->i*b->j-a->j*b->i;
@@ -105,7 +109,7 @@ static long reset(void) {
  memset(objects,0,sizeof(objects));memset(identifiers,0,sizeof(identifiers));memset(&game,0,sizeof(game));
  memset(definitions,0,sizeof(definitions));
  for(i=0;i<8;i++){definitions[i].type=i;definitions[i].object.physics.index=0;definitions[i].object.bounding_radius=1;}
- enabled=coop=floor_present=1;connection=2;percent=50;step=1;blocked=sphere_blocked=allocation_failed=0;
+ enabled=coop=floor_present=1;connection=2;percent=50;step=1;blocked=sphere_blocked=allocation_failed=nearby=0;
  headers.actual_count=1;global_structure_bsp_index=0;now=new_count=0;game.players[0]=game.players[1]=game.players[2]=1;
  physics.mass_points.count=1;physics.mass_points.address=&mass_point;mass_point.radius=.2f;
  index=make(0,1);make(9,1);coop_vehicles_new_game();coop_vehicles_register(index,&sources[0]);return index;
@@ -151,13 +155,13 @@ static void blocked_test(void) {
  sphere_blocked=0;global_structure_bsp_index=1;coop_vehicles_update();CHECK(!new_count,"wrong BSP");
  global_structure_bsp_index=0;headers.actual_count=MAXIMUM_OBJECTS_PER_MAP-512;coop_vehicles_update();CHECK(!new_count,"capacity");
  headers.actual_count=1;allocation_failed=1;coop_vehicles_update();CHECK(!new_count&&!coop_vehicle_homes.homes[0].copies,"failed allocation consumed budget");
- allocation_failed=0;coop_vehicles_update();CHECK(new_count==1,"unblocked pad never retried");
+ allocation_failed=0;nearby=1;coop_vehicles_update();CHECK(new_count==1,"unblocked pad never retried");
 }
 static void checkpoint(void) {
- long index=reset();settle();now=100;coop_vehicles_before_save();drive(index,11);CHECK(coop_vehicle_homes.homes[0].copies==1,"copy");
+ long index=reset();settle();now=102;coop_vehicles_before_save();drive(index,11);CHECK(coop_vehicle_homes.homes[0].copies==1,"copy");
  coop_vehicles_after_load();CHECK(!coop_vehicle_homes.homes[0].copies&&coop_vehicle_homes.homes[0].current==index,"budget not restored");
  coop_vehicle_homes.homes[0].copies=1;coop_vehicles_before_save();coop_vehicle_homes.homes[0].copies=9;coop_vehicles_after_load();CHECK(coop_vehicle_homes.homes[0].copies==1,"consumed budget not restored");
- now=101;coop_vehicles_after_load();CHECK(!coop_vehicle_homes.count,"unrelated core retained handles");
+ now=103;coop_vehicles_after_load();CHECK(!coop_vehicle_homes.count,"unrelated core retained handles");
 }
 static void recreated(void) {
  long index=reset();settle();drive(index,11);coop_vehicles_register(make(2,1),&sources[0]);CHECK(coop_vehicle_homes.count==1&&coop_vehicle_homes.homes[0].copies==1,"script recreation reset budget");

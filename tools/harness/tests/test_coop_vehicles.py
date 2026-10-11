@@ -25,6 +25,7 @@ def test_case(case):
     (('vehicle->object.parent_object_index != NONE', 'FALSE'), 'delivery'),
     (('coop_vehicle_homes = saved_vehicles;', '(void)saved_vehicles;'), 'checkpoint'),
     (('|| !vehicles_home_clear(home)', '|| FALSE'), 'blocked'),
+    (('!collision_model_test_sphere(&instance, &center, radius)', 'FALSE'), 'blocked'),
 ])
 def test_negative_control(fault, case):
     status, output = run(build('coop_vehicles', generated(fault)), case)

@@ -136,7 +136,7 @@ static boolean vehicles_anchor(struct coop_vehicle_home *home, struct vehicle_da
 
 /* Use the physics mass points, not the vehicle's large bounding sphere
 (which normally intersects its own floor). Check their upper halves with
-a small lift above contact, and keep the whole home clear of other objects.
+a small lift above contact, and check nearby objects against their collision meshes.
 An obstructed pad is retried later, never replaced by a guessed nearby spot. */
 static boolean vehicles_home_clear(struct coop_vehicle_home const *home)
 {
@@ -156,13 +156,6 @@ static boolean vehicles_home_clear(struct coop_vehicle_home const *home)
 		&home->center, home->radius + 0.1f, indices, NUMBEROF(indices));
 	if (count == NUMBEROF(indices))
 		return FALSE;
-	for (index = 0; index < count; index++)
-	{
-		struct object_datum *object = object_get(indices[index]);
-
-		if (object->object.parent_object_index == NONE)
-			return FALSE;
-	}
 	physics = physics_definition_get(definition->object.physics.index);
 	if (physics->mass_points.count < 1 || physics->mass_points.count > MAXIMUM_MASS_POINTS_PER_PHYSICS)
 		return FALSE;
@@ -178,6 +171,34 @@ static boolean vehicles_home_clear(struct coop_vehicle_home const *home)
 		center.z += home->placement.forward.k * point->position.x + left.k * point->position.y + home->placement.up.k * point->position.z + 0.1f;
 		if (collision_test_sphere(&center, radius, home->current))
 			return FALSE;
+		{
+			short other;
+
+			for (other = 0; other < count; other++)
+			{
+				struct object_datum *object = object_get(indices[other]);
+				struct collision_model_instance instance;
+				real dx, dy, dz, clearance;
+
+				if (object->object.parent_object_index != NONE)
+					continue;
+				if (collision_model_instance_new(&instance, indices[other]))
+				{
+					if (!collision_model_test_sphere(&instance, &center, radius))
+						continue;
+				}
+				else
+				{
+					dx = object->object.bounding_sphere_center.x - center.x;
+					dy = object->object.bounding_sphere_center.y - center.y;
+					dz = object->object.bounding_sphere_center.z - center.z;
+					clearance = radius + object->object.bounding_sphere_radius;
+					if (dx*dx + dy*dy + dz*dz >= clearance*clearance)
+						continue;
+				}
+				return FALSE;
+			}
+		}
 	}
 	return TRUE;
 }
@@ -264,7 +285,7 @@ void coop_vehicles_update(void)
 		}
 		if (vehicles_player_driving(home->current, vehicle))
 			home->entered = TRUE;
-		if (!home->entered || home->copies >= budget)
+		if (!home->entered || home->copies >= budget || game_time_get() % 6)
 			continue;
 		dx = vehicle->object.position.x - home->placement.position.x;
 		dy = vehicle->object.position.y - home->placement.position.y;
