@@ -86,6 +86,8 @@ symbols in this file:
 /* port: model tags and static enclosure recognition at map initialization. */
 #include "cache/cache_files.h"
 #include "rasterizer/rasterizer_transparent_geometry.h"
+/* port: optional full detail, with the cinematic cryotube exception. */
+#include "render_lod.h"
 
 /* ---------- constants */
 
@@ -1009,6 +1011,8 @@ void render_model(
 	unsigned long flags)
 {
 	struct model *model = model_definition_get(model_index);
+	/* port: retain real projected size for effects and debug bounds. */
+	boolean full_detail = render_lod_model_disabled(model_index);
 
 	profile_enter(render_model_section);
 
@@ -1024,10 +1028,10 @@ void render_model(
 		rasterizer_model_cortana_hack = FALSE;
 	}
 
-	if (level_of_detail_pixels>=model->detail_cutoff_pixels[0] || TEST_FLAG(flags, _render_model_shadow_bit))
+	if (full_detail || level_of_detail_pixels>=model->detail_cutoff_pixels[0] || TEST_FLAG(flags, _render_model_shadow_bit))
 	{
-		/* Bias geometry selection only, after the original visibility cutoff.
-		Bounds, cached object state and projected-size effects keep their size. */
+		/* port: full detail bypasses the size cutoff; the Needler bias alone
+		keeps it. Bounds and projected-size effects keep their real size. */
 		real geometry_detail_pixels = model_detail_selection_pixels(
 			model_index, model, unique_identifier, flags, level_of_detail_pixels);
 		real_matrix4x3 relative_node_matrices[MAXIMUM_NODES_PER_MODEL];
@@ -1083,16 +1087,9 @@ void render_model(
 			}
 		}
 
-		geometry_detail_level_index = NUMBER_OF_DETAIL_LEVELS_PER_MODEL-1;
-		while (geometry_detail_level_index>0 &&
-			geometry_detail_pixels<model->detail_cutoff_pixels[geometry_detail_level_index])
-		{
-			geometry_detail_level_index--;
-		}
-		if (rasterizer_debug_options.debug_model_lod!=NONE)
-		{
-			geometry_detail_level_index = PIN(rasterizer_debug_options.debug_model_lod, 0, NUMBER_OF_DETAIL_LEVELS_PER_MODEL-1);
-		}
+		/* port: preserve authored selection unless full detail is requested. */
+		geometry_detail_level_index = render_lod_geometry_level(model,
+			geometry_detail_pixels, rasterizer_debug_options.debug_model_lod, full_detail);
 		match_assert(
 			"c:\\halo\\SOURCE\\models\\models.c",
 			169,
