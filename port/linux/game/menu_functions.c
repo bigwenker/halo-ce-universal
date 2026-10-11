@@ -4901,6 +4901,8 @@ static struct gametype_option const gametype_options[] =
 		{ "none", "per_player", "multiplier" } },
 	{ "coop_extra_pickups_spinner", _option_setting, 0, 0, 2, { 0 }, "network.coop_pickups",
 		{ "false", "true" } },
+	{ "coop_extra_vehicles_spinner", _option_setting, 0, 0, 2, { 0 }, "network.coop_vehicles",
+		{ "false", "true" } },
 	{ "coop_enemies_per_player_spinner", _option_setting, 0, 0, 5, { 0 }, "network.coop_enemies",
 		{ "25", "50", "100", "150", "200" } },
 	{ "coop_player_step_spinner", _option_setting, 0, 0, 8, { 0 }, "network.coop_player_step",
@@ -5438,8 +5440,10 @@ static void gametype_option_help(struct widget_instance *list)
 		short mode = named(list, "coop_extra_enemies_spinner", 0)->parameters.list.selected_index;
 
 		struct widget_instance *pickups = named(list, "coop_extra_pickups_spinner", 0);
+		struct widget_instance *vehicles = named(list, "coop_extra_vehicles_spinner", 0);
 		boolean per_player = mode == _cooperative_enemies_per_player ||
-			(pickups && pickups->parameters.list.selected_index == 1);
+			(pickups && pickups->parameters.list.selected_index == 1) ||
+			(vehicles && vehicles->parameters.list.selected_index == 1);
 
 		visible_set(named(list, "op_coop_enemies_per_player", 0), per_player);
 		visible_set(named(list, "op_coop_player_step", 0), per_player);

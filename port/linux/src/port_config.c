@@ -462,6 +462,11 @@ static const struct config_setting config_settings[] =
 		"Extra campaign weapons, grenades, overshields and camouflage per player,\n"
 		"by network.coop_enemies for each player past the first, up to 8 times\n"
 		"the original pickups. Only safe nearby places receive copies." },
+	{ "network.coop_vehicles", _config_boolean, "false", "HALO_NET_COOP_VEHICLES", _environment_value, _platform_all,
+		"Extra campaign vehicles for co-op. After a player drives a vehicle ten\n"
+		"metres from its unloaded starting place, make one more there, up to\n"
+		"floor((players - 1) / coop_player_step * coop_enemies / 100) extras.\n"
+		"The host alone creates them, and waits while the starting place is blocked." },
 	{ "network.coop_enemies", _config_integer, "50", "HALO_NET_COOP_ENEMIES", _environment_value, _platform_all,
 		"Online co-op's extra enemies/pickups per player, a percentage: for each player\n"
 		"past the first, campaign enemy squads/enabled pickups get this much of\n"
