@@ -150,6 +150,10 @@ def markup():
         assert (ROOT/'port/assets/menus/ce'/name).read_text() == source
     spec = dict(port_settings.SCREENS['video_settings'])
     spec['same_place'] = []
+    # Synthetic flat screens must not inherit Video Setup's per-platform
+    # placement or category rows. Actual generated screens are checked above.
+    spec.pop('platform_places', None)
+    spec['categories'] = []
     for count in (12, 13, 23, 1025):
         spec['rows'] = [('TEST:', f'display.test{i}', [('ON', 'true')], 'help', None) for i in range(count)]
         root = ET.fromstring('<menus>' + '\n'.join(port_settings._setting_screen('test', spec)) + '</menus>')
