@@ -420,6 +420,8 @@ def test_config_has_each_section_once(tmp_path):
     # (beside the stubs, which it then includes instead of the platform layer's)
     for name in ("port_config.c", "port_config.h"):
         shutil.copy(root / "port/linux/src" / name, stubs / name)
+    # The fork's console option registry shares this production header.
+    shutil.copy(root / "port/linux/include/console_options.h", stubs / "console_options.h")
     (tmp_path / "main.c").write_text(CONFIG_PROGRAM)
     program = tmp_path / "config_program"
     subprocess.run([compiler, "-DHALO_ANDROID=1", "-DHALO_ARM64_GUEST=1", f"-I{stubs}",
