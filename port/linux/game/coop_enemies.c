@@ -146,7 +146,6 @@ static struct
 	of PER PLAYER (a percentage) and of STATIC MULTIPLIER */
 	short mode;
 	short percent;
-	short player_step;
 	short multiplier;
 	struct coop_riding_vehicle vehicles[MAXIMUM_RIDING_VEHICLES];
 	short vehicle_count;
@@ -422,7 +421,6 @@ void coop_enemies_new_game(
 	end) */
 	coop_enemies.percent = (short)PIN(config_integer("network.coop_enemies"), COOP_ENEMIES_MINIMUM_PERCENT,
 		COOP_ENEMIES_MAXIMUM_PERCENT);
-	coop_enemies.player_step = (short)PIN(config_integer("network.coop_player_step"), 1, 8);
 	coop_enemies.multiplier = (short)PIN(config_integer("network.coop_enemies_multiplier"),
 		COOP_ENEMIES_MINIMUM_MULTIPLIER, COOP_ENEMIES_MAXIMUM_MULTIPLIER);
 	coop_enemies.mode = !strcmp(mode, "per_player") ? _coop_enemies_per_player :
@@ -456,7 +454,7 @@ short coop_enemies_extra_count(
 		players = coop_enemies_player_count();
 		if (players <= 1)
 			return 0;
-		extra = ((long)count * coop_scaling_growth(players, coop_enemies.percent, coop_enemies.player_step) + 50) / 100;
+		extra = ((long)count * coop_scaling_growth(players, coop_enemies.percent) + 50) / 100;
 	}
 	room = MAXIMUM_ACTORS - COOP_ENEMIES_LEVEL_ACTORS - actor_data->actual_count;
 	return (short)PIN(extra, 0, MAX(room, 0));

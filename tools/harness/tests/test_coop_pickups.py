@@ -27,7 +27,6 @@ def test_case(case):
 
 @pytest.mark.parametrize('fault,case', [
     (('(COOP_SCALING_MAXIMUM_GROWTH - 1) * 100', '100000'), 'counts'),
-    (('/ PIN(player_step, 1, 8)', '/ 1'), 'counts'),
     (('source->item.flags &= ~PICKUPS_COUNT_MASK;', '(void)source;'), 'checkpoint-and-bsp'),
     (('collision_test_sphere(center, radius + 0.02f, source_index)', 'FALSE'), 'floor-and-walls'),
     (('!TEST_FLAG(item->object.flags, _object_outside_of_map_bit)', 'TRUE'), 'checkpoint-and-bsp'),
@@ -45,16 +44,12 @@ def test_menu():
     names = [r[0] for r in rows]
     assert names[names.index('coop_extra_enemies') + 1] == 'coop_extra_pickups'
     help_text = lambda text: text.replace('\\n', ' ')
-    assert help_text(rows[names.index('coop_extra_pickups')][3][1]) == (
-        "Pickups grow with the players: "
-        "by the value of 'Per Player' for each player past the first.")
-    assert help_text(rows[names.index('coop_enemies_per_player')][3][0]) == (
-        'For each player past the first, enemy squads/pickups get this much more of themselves (100%: as many again).')
-    assert '"network.coop_pickups", _config_boolean, "false"' in read('port/linux/src/port_config.c')
-    assert 'mode == _cooperative_enemies_per_player ||' in read('port/linux/game/menu_functions.c')
-    step = rows[names.index('coop_enemies_per_player') + 1]
-    assert step[:3] == ('coop_player_step', 'PLAYER STEP:', [str(i) for i in range(1, 9)])
-    assert [help_text(text) for text in step[3]] == ['Only increment enemy squads/pickups for every X player.'] * 8
-    assert '"network.coop_player_step", _config_integer, "1"' in read('port/linux/src/port_config.c')
+    assert help_text(rows[names.index('coop_extra_pickups')][3][0]) == (
+        "Pickups grow with the players: by the value of 'Per Player' for each player past the first.")
+    assert names[names.index('coop_extra_vehicles') + 1] == 'coop_enemies_multiplier'
+    assert 'coop_player_step' not in names
+    for name in ['coop_extra_enemies', 'coop_extra_pickups', 'coop_extra_vehicles']:
+        assert rows[names.index(name)][2] == ['PER PLAYER', 'STATIC MULTIPLIER', 'NONE']
+    assert '"network.coop_pickups", _config_string' in read('port/linux/src/port_config.c')
     assert 'coop_pickups_register(result, scenario_object, palette);' in read('source/objects/objects.c')
     assert 'coop_pickups_update();' in read('port/linux/game/network_coop.c')

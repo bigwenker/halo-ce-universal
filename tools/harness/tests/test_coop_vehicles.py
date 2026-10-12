@@ -37,9 +37,9 @@ def test_menu():
     names = [row[0] for row in rows]
     assert names[names.index('coop_extra_pickups') + 1] == 'coop_extra_vehicles'
     row = rows[names.index('coop_extra_vehicles')]
-    assert row[2] == ['OFF', 'ON']
-    assert row[3][1].replace('\\n', ' ') == (
+    assert row[2] == ['PER PLAYER', 'STATIC MULTIPLIER', 'NONE']
+    assert row[3][0].replace('\\n', ' ') == (
         "Vehicles respawn after being driven a short distance based on the number of players: "
         "by the value of 'Per Player' for each player past the first.")
-    assert '"network.coop_vehicles", _config_boolean, "false"' in read('port/linux/src/port_config.c')
+    assert '"network.coop_vehicles", _config_string' in read('port/linux/src/port_config.c')
     assert 'coop_vehicles_register(result, scenario_object);' in read('source/objects/objects.c')

@@ -1084,26 +1084,26 @@ COOP_SETUP_SCREENS = [
         ("coop_friendly_fire", "FRIENDLY FIRE:", FRIENDLY_FIRE_CHOICES, FRIENDLY_FIRE_HELP),
         ("coop_chain_damage", "CHAIN-REACTION DAMAGE:", ["DEFAULT", "75%", "50%", "25%"],
          ["Player damage from grenades triggered by a chain\\nreaction. Thrown grenades and enemies are unchanged."] * 4),
-        ("coop_extra_enemies", "EXTRA ENEMIES:", ["NONE", "PER PLAYER", "STATIC MULTIPLIER"], [
-            "Enemy squads are as the campaign has them.",
+        ("coop_extra_enemies", "EXTRA ENEMIES:", ["PER PLAYER", "STATIC MULTIPLIER", "NONE"], [
             "Enemy squads grow with the players: by the value of\\n'Per Player' for each player past the first.",
-            "Enemy squads are the amount below times as large,\\nhowever many players there are.",
+            "Enemy squads use 'Multiplier', however many players\\nthere are.",
+            "Enemy squads are as the campaign has them.",
+        ]),
+        ("coop_extra_pickups", "EXTRA PICKUPS:", ["PER PLAYER", "STATIC MULTIPLIER", "NONE"], [
+            "Pickups grow with the players: by the value of\\n'Per Player' for each player past the first.",
+            "Pickups use 'Multiplier', up to eight times as many,\\nhowever many players there are.",
+            "Pickups are as the campaign has them.",
+        ]),
+        ("coop_extra_vehicles", "EXTRA VEHICLES:", ["PER PLAYER", "STATIC MULTIPLIER", "NONE"], [
+            "Vehicles respawn after being driven a short distance\\nbased on the number of players: by the value of\\n'Per Player' for each player past the first.",
+            "Vehicles respawn after being driven a short distance,\\nup to 'Multiplier' times as many in total, however\\nmany players there are.",
+            "Vehicles are as the campaign has them.",
         ]),
         ("coop_enemies_multiplier", "MULTIPLIER:", [f"{value}X" for value in COOP_ENEMIES_MULTIPLIERS],
-         ["Each enemy squad is this many times as large."] * len(COOP_ENEMIES_MULTIPLIERS)),
-        ("coop_extra_pickups", "EXTRA PICKUPS:", ["OFF", "ON"], [
-            "Pickups are as the campaign has them.",
-            "Pickups grow with the players: by the value of\\n'Per Player' for each player past the first.",
-        ]),
-        ("coop_extra_vehicles", "EXTRA VEHICLES:", ["OFF", "ON"], [
-            "Vehicles are as the campaign has them.",
-            "Vehicles respawn after being driven a short distance\\nbased on the number of players: by the value of\\n'Per Player' for each player past the first.",
-        ]),
+         ["Static enemy, pickup and vehicle amounts.\\nPickups are capped at eight times as many."] * len(COOP_ENEMIES_MULTIPLIERS)),
         ("coop_enemies_per_player", "PER PLAYER:", [f"{value}%" for value in COOP_ENEMIES_PERCENTAGES],
-         ["For each player past the first, enemy squads/pickups\\nget this much more of themselves (100%: as many again)."] *
+         ["For each player past the first, enemy squads, pickups\\nand vehicles get this much more (100%: as many again)."] *
          len(COOP_ENEMIES_PERCENTAGES)),
-        ("coop_player_step", "PLAYER STEP:", [str(value) for value in range(1, 9)],
-         ["Only increment enemy squads/pickups\\nfor every X player."] * 8),
         ("coop_player_collisions", "PLAYER COLLISIONS:", ["ON", "OFF"], [
             "Players bump into each other, as in the campaign.",
             "Players walk through each other, so that no one\\nblocks a doorway. The AI's characters still block.",

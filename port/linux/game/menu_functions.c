@@ -2979,9 +2979,9 @@ gametype_options' coop_extra_enemies_spinner has them, in this order): its
 amount's row is the choice's */
 enum
 {
-	_cooperative_enemies_none,
 	_cooperative_enemies_per_player,
 	_cooperative_enemies_multiplier,
+	_cooperative_enemies_none,
 	NUMBER_OF_COOPERATIVE_ENEMIES_MODES
 };
 
@@ -4902,15 +4902,13 @@ static struct gametype_option const gametype_options[] =
 	{ "coop_chain_damage_spinner", _option_setting, 0, 0, 4, { 0 }, "network.coop_chain_reaction_damage",
 		{ "100", "75", "50", "25" } },
 	{ "coop_extra_enemies_spinner", _option_setting, 0, 0, 3, { 0 }, "network.coop_enemies_mode",
-		{ "none", "per_player", "multiplier" } },
-	{ "coop_extra_pickups_spinner", _option_setting, 0, 0, 2, { 0 }, "network.coop_pickups",
-		{ "false", "true" } },
-	{ "coop_extra_vehicles_spinner", _option_setting, 0, 0, 2, { 0 }, "network.coop_vehicles",
-		{ "false", "true" } },
+		{ "per_player", "multiplier", "none" } },
+	{ "coop_extra_pickups_spinner", _option_setting, 0, 0, 3, { 0 }, "network.coop_pickups",
+		{ "per_player", "multiplier", "none" } },
+	{ "coop_extra_vehicles_spinner", _option_setting, 0, 0, 3, { 0 }, "network.coop_vehicles",
+		{ "per_player", "multiplier", "none" } },
 	{ "coop_enemies_per_player_spinner", _option_setting, 0, 0, 5, { 0 }, "network.coop_enemies",
 		{ "25", "50", "100", "150", "200" } },
-	{ "coop_player_step_spinner", _option_setting, 0, 0, 8, { 0 }, "network.coop_player_step",
-		{ "1", "2", "3", "4", "5", "6", "7", "8" } },
 	{ "coop_enemies_multiplier_spinner", _option_setting, 0, 0, 5, { 0 }, "network.coop_enemies_multiplier",
 		{ "2", "4", "8", "16", "32" } },
 	{ "coop_player_collisions_spinner", _option_setting, 0, 0, 2, { 0 }, "network.coop_player_collisions",
@@ -5442,8 +5440,8 @@ static void gametype_option_help(struct widget_instance *list)
 		visible_set(named(list, "op_primary_weapon", 0), custom);
 		visible_set(named(list, "op_secondary_weapon", 0), custom);
 	}
-	/* CO-OP OPTIONS: pickups share PER PLAYER independently of the enemy
-	mode, so both amount rows may be needed at once. */
+	/* CO-OP OPTIONS: enemies, pickups and vehicles share the amount rows.
+	Mixed modes may need both rows at once. */
 	if (named(list, "coop_extra_enemies_spinner", 0))
 	{
 		short mode = named(list, "coop_extra_enemies_spinner", 0)->parameters.list.selected_index;
@@ -5451,12 +5449,14 @@ static void gametype_option_help(struct widget_instance *list)
 		struct widget_instance *pickups = named(list, "coop_extra_pickups_spinner", 0);
 		struct widget_instance *vehicles = named(list, "coop_extra_vehicles_spinner", 0);
 		boolean per_player = mode == _cooperative_enemies_per_player ||
-			(pickups && pickups->parameters.list.selected_index == 1) ||
-			(vehicles && vehicles->parameters.list.selected_index == 1);
+			(pickups && pickups->parameters.list.selected_index == _cooperative_enemies_per_player) ||
+			(vehicles && vehicles->parameters.list.selected_index == _cooperative_enemies_per_player);
+		boolean multiplier = mode == _cooperative_enemies_multiplier ||
+			(pickups && pickups->parameters.list.selected_index == _cooperative_enemies_multiplier) ||
+			(vehicles && vehicles->parameters.list.selected_index == _cooperative_enemies_multiplier);
 
 		visible_set(named(list, "op_coop_enemies_per_player", 0), per_player);
-		visible_set(named(list, "op_coop_player_step", 0), per_player);
-		visible_set(named(list, "op_coop_enemies_multiplier", 0), mode == _cooperative_enemies_multiplier);
+		visible_set(named(list, "op_coop_enemies_multiplier", 0), multiplier);
 
 		/* Hidden amounts must not reserve a blank row. Offsets are relative
 		to the parent: moving only the row carries its labels and spinners

@@ -11,8 +11,8 @@ struct encounter_datum {short team_index;};
 static struct network_game game;
 static struct encounter_datum encounter={1};
 static struct {long actual_count;} actors,*actor_data=&actors;
-static struct {short mode,percent,player_step,multiplier;} coop_enemies;
-static int connection=2,coop=1,percent=50,step=1,multiplier=2;
+static struct {short mode,percent,multiplier;} coop_enemies;
+static int connection=2,coop=1,percent=50,multiplier=2;
 static char const *mode="per_player";
 static int game_connection(void){return connection;}
 static int network_coop_active(void){return coop;}
@@ -21,21 +21,20 @@ static int network_player_is_valid(int const *p){return *p;}
 static struct encounter_datum *encounter_get(long i){(void)i;return &encounter;}
 static int game_team_is_enemy(short a,short b){return a!=b;}
 static char const *config_string(char const *name){(void)name;return mode;}
-static long config_integer(char const *name){return !strcmp(name,"network.coop_player_step")?step:
- !strcmp(name,"network.coop_enemies_multiplier")?multiplier:percent;}
+static long config_integer(char const *name){return !strcmp(name,"network.coop_enemies_multiplier")?multiplier:percent;}
 #include "under_test.inc"
 int main(int argc,char **argv)
 {
  const char *case_name=argc>1?argv[1]:"";
  coop_enemies_new_game();
- CASE("steps") {
-  for(int s=1;s<=8;s++)for(int pct=25;pct<=200;pct+=25){
-   step=s;percent=pct;coop_enemies_new_game();memset(&game,0,sizeof(game));
+ CASE("counts") {
+  for(int pct=25;pct<=200;pct+=25){
+   percent=pct;coop_enemies_new_game();memset(&game,0,sizeof(game));
    for(int p=1;p<=128;p++){
     game.players[p-1]=1;
     for(int n=1;n<=100;n++){
-     long expected=MIN(((long)n*pct*((p-1)/s)+50)/100,7L*n);
-     CHECK(coop_enemies_extra_count(0,n)==expected,"s%d p%d pct%d n%d",s,p,pct,n);
+     long expected=MIN(((long)n*pct*(p-1)+50)/100,7L*n);
+     CHECK(coop_enemies_extra_count(0,n)==expected,"p%d pct%d n%d",p,pct,n);
     }
    }
   }
@@ -49,14 +48,12 @@ int main(int argc,char **argv)
   coop=0;CHECK(coop_enemies_extra_count(0,10)==0,"not co-op");coop=1;
   mode="none";coop_enemies_new_game();CHECK(coop_enemies_extra_count(0,10)==0,"disabled");
   mode="multiplier";multiplier=32;
-  for(int s=1;s<=8;s++){step=s;coop_enemies_new_game();CHECK(coop_enemies_extra_count(0,10)==310,"static multiplier changed");}
+  coop_enemies_new_game();CHECK(coop_enemies_extra_count(0,10)==310,"static multiplier changed");
  } else CASE("config") {
-  for(int s=-20;s<=20;s++){step=s;coop_enemies_new_game();CHECK(coop_enemies.player_step==PIN(s,1,8),"step clamp");}
-  step=1;percent=50;coop_enemies_new_game();memset(&game,0,sizeof(game));game.players[0]=1;
+  percent=50;coop_enemies_new_game();memset(&game,0,sizeof(game));game.players[0]=1;
   CHECK(coop_enemies_extra_count(0,10)==0,"one player");
   for(int p=1;p<12;p++)game.players[p]=1;
   CHECK(coop_enemies_extra_count(0,10)==55,"default twelve players");
-  step=2;coop_enemies_new_game();CHECK(coop_enemies_extra_count(0,10)==25,"stepped twelve players");
  } else return 2;
  return 0;
 }

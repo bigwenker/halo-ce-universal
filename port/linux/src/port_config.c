@@ -480,14 +480,16 @@ static const struct config_setting config_settings[] =
 		"\"multiplier\" (each is coop_enemies_multiplier times as large, for any\n"
 		"number of players). EXTRA ENEMIES in co-op's Server Setup > Co-op\n"
 		"Options writes its choice here." },
-	{ "network.coop_pickups", _config_boolean, "false", "HALO_NET_COOP_PICKUPS", _environment_value, _platform_all,
-		"Extra campaign weapons, grenades, overshields and camouflage per player,\n"
-		"by network.coop_enemies for each player past the first, up to 8 times\n"
+	{ "network.coop_pickups", _config_string, "\"none\"", "HALO_NET_COOP_PICKUPS", _environment_value, _platform_all,
+		"Extra campaign weapons, grenades, health kits, overshields and camouflage.\n"
+		"Modes: \"none\", \"per_player\" (coop_enemies percent per extra player),\n"
+		"or \"multiplier\" (coop_enemies_multiplier times as many), up to 8 times\n"
 		"the original pickups. Only safe nearby places receive copies." },
-	{ "network.coop_vehicles", _config_boolean, "false", "HALO_NET_COOP_VEHICLES", _environment_value, _platform_all,
-		"Extra campaign vehicles for co-op. After a player drives a vehicle ten\n"
+	{ "network.coop_vehicles", _config_string, "\"none\"", "HALO_NET_COOP_VEHICLES", _environment_value, _platform_all,
+		"Extra campaign vehicles: \"none\", \"per_player\" or \"multiplier\".\n"
+		"After a player drives a vehicle ten\n"
 		"metres from its unloaded starting place, make one more there, up to\n"
-		"floor((players - 1) / coop_player_step * coop_enemies / 100) extras.\n"
+		"floor((players - 1) * coop_enemies / 100) extras, or coop_enemies_multiplier - 1 in static mode.\n"
 		"The host alone creates them, and waits while the starting place is blocked." },
 	{ "network.coop_enemies", _config_integer, "50", "HALO_NET_COOP_ENEMIES", _environment_value, _platform_all,
 		"Online co-op's extra enemies/pickups per player, a percentage: for each player\n"
@@ -496,15 +498,9 @@ static const struct config_setting config_settings[] =
 		"Server Setup > Co-op Options writes its choice here." },
 	{ "network.coop_enemies_multiplier", _config_integer, "2", "HALO_NET_COOP_ENEMIES_MULTIPLIER", _environment_value,
 		_platform_all,
-		"Online co-op's static multiplier of its enemies: each squad of enemies\n"
-		"a level places is this many times as large (2 to 32). MULTIPLIER in\n"
+		"Online co-op's shared static multiplier: enemies, pickups and vehicles\n"
+		"use this total amount (2 to 32; pickups capped at 8). MULTIPLIER in\n"
 		"co-op's Server Setup > Co-op Options writes its choice here." },
-	{ "network.coop_player_step", _config_integer, "1", "HALO_NET_COOP_PLAYER_STEP", _environment_value, _platform_all,
-		"Only increment per-player enemy squads/enabled pickups for each complete\n"
-		"group of this many players past the first (1 to 8). PLAYER STEP in\n"
-		"co-op's Server Setup > Co-op Options writes its choice here. A value of\n"
-		"2 at 50 percent gives 1-2 players 1x, 3-4 players 1.5x, and so on.\n"
-		"The static enemy multiplier does not use this setting." },
 	{ "network.brokers_file", _config_string, "\"brokers.txt\"",
 		"HALO_NET_BROKERS_FILE", _environment_value, _platform_all,
 		"The file of the public MQTT brokers through which the machines of an\n"
@@ -1050,7 +1046,14 @@ static void config_set_from_file(struct config_value *value, const struct config
 			wrong_type = 1;
 		break;
 	case _config_string:
-		if (datum.type == TOML_STRING)
+		/* Preserve the fork's former On/Off pickup and vehicle choices. */
+		if (datum.type == TOML_BOOLEAN &&
+			(!strcmp(setting->name, "network.coop_pickups") || !strcmp(setting->name, "network.coop_vehicles")))
+		{
+			free(value->string);
+			value->string = strdup(datum.u.boolean ? "per_player" : "none");
+		}
+		else if (datum.type == TOML_STRING)
 		{
 			free(value->string);
 			value->string = strdup(datum.u.s);

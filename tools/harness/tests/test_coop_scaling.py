@@ -1,4 +1,4 @@
-"""Enemy counts use the same stepped growth as pickups, with the existing guards."""
+"""Enemy counts use the same per-player growth as pickups, with the existing guards."""
 import sys
 from pathlib import Path
 
@@ -22,15 +22,14 @@ def generated(fault=None):
     return (('under_test.inc', code),)
 
 
-@pytest.mark.parametrize('case', ['steps', 'guards', 'config'])
+@pytest.mark.parametrize('case', ['counts', 'guards', 'config'])
 def test_case(case):
     status, output = run(build('coop_scaling', generated()), case)
     assert status == 0, output
 
 
 @pytest.mark.parametrize('fault,case', [
-    (('/ PIN(player_step, 1, 8)', '/ 1'), 'steps'),
-    (('(COOP_SCALING_MAXIMUM_GROWTH - 1) * 100', '100000'), 'steps'),
+    (('(COOP_SCALING_MAXIMUM_GROWTH - 1) * 100', '100000'), 'counts'),
     (('MAXIMUM_ACTORS - COOP_ENEMIES_LEVEL_ACTORS - actor_data->actual_count', 'MAXIMUM_ACTORS'), 'guards'),
 ])
 def test_negative_control(fault, case):

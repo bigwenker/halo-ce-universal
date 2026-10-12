@@ -3,7 +3,8 @@ COOP_PICKUPS.C
 
 Server Setup's EXTRA PICKUPS (network.coop_pickups): weapons, grenades,
 health kits, overshields and camouflage placed by the campaign, grown by PER PLAYER
-(network.coop_enemies), to at most eight times their number. Fractions
+(network.coop_enemies) or STATIC MULTIPLIER (network.coop_enemies_multiplier),
+to at most eight times their number. Fractions
 are distributed over placements of the same definition, rather than
 rounding every loose grenade up. Enemies' drops and inventory are not
 scenario placements and never enter here.
@@ -36,7 +37,7 @@ No safe position means no copy; the level's originals are never moved.
 
 #include <math.h>
 
-int config_boolean(char const *name);
+char const *config_string(char const *name);
 long config_integer(char const *name);
 /* collisions.c's: TRUE outside the BSP or when the sphere touches it */
 boolean collision_test_sphere(real_point3d const *center, real radius, long ignore_object_index);
@@ -63,7 +64,7 @@ enum
 
 static boolean pickups_enabled;
 static short pickups_percent;
-static short pickups_player_step;
+static short pickups_multiplier;
 
 static boolean pickups_host(void)
 {
@@ -72,13 +73,14 @@ static boolean pickups_host(void)
 
 /* Incremental rounding gives a group of N placements exactly
 round(N * growth / 100) extras, up to 7*N. */
-static short pickups_extra_count(long ordinal, short players, short percent, short player_step)
+static short pickups_extra_count(long ordinal, short players, short percent, short multiplier)
 {
 	long growth;
 
-	if (ordinal < 1 || ordinal > SHORT_MAX || players <= 1 || percent <= 0)
+	if (ordinal < 1 || ordinal > SHORT_MAX)
 		return 0;
-	growth = coop_scaling_growth(players, percent, player_step);
+	growth = multiplier > 0 ? (MIN(multiplier, COOP_SCALING_MAXIMUM_GROWTH) - 1) * 100 :
+		coop_scaling_growth(players, percent);
 	return (short)((ordinal * growth + 50) / 100 - ((ordinal - 1) * growth + 50) / 100);
 }
 
@@ -281,9 +283,12 @@ static void pickups_place(long source_index)
 
 void coop_pickups_new_game(void)
 {
-	pickups_enabled = config_boolean("network.coop_pickups");
+	char const *mode = config_string("network.coop_pickups");
+
+	pickups_enabled = !strcmp(mode, "per_player") || !strcmp(mode, "multiplier");
 	pickups_percent = (short)PIN(config_integer("network.coop_enemies"), 25, 200);
-	pickups_player_step = (short)PIN(config_integer("network.coop_player_step"), 1, 8);
+	pickups_multiplier = !strcmp(mode, "multiplier") ?
+		(short)PIN(config_integer("network.coop_enemies_multiplier"), 2, 32) : 0;
 }
 
 void coop_pickups_register(long object_index, struct scenario_object_datum const *source, struct tag_block *palette)
@@ -298,7 +303,7 @@ void coop_pickups_register(long object_index, struct scenario_object_datum const
 	if (!item || !pickups_definition_allowed(item->definition_index))
 		return;
 	extra = pickups_extra_count(pickups_ordinal(item, source, palette, &identity), pickups_player_count(),
-		pickups_percent, pickups_player_step);
+		pickups_percent, pickups_multiplier);
 	item->item.flags = (item->item.flags & ~(PICKUPS_COUNT_MASK | PICKUPS_ID_MASK | PICKUPS_COPY_FLAG)) |
 		((unsigned long)extra << PICKUPS_COUNT_SHIFT) | ((unsigned long)identity << PICKUPS_ID_SHIFT);
 }
