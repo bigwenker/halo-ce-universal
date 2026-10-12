@@ -1089,6 +1089,8 @@ COOP_SETUP_SCREENS = [
             "Enemy squads grow with the players: by the value of\\n'Per Player' for each player past the first.",
             "Enemy squads are the amount below times as large,\\nhowever many players there are.",
         ]),
+        ("coop_enemies_multiplier", "MULTIPLIER:", [f"{value}X" for value in COOP_ENEMIES_MULTIPLIERS],
+         ["Each enemy squad is this many times as large."] * len(COOP_ENEMIES_MULTIPLIERS)),
         ("coop_extra_pickups", "EXTRA PICKUPS:", ["OFF", "ON"], [
             "Pickups are as the campaign has them.",
             "Pickups grow with the players: by the value of\\n'Per Player' for each player past the first.",
@@ -1102,8 +1104,6 @@ COOP_SETUP_SCREENS = [
          len(COOP_ENEMIES_PERCENTAGES)),
         ("coop_player_step", "PLAYER STEP:", [str(value) for value in range(1, 9)],
          ["Only increment enemy squads/pickups\\nfor every X player."] * 8),
-        ("coop_enemies_multiplier", "MULTIPLIER:", [f"{value}X" for value in COOP_ENEMIES_MULTIPLIERS],
-         ["Each enemy squad is this many times as large."] * len(COOP_ENEMIES_MULTIPLIERS)),
         ("coop_player_collisions", "PLAYER COLLISIONS:", ["ON", "OFF"], [
             "Players bump into each other, as in the campaign.",
             "Players walk through each other, so that no one\\nblocks a doorway. The AI's characters still block.",
