@@ -331,6 +331,7 @@ symbols in this file:
 
 /* ---------- headers */
 
+#include "network_social.h"
 #include "cseries.h"
 #include "errors.h"
 #include "cseries/profile.h"
@@ -381,6 +382,8 @@ symbols in this file:
 #include "networking/network_server_manager.h" /* port: a co-op game's level won */
 #include "network_coop.h" /* port: port/linux/game/network_coop.c */
 #include "network_voice.h" /* port: port/linux/game/network_voice.c */
+#include "network_extensions.h" /* port: port/linux/game/network_extensions.c */
+#include "network_aim_assist.h" /* port: port/linux/game/network_aim_assist.c */
 #include "halo_spray.h"
 #include "map_share.h" /* port: port/linux/game/map_share.c */
 #include "profile_sections.h" /* port: port/linux/include/profile_sections.h */
@@ -1169,7 +1172,7 @@ void set_window_camera_values(
 				1.0f));
 
 		if (window->local_player_index != NONE &&
-			!console_is_active() &&
+			!console_is_active() && !chat_is_active() &&
 			!game_time_get_paused() &&
 			director_get_perspective(window->local_player_index) !=
 				_director_perspective_neutral)
@@ -3521,6 +3524,10 @@ static boolean main_loop_iteration(
 			network_test_update(main_globals.main_menu_scenario_loaded, main_globals.seconds_elapsed);
 			/* port: voice chat, in the lobby and in game (port/linux/game/network_voice.c) */
 			network_voice_update();
+			/* port: apply and replicate the host's mouse aim-assist policy. */
+			network_extensions_update();
+			network_aim_assist_update();
+			network_social_update();
 			network_spray_update();
 			/* port: map sharing, in the lobby and in game (port/linux/game/map_share.c) */
 			map_share_update();
@@ -3580,11 +3587,15 @@ static boolean main_loop_iteration(
 			if (game_in_progress())
 			{
 				terminal_update();
+				chat_update();
 
-				if (!console_update() || main_globals.connection!=_game_connection_local)
+				if (chat_is_active() || !console_update() || main_globals.connection!=_game_connection_local)
 				{
-					debug_keys_update();
-					cheats_update();
+					if (!chat_is_active())
+					{
+						debug_keys_update();
+						cheats_update();
+					}
 					player_control_update((real)main_globals.halt_time_scale*main_globals.seconds_elapsed);
 
 					connection = main_globals.connection;

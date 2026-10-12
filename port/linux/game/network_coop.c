@@ -112,8 +112,11 @@ index and tag, since the map placed them at the same index everywhere.
 #include "units/units.h"
 #include "coop_enemies.h"
 #include "coop_pickups.h"
+#include "coop_vehicles.h"
 #include "coop_spectate.h"
 #include "network_coop.h"
+#include "network_social.h"
+#include "network_killfeed.h"
 #include "network_distributed.h"
 
 /* ---------- constants */
@@ -1962,6 +1965,7 @@ void network_coop_new_game(
 	skip_vote.skip_save_written = FALSE;
 	coop_enemies_new_game();
 	coop_pickups_new_game();
+	coop_vehicles_new_game();
 }
 
 /* A network game on a campaign scenario with no game engine. Checking the
@@ -2587,6 +2591,8 @@ void network_coop_reverted(
 	}
 	/* (the dropships' riders kept are of the game state reverted from) */
 	coop_enemies_reset();
+	network_social_reverted();
+	network_killfeed_reset();
 	error(_error_silent, "co-op: reverted %ld ticks, clock kept at %ld", ticks, now);
 	event_new(_coop_event_reverted);
 }
@@ -2628,6 +2634,7 @@ void network_coop_host_tick(
 	players_vitality_keep();
 	coop_enemies_update();
 	coop_pickups_update();
+	coop_vehicles_update();
 	host_count_skip_votes();
 	host_presentation(&message.presentation);
 	send_to_clients(&message, _distributed_message_coop_presentation, 1, sizeof(message.presentation));

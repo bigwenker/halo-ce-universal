@@ -589,6 +589,8 @@
 		<string text="Every time you cause your own death, there will be a \nfive-second wait before you can rejoin the game. "/>
 		<string text="You'll wait ten seconds after you cause your own \ndeath before you can return to the game."/>
 		<string text="When you suicide, you must wait fifteen seconds \nbefore you can respawn. This will give you an idea of \nwhat eternity is like."/>
+		<string text="Players keep their current mouse aim assist setting."/>
+		<string text="Disable mouse aim assist for mouse/keyboard players.\nController and touch aim assist are unchanged."/>
 	</strings>
 	<strings name="main_menu/settings_select/multiplayer_setup/player_options_edit/player_options_labels">
 		<string text="NUMBER OF LIVES:"/>
@@ -599,6 +601,7 @@
 		<string text="ODD MAN OUT:"/>
 		<string text="INVISIBLE PLAYERS:"/>
 		<string text="SUICIDE PENALTY:"/>
+		<string text="AIM ASSIST:"/>
 	</strings>
 	<strings name="main_menu/settings_select/multiplayer_setup/player_options_edit/var_invisible_players">
 		<string text="YES"/>
@@ -1013,10 +1016,10 @@
 		<string text="NO"/>
 	</strings>
 	<strings name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/cap_teamplay_options">
-		<string text="Players can not be hurt by weapons and explosives\nfired by their teammates."/>
-		<string text="Players can be hurt by weapons or explosives\nfired by their teammates."/>
-		<string text="Damage from friendly fire will only reduce shields.\nHealth will be unaffected."/>
-		<string text="Players can be hurt by damage from explosives \nfired by their teammates."/>
+		<string text="Friendly hits deal normal damage."/>
+		<string text="Friendly hits deal 50% less damage to shields and health."/>
+		<string text="Friendly hits deal 75% less damage to shields and health."/>
+		<string text="Friendly hits cannot damage shields or health."/>
 		<string text="No respawn time penalty will be assessed to players\nwho kill a teammate."/>
 		<string text="Players who kill a teammate will be assessed a \nfive-second respawn penalty the next time they die."/>
 		<string text="Players who kill a teammate will be assessed a \nten-second respawn penalty the next time they die."/>
@@ -1028,6 +1031,7 @@
 		<string text="Players hear everyone who is near them."/>
 		<string text="Players hear all their teammates, wherever they\nare."/>
 		<string text="Players hear all their teammates, and the enemies\nwho are near them."/>
+		<string text="Players hear everyone, wherever they are, with\nno proximity effects."/>
 		<string text="Everyone hears everyone in the lobby, before and\nafter the game."/>
 		<string text="No voice chat in the lobby."/>
 		<string text="Voices at 8 kilobits a second, in the lobby\nand in the game."/>
@@ -1057,10 +1061,10 @@
 		<string text="VOTE KICK:"/>
 	</strings>
 	<strings name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/var_friendly_fire">
-		<string text="OFF"/>
 		<string text="ON"/>
-		<string text="SHIELD ONLY"/>
-		<string text="EXPLOSIVES ONLY"/>
+		<string text="50% LESS"/>
+		<string text="75% LESS"/>
+		<string text="OFF"/>
 	</strings>
 	<strings name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/var_friendly_fire_penalty">
 		<string text="NONE"/>

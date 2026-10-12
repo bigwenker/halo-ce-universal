@@ -33,7 +33,7 @@ def generated(control=None):
     # Stop immediately after the real admission guard, recording entry into
     # decoding. No simulated implementation of the guard or packet handlers.
     functions['network_distributed_handle_message'] = functions['network_distributed_handle_message'].split(
-        '\tcsmemcpy(&header, message, sizeof(header));')[0] + '\tadmitted++;\n}\n'
+        '\t/* a tick\'s messages in one:')[0].rsplit('\tcsmemcpy(&header, message, sizeof(header));', 1)[0] + '\tadmitted++;\n}\n'
     try:
         predicate = function(source, 'distributed_game_in_progress')
     except LookupError:

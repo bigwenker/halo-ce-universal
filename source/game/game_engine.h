@@ -160,6 +160,9 @@ enum
 	_friendly_fire_off,
 	_friendly_fire_shields_only,
 	_friendly_fire_explosives_only,
+	/* Append: existing saved variants and network settings retain their IDs. */
+	_friendly_fire_half_damage,
+	_friendly_fire_quarter_damage,
 	NUMBER_OF_FRIENDLY_FIRE_MODES
 };
 
@@ -361,7 +364,8 @@ enum
 short game_engine_friendly_damage(
 	long attacker_player_index,
 	long object_index,
-	boolean explosive);
+	boolean explosive,
+	real *damage_scale);
 /* port: the PC options of a variant that has none of its own (saved before
 them, or built in): the Xbox game's play */
 void game_variant_options_default(

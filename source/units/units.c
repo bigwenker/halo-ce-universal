@@ -645,6 +645,8 @@ symbols in this file:
 
 #include "cseries.h"
 #include "units.h"
+#include "network_social.h"
+#include "network_killfeed.h" /* port: port/linux/game/network_killfeed.c */
 
 #include "bipeds.h"
 #include "biped_definitions.h"
@@ -2753,6 +2755,9 @@ void unit_died(
 	unit = unit_get(unit_index);
 	if (!feigned)
 	{
+		/* port: direct/script deaths have no damage aftermath; ordinary
+		damage deaths were already announced, once (network_killfeed.c). */
+		network_killfeed_note_death(unit_index, NULL);
 		unit->unit.feign_death_timer = 0;
 	}
 	else
@@ -7288,6 +7293,11 @@ void unit_damage_aftermath(
 
 	if (lethal || feigned)
 	{
+		if (lethal && !feigned)
+		{
+			network_social_note_death(unit_index, damage_data);
+			network_killfeed_note_death(unit_index, damage_data);
+		}
 		unit_died(unit_index, feigned);
 	}
 
@@ -8469,9 +8479,27 @@ boolean unit_add_weapon_to_inventory(
 				break;
 
 			case _unit_add_weapon_starting:
-				if (!TEST_FLAG(unit->unit.control_flags, _unit_control_weapon_primary_trigger_bit))
+				/* port: a second weapon, into the empty slot of a one-weapon
+				loadout, is the one in hand. While the trigger was down this
+				left the choice on the weapon already held, and the next
+				action put that choice back, so the new one stayed holstered. */
 				{
-					player_control_set_desired_weapon(unit_index, inventory_index);
+					boolean holding_another = FALSE;
+					short slot;
+
+					for (slot = 0; slot < MAXIMUM_WEAPONS_PER_UNIT; slot++)
+					{
+						if (slot != inventory_index &&
+							unit->unit.weapon_object_indices[slot] != NONE)
+						{
+							holding_another = TRUE;
+						}
+					}
+					if (holding_another ||
+						!TEST_FLAG(unit->unit.control_flags, _unit_control_weapon_primary_trigger_bit))
+					{
+						player_control_set_desired_weapon(unit_index, inventory_index);
+					}
 				}
 
 			case _unit_add_weapon_replace:

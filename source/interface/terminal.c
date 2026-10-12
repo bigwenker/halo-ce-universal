@@ -48,6 +48,7 @@ symbols in this file:
 
 /* ---------- headers */
 
+#include "network_social.h"
 #include "cseries.h"
 #include "terminal.h"
 
@@ -235,8 +236,23 @@ void terminal_draw(
 			terminal_gets_bounds.y0 = render.camera.window_bounds.y1 - line_height;
 			terminal_gets_bounds.y1 = render.camera.window_bounds.y1;
 
+			if (chat_is_active())
+			{
+				terminal_gets_bounds.x1 -= 12;
+				terminal_gets_bounds.x0 = MAX(render.camera.window_bounds.x0 + 12, terminal_gets_bounds.x1 - 420);
+				terminal_gets_bounds.y0 -= 20;
+				terminal_gets_bounds.y1 -= 20;
+			}
 			offset_rectangle2d(&terminal_gets_bounds, -render.camera.viewport_bounds.x0, -render.camera.viewport_bounds.y0);
 			draw_string_set_draw_mode(font_tag_index, NONE, 0, 0, &terminal_globals.input_state->color);
+			if (chat_is_active())
+			{
+				short start = chat_input_display_start(buffer,
+					buff_len + terminal_globals.input_state->edit.insertion_point_index,
+					terminal_gets_bounds.x1 - terminal_gets_bounds.x0);
+				memmove(buffer, buffer + start, strlen(buffer + start) + 1);
+				buff_len -= start;
+			}
 
 			if (terminal_globals.insertion_point_visible)
 			{

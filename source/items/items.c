@@ -59,6 +59,7 @@ symbols in this file:
 /* ---------- headers */
 
 #include "cseries.h"
+#include "objects/damage.h"
 
 #include "cseries/profile.h"
 #include "effects/material_effects.h"
@@ -68,6 +69,7 @@ symbols in this file:
 #include "game/game_engine.h"
 #include "items/item_definitions.h"
 #include "items.h"
+#include "equipment_definitions.h"
 #include "physics/breakable_surfaces.h"
 #include "physics/collision_bsp_definitions.h"
 #include "physics/collision_usage.h"
@@ -165,6 +167,7 @@ boolean item_new(
 		FLAG(_object_static_lighting_recompute_bit);
 	item->item.last_owned_time = game_time_get();
 	item->item.ignore_object_index = NONE;
+	SET_FLAG(item->item.flags, _item_chain_reaction_bit, FALSE);
 
 	return TRUE;
 }
@@ -265,6 +268,33 @@ void item_get_position_even_if_in_inventory(
 	return;
 }
 
+void item_accelerate_from_damage(long index, real_vector3d const *acceleration, boolean detonates, struct damage_data const *damage)
+{
+    struct item_datum *item = item_get(index);
+    if (detonates && !TEST_FLAG(item->item.flags, _item_does_not_accelerate_bit) &&
+        item->object.parent_object_index == NONE && !game_engine_running() &&
+        TEST_FLAG(item_definition_get(item->definition_index)->item.flags, 1) && !item->item.detonation_ticks &&
+        item->object.type == _object_type_equipment) {
+        struct equipment_definition *definition = (struct equipment_definition *)tag_get('eqip',item->definition_index);
+        if (definition->equipment.grenade_type >= 0 && definition->equipment.grenade_type < 2) {
+            item->object.owner_player_index = damage->owner_player_index;
+            item->object.owner_object_index = damage->owner_object_index;
+            item->object.owner_team_index = damage->owner_team_index;
+        }
+    }
+    item_accelerate(index,acceleration,detonates);
+}
+boolean item_is_chain_reaction_grenade(long item_index)
+{
+    struct item_datum *item = item_try_and_get(item_index);
+    struct equipment_definition *definition;
+    if (!item || item->object.type != _object_type_equipment ||
+        !TEST_FLAG(item->item.flags, _item_chain_reaction_bit))
+        return FALSE;
+    definition = (struct equipment_definition *)tag_get('eqip', item->definition_index);
+    return definition->equipment.grenade_type >= 0 && definition->equipment.grenade_type < 2;
+}
+
 void item_detonate(
 	long item_index)
 {
@@ -273,6 +303,7 @@ void item_detonate(
 
 	if (!item->item.detonation_ticks)
 	{
+		SET_FLAG(item->item.flags, _item_chain_reaction_bit, TRUE);
 		effect_new_from_object(
 			definition->item.detonating_effect.index,
 			item_index,

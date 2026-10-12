@@ -652,6 +652,9 @@ boolean network_damage_deals(
 
 			damage_replay_player_effect(unit->unit.player_index, &effect, 0.0f);
 		}
+		/* Loose grenades detonated by the world are simulated by the host. */
+		if (TEST_FLAG(damage->flags, _damage_chain_reaction_bit))
+			return FALSE;
 		/* a hit of this machine's own player's, on the host's object */
 		if (distributed_player_is_local(damage->owner_player_index) &&
 			(network_objects_client_has(object_index) || static_target(object_index)) &&
@@ -680,6 +683,7 @@ boolean network_damage_deals(
 	/* (a client's player's, whose machine reports it; but one whose machine
 	has left deals it here: their grenades and rockets still in flight) */
 	if (game_connection() == _game_connection_network_server && !damage_dealing_report &&
+		!TEST_FLAG(damage->flags, _damage_chain_reaction_bit) &&
 		damage->owner_player_index != NONE && !distributed_player_is_local(damage->owner_player_index))
 	{
 		struct player_datum *owner = player_try_and_get(damage->owner_player_index);

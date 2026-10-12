@@ -186,6 +186,16 @@ int main(int argc, char **argv)
 			connection = _game_connection_network_server;
 			CHECK(!network_damage_deals(&damage, 0, NONE, NONE, NONE, NULL, FALSE), "host duplicated connected remote damage");
 			CHECK(damage.owner_player_index == old_player, "admission changed ownership");
+			damage.flags |= FLAG(_damage_chain_reaction_bit);
+			CHECK(network_damage_deals(&damage, 0, NONE, NONE, NONE, NULL, FALSE), "host dropped a client-triggered loose-grenade blast");
+			connection = _game_connection_network_client;
+			owner->local_player_index = 0;
+			CHECK(!network_damage_deals(&damage, 0, NONE, NONE, NONE, NULL, FALSE) && !damage_report_count,
+				"client reported a host-owned chain blast twice");
+			CHECK(network_damage_deals(&damage, 0, NONE, NONE, NONE, NULL, TRUE), "host chain replay rejected");
+			damage.flags &= ~FLAG(_damage_chain_reaction_bit);
+			owner->local_player_index = NONE;
+			connection = _game_connection_network_server;
 			owner->quit_out_of_game = TRUE;
 			CHECK(network_damage_deals(&damage, 0, NONE, NONE, NONE, NULL, FALSE), "departed player's grenade lost damage");
 			datum_delete(player_data, old_player);

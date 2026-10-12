@@ -82,6 +82,7 @@ static struct unit_definition*unit_definition_get(long i){CHECK(i>=0&&i<4);retur
 static long unit_inventory_get_weapon(long i,short j){(void)j;return weapon_indices[i];}
 static real weapon_get_zoom_magnification(long i,short z){return z<0?1:magnifications[i];}
 static int console_is_active(void){return 0;}
+static int chat_is_active(void){return 0;}
 static int game_time_get_paused(void){return 0;}
 static void player_effect_get_camera_effect_matrix(short i,real_matrix4x3*m){(void)i;memset(m,0,sizeof(*m));}
 static void matrix4x3_from_point_and_vectors(real_matrix4x3*m,struct point const*p,struct vector const*f,struct vector const*u){m->position=*p;m->forward=*f;m->up=*u;}

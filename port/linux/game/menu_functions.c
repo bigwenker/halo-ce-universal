@@ -73,6 +73,7 @@ their handlers open opens.
 #include "interface/ui_widget_event_handler_functions.h"
 #include "main/main.h"
 #include "networking/network_game_manager.h"
+#include "networking/network_game_globals.h" /* port: typed local-player quit for co-op */
 #include "saved games/player_profile.h"
 #include "tag_files/tag_groups.h"
 #include "text/text_group.h"
@@ -2075,6 +2076,7 @@ static struct
 	{ "controls.pause", L"PAUSE MENU", 2 },
 	{ "controls.screenshot", L"SCREENSHOT", 2 },
 	{ "controls.spray", L"SPRAY IMAGE", 2 },
+	{ "controls.chat", L"CHAT", 2 },
 	{ "controls.push_to_talk", L"PUSH TO TALK", 2 },
 };
 
@@ -2376,8 +2378,6 @@ boolean ui_widget_port_unjoin_player(struct widget_instance *widget, struct even
 void network_game_server_port_set_settings(wchar_t const *name, long maximum_players);
 void network_game_server_port_set_cooperative_friendly_fire(short friendly_fire);
 void network_game_server_port_set_cooperative_player_collisions(boolean player_collisions);
-void *global_network_game_client_get(void);
-void *global_network_game_server_get(void);
 boolean network_game_is_splitscreen_local(void);
 struct advertised_game *network_game_client_get_available_games(void *client);
 boolean network_game_client_advertised_game_is_valid(struct advertised_game *game);
@@ -2392,6 +2392,7 @@ boolean playlist_profile_get_display_name(long index, wchar_t *name);
 boolean input_get_key(struct key_stroke *key);
 boolean game_engine_running(void);
 void game_engine_end_game(void);
+void network_game_server_port_cooperative_won(char const *next_map);
 /* the platform layer's */
 int p2p_join_invite(char const *text);
 int p2p_invite_link(char *link, int size);
@@ -2978,9 +2979,9 @@ gametype_options' coop_extra_enemies_spinner has them, in this order): its
 amount's row is the choice's */
 enum
 {
-	_cooperative_enemies_none,
 	_cooperative_enemies_per_player,
 	_cooperative_enemies_multiplier,
+	_cooperative_enemies_none,
 	NUMBER_OF_COOPERATIVE_ENEMIES_MODES
 };
 
@@ -2989,7 +2990,7 @@ gametype_options' coop_friendly_fire_spinner and server_start have them, in
 this order) */
 static short const cooperative_friendly_fire_modes[] =
 {
-	_friendly_fire_off, _friendly_fire_on, _friendly_fire_shields_only, _friendly_fire_explosives_only
+	_friendly_fire_on, _friendly_fire_half_damage, _friendly_fire_quarter_damage, _friendly_fire_off
 };
 
 /* the most players Server Setup shows and sets: the multiplayer game's, or
@@ -3211,7 +3212,7 @@ static boolean server_start(void)
 		/* (as CO-OP OPTIONS left them: network.coop_friendly_fire, in
 		cooperative_friendly_fire_modes' order, and
 		network.coop_player_collisions) */
-		static char const *const friendly_fire_names[] = { "off", "on", "shields_only", "explosives_only" };
+		static char const *const friendly_fire_names[] = { "on", "half_damage", "quarter_damage", "off" };
 		char const *friendly_fire = config_string("network.coop_friendly_fire");
 		short index;
 
@@ -3222,6 +3223,10 @@ static boolean server_start(void)
 			if (!strcmp(friendly_fire, friendly_fire_names[index]))
 				multiplayer.cooperative_friendly_fire = cooperative_friendly_fire_modes[index];
 		}
+		if (friendly_fire && !strcmp(friendly_fire, "shields_only"))
+			multiplayer.cooperative_friendly_fire = _friendly_fire_shields_only;
+		if (friendly_fire && !strcmp(friendly_fire, "explosives_only"))
+			multiplayer.cooperative_friendly_fire = _friendly_fire_explosives_only;
 		multiplayer.cooperative_no_player_collisions = !config_boolean("network.coop_player_collisions");
 		network_game_server_port_set_cooperative_friendly_fire(multiplayer.cooperative_friendly_fire);
 		network_game_server_port_set_cooperative_player_collisions(!multiplayer.cooperative_no_player_collisions);
@@ -4167,6 +4172,27 @@ static boolean pause_end_game(void)
 	return TRUE;
 }
 
+/* Co-op's host returns everyone to the lobby, retaining the current map
+and difficulty, through the existing campaign round transition. A client
+leaves only this machine's players; it cannot end the host's game. */
+static boolean coop_leave_game(boolean *widget_deleted)
+{
+	short controller;
+
+	if (!network_coop_active())
+		return campaign_fail();
+	if (global_network_game_server_get())
+		network_game_server_port_cooperative_won(NULL);
+	else
+	{
+		for (controller = 0; controller < MAXIMUM_LOCAL_PLAYERS; controller++)
+			network_game_client_local_player_quit(controller);
+		ui_widgets_close_all();
+	}
+	*widget_deleted = TRUE;
+	return TRUE;
+}
+
 /* ---- the lobby: the game's players (up to the port's 128), its map and
 gametype, the countdown */
 
@@ -4854,13 +4880,13 @@ static struct gametype_option const gametype_options[] =
 		{ 5, 10, 15, 25, 50, 75, 100, 150, 200, 250, 500 } },
 	/* team options */
 	{ "friendly_fire_spinner", _option_short, OPTIONS_FIELD(friendly_fire), 0, 4,
-		{ _friendly_fire_off, _friendly_fire_on, _friendly_fire_shields_only, _friendly_fire_explosives_only } },
+		{ _friendly_fire_on, _friendly_fire_half_damage, _friendly_fire_quarter_damage, _friendly_fire_off } },
 	{ "friendly_fire_penalty_spinner", _option_short, OPTIONS_FIELD(friendly_fire_penalty), 0, 4, { 0, 5, 10, 15 } },
 	{ "autobalance_spinner", _option_option_byte, OPTIONS_FIELD(auto_team_balance), 0, 2, { 0, 1 } },
 	/* (the host's voice chat, below them: port/linux/game/network_voice.c;
 	tools/port_settings.py's TEAMPLAY_ROWS) */
-	{ "voice_mode_spinner", _option_setting, 0, 0, 5, { 0 }, "network.voice_mode",
-		{ "off", "team_proximity", "team_enemy_proximity", "team_global", "team_global_enemy_proximity" } },
+	{ "voice_mode_spinner", _option_setting, 0, 0, 6, { 0 }, "network.voice_mode",
+		{ "off", "team_proximity", "team_enemy_proximity", "team_global", "team_global_enemy_proximity", "all_global" } },
 	{ "voice_lobby_spinner", _option_setting, 0, 0, 2, { 0 }, "network.voice_lobby", { "true", "false" } },
 	{ "voice_kbps_spinner", _option_setting, 0, 0, 7, { 0 }, "network.voice_kbps",
 		{ "8", "12", "16", "24", "32", "48", "64" } },
@@ -4868,14 +4894,19 @@ static struct gametype_option const gametype_options[] =
 		{ "5", "10", "15", "20", "30", "50" } },
 	/* (and the players' votes to kick: port/linux/game/network_votekick.c) */
 	{ "votekick_spinner", _option_setting, 0, 0, 2, { 0 }, "network.votekick", { "true", "false" } },
+	{ "aim_assist_spinner", _option_setting, 0, 0, 2, { 0 }, "network.block_mouse_aim_assist", { "false", "true" } },
 	/* co-op's options (Server Setup's CO-OP OPTIONS: tools/port_settings.py's
 	COOP_SETUP_SCREENS; coop_enemies.c) */
 	{ "coop_friendly_fire_spinner", _option_setting, 0, 0, 4, { 0 }, "network.coop_friendly_fire",
-		{ "off", "on", "shields_only", "explosives_only" } },
+		{ "on", "half_damage", "quarter_damage", "off" } },
+	{ "coop_chain_damage_spinner", _option_setting, 0, 0, 4, { 0 }, "network.coop_chain_reaction_damage",
+		{ "100", "75", "50", "25" } },
 	{ "coop_extra_enemies_spinner", _option_setting, 0, 0, 3, { 0 }, "network.coop_enemies_mode",
-		{ "none", "per_player", "multiplier" } },
-	{ "coop_extra_pickups_spinner", _option_setting, 0, 0, 2, { 0 }, "network.coop_pickups",
-		{ "false", "true" } },
+		{ "per_player", "multiplier", "none" } },
+	{ "coop_extra_pickups_spinner", _option_setting, 0, 0, 3, { 0 }, "network.coop_pickups",
+		{ "per_player", "multiplier", "none" } },
+	{ "coop_extra_vehicles_spinner", _option_setting, 0, 0, 3, { 0 }, "network.coop_vehicles",
+		{ "per_player", "multiplier", "none" } },
 	{ "coop_enemies_per_player_spinner", _option_setting, 0, 0, 5, { 0 }, "network.coop_enemies",
 		{ "25", "50", "100", "150", "200" } },
 	{ "coop_enemies_multiplier_spinner", _option_setting, 0, 0, 5, { 0 }, "network.coop_enemies_multiplier",
@@ -5409,17 +5440,37 @@ static void gametype_option_help(struct widget_instance *list)
 		visible_set(named(list, "op_primary_weapon", 0), custom);
 		visible_set(named(list, "op_secondary_weapon", 0), custom);
 	}
-	/* CO-OP OPTIONS: pickups share PER PLAYER independently of the enemy
-	mode, so both amount rows may be needed at once. */
+	/* CO-OP OPTIONS: enemies, pickups and vehicles share the amount rows.
+	Mixed modes may need both rows at once. */
 	if (named(list, "coop_extra_enemies_spinner", 0))
 	{
 		short mode = named(list, "coop_extra_enemies_spinner", 0)->parameters.list.selected_index;
 
 		struct widget_instance *pickups = named(list, "coop_extra_pickups_spinner", 0);
+		struct widget_instance *vehicles = named(list, "coop_extra_vehicles_spinner", 0);
+		boolean per_player = mode == _cooperative_enemies_per_player ||
+			(pickups && pickups->parameters.list.selected_index == _cooperative_enemies_per_player) ||
+			(vehicles && vehicles->parameters.list.selected_index == _cooperative_enemies_per_player);
+		boolean multiplier = mode == _cooperative_enemies_multiplier ||
+			(pickups && pickups->parameters.list.selected_index == _cooperative_enemies_multiplier) ||
+			(vehicles && vehicles->parameters.list.selected_index == _cooperative_enemies_multiplier);
 
-		visible_set(named(list, "op_coop_enemies_per_player", 0), mode == _cooperative_enemies_per_player ||
-			(pickups && pickups->parameters.list.selected_index == 1));
-		visible_set(named(list, "op_coop_enemies_multiplier", 0), mode == _cooperative_enemies_multiplier);
+		visible_set(named(list, "op_coop_enemies_per_player", 0), per_player);
+		visible_set(named(list, "op_coop_enemies_multiplier", 0), multiplier);
+
+		/* Hidden amounts must not reserve a blank row. Offsets are relative
+		to the parent: moving only the row carries its labels and spinners
+		with it when widget_instance_render_recursive draws and notes targets. */
+		{
+			short y = 73;
+
+			for (row = list->child; row; row = row->next)
+				if (row->visible && !strncmp(row->name, "op_coop_", 8))
+				{
+					row->vertical_offset = y;
+					y += 30;
+				}
+		}
 	}
 	/* (the server browser's filters, hidden: their helps are fewer than
 	their values) */
@@ -5650,6 +5701,10 @@ boolean pc_menu_event_function_invoke(
 		else if (!strcmp(name, "port pause end game"))
 		{
 			return pause_end_game();
+		}
+		else if (!strcmp(name, "port coop leave game"))
+		{
+			return coop_leave_game(widget_deleted);
 		}
 		else if (!strcmp(name, "player profile save changes"))
 		{

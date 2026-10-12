@@ -536,6 +536,7 @@ symbols in this file:
 
 /* ---------- headers */
 
+#include "network_social.h"
 #include "cseries.h"
 #include "cseries_windows.h"
 #include "errors.h"
@@ -1709,7 +1710,7 @@ network_distributed.c). More players than a page are scrolled to with the
 mouse wheel and Page Up/Down (platform_scoreboard_scroll), a footer telling
 which are shown; opened, it shows the viewer's own player's page. Network
 co-op's campaign, with no game engine, lists its players as they joined,
-with only their names and pings. */
+with their names, co-op scores and pings. */
 enum
 {
 	/* the rows' widths (in the scoreboard's text, before it is scaled):
@@ -2268,7 +2269,9 @@ static void game_engine_rasterize_scoreboard(
 	column_name = string_list_index != NONE && !campaign ? unicode_string_list_get_string(string_list_index, 0x43) : L"";
 	score_name = string_list_index != NONE ? unicode_string_list_get_string(string_list_index, 0x44) : L"";
 	score_string[0] = 0;
-	if (!campaign)
+	if (campaign)
+		usprintf(score_string, L"Score");
+	else
 		game_engine->format_score_name(score_string);
 	/* port: bounded (the map's column names) */
 	usnprintf(row_string, NUMBEROF(row_string), L"\t%s\t%s\t%s\t%s", column_name, score_name, score_string,
@@ -2319,6 +2322,8 @@ static void game_engine_rasterize_scoreboard(
 		color.alpha = alpha;
 		score_string[0] = 0;
 		status_string = score_string;
+		if (campaign)
+			usprintf(score_string, L"%ld", network_social_score(entry->player_index));
 		if (!campaign)
 		{
 			game_engine->format_player_score(entry->player_index, score_string);
@@ -4216,7 +4221,6 @@ static void game_engine_build_lighting(
 	void)
 {
 	long player_count = 0;
-	long object_count = 0;
 
 	{
 		struct data_iterator iterator;
@@ -4226,55 +4230,10 @@ static void game_engine_build_lighting(
 			player_count++;
 	}
 
-	if (global_variant.universal_variant.vehicle_set != _game_engine_vehicles_none)
-	{
-		if (global_variant.game_engine_index == game_engine_race)
-		{
-			struct scenario *scenario = global_scenario_get();
-			/* port: a long counter, for a map's long count */
-			long flag_index;
-
-			for (flag_index = 0;
-				flag_index < scenario->netgame_flags.count;
-				flag_index++)
-			{
-				struct scenario_netgame_flag *flag = TAG_BLOCK_GET_ELEMENT(
-					&scenario->netgame_flags,
-					flag_index,
-					struct scenario_netgame_flag);
-
-				if (flag->type == _netgame_flag_race_vehicle)
-					object_count++;
-			}
-
-			if (object_count > player_count)
-				object_count = player_count;
-		}
-		else
-		{
-			struct object_iterator object_iterator;
-
-			object_iterator_new(
-				&object_iterator,
-				_object_mask_vehicle,
-				0);
-			while (object_iterator_next(&object_iterator))
-				object_count++;
-		}
-	}
-
-	if ((player_count > 8 && object_count >= 2) ||
-		player_count >= 13)
-	{
-		SET_FLAG(game_engine_globals.flags, _game_engine_disable_dynamic_light_bit, TRUE);
-	}
-
-	if (player_count > 4 ||
-		object_count >= 4 ||
-		TEST_FLAG(game_engine_globals.flags, _game_engine_disable_dynamic_light_bit))
-	{
-		SET_FLAG(game_engine_globals.flags, _game_engine_disable_integrated_lights_bit, TRUE);
-	}
+	/* port: the Xbox turned dynamic lights off past 13 players, or past 8
+	with two vehicles, and the flashlight off past 4 players or 4 vehicles.
+	A match on a map with a few vehicles then had a flashlight, and the next
+	one did not. The beam is a dynamic light, so both stay on. */
 
 	if (player_count >= 5)
 		SET_FLAG(game_engine_globals.flags, _game_engine_5_or_more_players_bit, TRUE);
@@ -7695,16 +7654,19 @@ boolean game_engine_vehicle_placement_allowed(
 
 /* port: the gametype's friendly fire (game_variant_options) on a teammate's
 hit of the object (its damage marked friendly: object_cause_damage): all of
-it, none, its shields only, or explosives' only. A player's own hit of
+it, none, reduced damage, its shields only, or explosives' only. A player's own hit of
 himself, or of what is not a player's teammate's, is the game's own. */
 short game_engine_friendly_damage(
 	long attacker_player_index,
 	long object_index,
-	boolean explosive)
+	boolean explosive,
+	real *damage_scale)
 {
 	struct game_variant_options const *options = game_variant_options_get();
 	struct player_datum *attacker;
 	short friendly_fire;
+
+	*damage_scale = 1.f;
 
 	/* port: network co-op's friendly fire is Server Setup's FRIENDLY FIRE,
 	in the host's game settings (only the host deals damage), between its
@@ -7730,6 +7692,8 @@ short game_engine_friendly_damage(
 		return _friendly_damage_all;
 	switch (friendly_fire)
 	{
+	case _friendly_fire_half_damage: *damage_scale = 0.5f; return _friendly_damage_all;
+	case _friendly_fire_quarter_damage: *damage_scale = 0.25f; return _friendly_damage_all;
 	case _friendly_fire_off: return _friendly_damage_none;
 	case _friendly_fire_shields_only: return _friendly_damage_shields;
 	case _friendly_fire_explosives_only: return explosive ? _friendly_damage_all : _friendly_damage_none;

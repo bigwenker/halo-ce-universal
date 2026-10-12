@@ -66,7 +66,7 @@ is newer (network_client_manager.c). A host advertises it, with its netcode,
 in its game's advertisement's reserved bytes (network_server_message_handler.c),
 which hosts built before there was a version send as zeros: version 0.
 Raise it with any change to what the machines send each other. */
-#define HALO_PORT_NETWORK_VERSION 27
+#define HALO_PORT_NETWORK_VERSION 28
 /* ... the advertisement's reserved bytes: the version (a little-endian word),
 then flags */
 #define HALO_PORT_ADVERTISED_VERSION_OFFSET 0
@@ -77,6 +77,9 @@ netcode was removed; hosts of version 4 built before then may not) */
 /* ... the game is under way (loading, playing or over), not in its lobby:
 the menus show it before joining it (hosts built before then never set it) */
 #define HALO_PORT_ADVERTISED_IN_PROGRESS_FLAG 0x02
+/* Optional fork extensions, negotiated on the authenticated host connection.
+Upstream ignores this unused advertisement bit; core messages stay unchanged. */
+#define HALO_PORT_ADVERTISED_FORK_EXTENSIONS_FLAG 0x80
 
 /* a message header's 12-bit length allows messages of up to 0xFFF bytes,
 header included; the per-tick update of 128 players is 3,857 */

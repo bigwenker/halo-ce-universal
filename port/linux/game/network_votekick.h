@@ -40,7 +40,8 @@ boolean network_votekick_available(void);
 /* the vote running; FALSE for none */
 boolean network_votekick_get_status(struct network_votekick_status *status);
 /* this machine votes against the player (absolute index): starts a vote,
-or votes in the one running; the host answers on the console */
+or votes in the one running; a local host request kicks immediately instead.
+The host answers on the console. */
 boolean network_votekick_request(short player_index);
 /* whether this machine hosts the game (its scoreboard offers Kick and Ban) */
 boolean network_votekick_host(void);

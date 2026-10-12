@@ -34,8 +34,8 @@ votes against:
   player a vote failed against is not voted against again for
   TARGET_PROTECTION_SECONDS, both by address and hardware id.
 - The host's own players are never voted against; the host kicks and bans
-  as it likes (network_server_manager.c), and its machine votes as any
-  other.
+  as it likes (network_server_manager.c). Its local votekick request kicks
+  immediately, without starting or casting a vote.
 - Only the host speaks: what a client did wrong is told to it alone, at
   most once a second; the votes to everyone, only as they change.
 - A machine kicked by a vote is kept out of the host's games, by address
@@ -1015,14 +1015,19 @@ boolean network_votekick_player_named(
 	return network_votekick_request((short)DATUM_INDEX_TO_ABSOLUTE_INDEX(found));
 }
 
-/* (the host) its Kick and Ban on the scoreboard: the player's machine */
+/* (the host) its Kick and Ban on the scoreboard, or its local votekick:
+the player's machine, without a vote */
 boolean network_votekick_host_kick(
 	short player_index,
 	boolean ban)
 {
 	long machine_index;
+	struct player_datum *player;
 
-	if (!votekick_host() || !distributed_player(player_index))
+	if (!votekick_host())
+		return FALSE;
+	player = distributed_player(player_index);
+	if (!player || player->quit_out_of_game)
 		return FALSE;
 	machine_index = distributed_player_machine(player_index);
 	if (machine_index == NONE)
@@ -1030,7 +1035,13 @@ boolean network_votekick_host_kick(
 		console_warning("%s: not a player of the host's own machine", ban ? "ban" : "kick");
 		return FALSE;
 	}
-	return network_game_server_kick_machine_of_player(machine_index, ban);
+	if (!network_game_server_kick_machine_of_player(machine_index, ban))
+		return FALSE;
+	/* A host kick overrides a vote against that machine. Otherwise its
+	departure would pass the vote and impose the vote's temporary ban. */
+	if (votekick.active && votekick.target_machine == machine_index)
+		votekick_end();
+	return TRUE;
 }
 
 boolean network_votekick_host(
@@ -1064,8 +1075,7 @@ boolean network_votekick_request(
 	}
 	if (votekick_host())
 	{
-		votekick_host_request(NONE, player_index);
-		return TRUE;
+		return network_votekick_host_kick(player_index, FALSE);
 	}
 	if (game_connection() != _game_connection_network_client)
 	{

@@ -9,7 +9,7 @@ config.toml:
 - In the lobby, before and after a game (and in a game's postgame), every
   player hears every other (network.voice_lobby).
 - In a game, network.voice_mode: off; teammates near; anyone near; all
-  teammates; or all teammates and enemies near ("near": within
+  teammates; all teammates and enemies near; or everyone anywhere ("near": within
   network.voice_proximity world units of each other, both alive). A game
   without teams has only enemies, and co-op only teammates. A voice heard
   for being near is quieter further away, and comes from the speaker's side
@@ -242,6 +242,8 @@ static short voice_route(
 		return teammates && near ? _voice_route_proximity : _voice_route_none;
 	case _voice_mode_team_enemy_proximity:
 		return near ? _voice_route_proximity : _voice_route_none;
+	case _voice_mode_all_global:
+		return _voice_route_global;
 	case _voice_mode_team_global:
 		return teammates ? _voice_route_global : _voice_route_none;
 	case _voice_mode_team_global_enemy_proximity:
@@ -271,6 +273,7 @@ static short voice_mode_from_text(
 	static char const *const names[NUMBER_OF_VOICE_MODES] =
 	{
 		"off", "team_proximity", "team_enemy_proximity", "team_global", "team_global_enemy_proximity",
+		"all_global",
 	};
 	short mode;
 
@@ -488,7 +491,11 @@ static void voice_host_tell(
 	voice_fill_header(&message.header, _distributed_message_voice_config, (word)sizeof(message));
 	message.config.key = voice_machines[machine_index].key;
 	message.config.flags = voice_host_settings.lobby ? FLAG(_voice_config_lobby_bit) : 0;
-	message.config.mode = (byte)voice_host_settings.mode;
+	/* Clients only use the mode to enable speaking; routing belongs to the
+	host and each relayed frame. Advertise a known enabled mode so older
+	clients can also speak in All mode, using the existing global route. */
+	message.config.mode = (byte)(voice_host_settings.mode == _voice_mode_all_global ?
+		_voice_mode_team_global : voice_host_settings.mode);
 	message.config.kbps = (byte)voice_host_settings.kbps;
 	message.config.proximity_tenths = (word)(voice_host_settings.proximity * 10.0f);
 	if (network_distributed_server_send_to_machine_reliably(machine_index, &message, (word)sizeof(message)))

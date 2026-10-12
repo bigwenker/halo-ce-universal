@@ -15,6 +15,8 @@ CONTROLS = [
     ('unit->unit.attackers[attacker_index].player_index = NONE;', ';', 'retire'),
     ('if (!attacker_player)', 'if (FALSE)', 'nonlethal'),
     ('damage->owner_player_index = NONE;', ';', 'payload'),
+    ('!TEST_FLAG(damage->flags, _damage_chain_reaction_bit) &&', '', 'authority'),
+    ('if (TEST_FLAG(damage->flags, _damage_chain_reaction_bit))', 'if (FALSE)', 'authority'),
 ]
 
 
@@ -27,6 +29,7 @@ def generated(fault=None):
     config += structure(read('source/units/units.h'), 'unit_attacker') + '\n'
     config += structure(read('source/objects/objects.h'), 'location') + '\n'
     config += structure(read('source/objects/damage.h'), 'damage_data') + '\n'
+    config += enum_with(read('source/objects/damage.h'), '_damage_area_of_effect_bit') + '\n'
     code = '\n'.join([
         function(read('source/networking/network_game_manager.c'), 'network_game_player_forget'),
         function(units, 'unit_record_damage'),

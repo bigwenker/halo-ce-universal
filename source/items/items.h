@@ -23,6 +23,7 @@ enum
 	_item_on_object_bit,
 	_item_does_not_accelerate_bit,
 	_item_part_of_respawn_system_bit,
+	_item_chain_reaction_bit,
 	NUMBER_OF_ITEM_DATUM_FLAGS,
 };
 
@@ -80,6 +81,9 @@ void item_in_unit_inventory(
 void item_get_position_even_if_in_inventory(
 	long item_index,
 	real_point3d *position);
+struct damage_data;
+void item_accelerate_from_damage(long index, real_vector3d const *acceleration, boolean detonates, struct damage_data const *damage);
+boolean item_is_chain_reaction_grenade(long item_index);
 void item_detonate(
 	long item_index);
 void item_accelerate(

@@ -101,6 +101,7 @@ symbols in this file:
 #include "console.h"
 #include "game_state.h"
 #include "halo_spray.h"
+#include "coop_vehicles.h" /* port: checkpoint the co-op vehicle home table */
 #include "game.h"
 #include "tag_files.h"
 #include "cache_files.h"
@@ -123,6 +124,7 @@ symbols in this file:
 #include "lruv_cache.h"
 #include "memory_pool.h"
 #include "cluster_partitions.h"
+#include "effects/effects.h"
 /* port: object_bounds_cache.c's */
 void object_bounds_cache_invalidate(void);
 
@@ -182,10 +184,12 @@ typedef void (*game_state_before_save_proc)(void);
 static game_state_before_save_proc before_save_procs[] =
 {
 	dummy,
+	coop_vehicles_before_save,
 };
 
 static game_state_before_load_proc before_load_procs[] =
 {
+	effects_chain_reaction_reset,
 	halo_spray_reset,
 	game_sound_clear,
 	/* port: where the cluster lists' references are, which the game state
@@ -209,7 +213,8 @@ static game_state_after_load_proc after_load_procs[] =
 	game_state_set_revert_time,
 	player_control_fix_for_loaded_game_state,
 	director_initialize_for_saved_game,
-	scripted_hud_messages_clear
+	scripted_hud_messages_clear,
+	coop_vehicles_after_load
 };
 
 /* ---------- public code */

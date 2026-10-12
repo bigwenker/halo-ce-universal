@@ -16,6 +16,7 @@
 		<string text="ANYONE NEAR"/>
 		<string text="TEAM"/>
 		<string text="TEAM, ENEMIES NEAR"/>
+		<string text="ALL"/>
 	</strings>
 	<widget name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/op_voice_lobby" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
 		<child widget="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/voice_lobby_label"/>

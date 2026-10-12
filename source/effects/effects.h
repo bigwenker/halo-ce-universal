@@ -31,6 +31,7 @@ struct effects_information
 
 void effects_initialize(
 	void);
+void effects_chain_reaction_reset(void);
 void effects_initialize_for_new_map(
 	void);
 void effects_dispose_from_old_map(

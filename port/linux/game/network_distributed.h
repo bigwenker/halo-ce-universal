@@ -126,6 +126,20 @@ enum
 	_distributed_message_map_share_sources = 85,
 	_distributed_message_map_share_progress = 86,
 
+	/* Fork-only messages: sent only after network_extensions.c negotiation. */
+	_distributed_message_fork_capabilities = 240,
+	_distributed_message_social_request = 244,
+	_distributed_message_social_line = 245,
+	_distributed_message_social_scores = 246,
+
+	/* The host's mouse aim-assist policy, reliably on ready and on change. */
+	_distributed_message_aim_assist_policy = 241,
+
+	/* Authenticated request to kill only the sender's current unit. */
+	_distributed_message_suicide_request = 242,
+	/* co-op death text in the normal multiplayer HUD (reliable, host only) */
+	_distributed_message_coop_death = 243,
+
 	NUMBER_OF_DISTRIBUTED_MESSAGES
 };
 

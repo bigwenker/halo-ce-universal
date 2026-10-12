@@ -59,10 +59,11 @@ static struct scenario_object_palette_entry palette_data[16];
 static struct tag_block placements={0,placements_data},palette={16,palette_data};
 static struct {long actual_count;} headers,*object_header_data=&headers;
 static struct network_game game;
-static int used,connection=2,coop=1,setting=1,percent=100,wall=0,gap=0,slope=0,crowded=0,allocation_fail=0,mesh_clear=0;
+static int used,connection=2,coop=1,setting=1,percent=100,multiplier=2,wall=0,gap=0,slope=0,crowded=0,allocation_fail=0,mesh_clear=0;
 static real world_bound=20.f;
-static int config_boolean(char const *name){(void)name;return setting;}
-static long config_integer(char const *name){(void)name;return percent;}
+static char const *mode="per_player";
+static char const *config_string(char const *name){(void)name;return setting?mode:"none";}
+static long config_integer(char const *name){return !strcmp(name,"network.coop_enemies_multiplier")?multiplier:percent;}
 static int game_connection(void){return connection;}
 static int network_coop_active(void){return coop;}
 static struct network_game *network_game_get_game(void){return &game;}
@@ -125,21 +126,58 @@ int main(int argc,char **argv)
  CASE("counts") {
   for(int p=1;p<=128;p++)for(int pct=25;pct<=200;pct+=25){
    long sum=0;for(int n=1;n<=2000;n++){
-    short extra=pickups_extra_count(n,p,pct);sum+=extra;
+    short extra=pickups_extra_count(n,p,pct,0);sum+=extra;
     long expected=MIN(((long)n*pct*(p-1)+50)/100,(long)n*7);
     CHECK(extra>=0&&extra<=7&&sum==expected,"players %d percent %d N %d: %ld/%ld",p,pct,n,sum,expected);
    }
   }
-  CHECK(pickups_extra_count(0,4,100)==0&&pickups_extra_count(1,1,100)==0,"invalid/single player");
-  CHECK(pickups_extra_count(32767,128,200)==7,"large ordinal cap");
+  CHECK(pickups_extra_count(0,4,100,0)==0&&pickups_extra_count(1,1,100,0)==0,"invalid/single player");
+  CHECK(pickups_extra_count(32767,128,200,0)==7,"large ordinal cap");
+  CHECK(coop_scaling_growth(12,50)==550&&coop_scaling_growth(128,200)==700,"growth and cap");
+  for(int m=2;m<=32;m*=2)for(int p=1;p<=128;p++){
+   CHECK(pickups_extra_count(1,p,50,m)==MIN(m,8)-1,"static count depends on players/cap");
+   mode="multiplier";multiplier=m;setup(_object_type_weapon);coop_pickups_new_game();
+   memset(&game,0,sizeof(game));for(int i=0;i<p;i++)game.players[i]=1;
+   coop_pickups_register(0,placements_data,&palette);
+   CHECK(((objects[0].item.flags&PICKUPS_COUNT_MASK)>>PICKUPS_COUNT_SHIFT)==MIN(m,8)-1,"static registration");
+   coop_pickups_update();CHECK(used==MIN(m,8),"static spawn count/cap");
+   coop_pickups_update();CHECK(used==MIN(m,8),"static copies recursively scaled");
+  }
+  mode="invalid";coop_pickups_new_game();CHECK(!pickups_enabled,"unknown mode enabled");
  } else CASE("eligibility") {
   CHECK(pickups_definition_allowed(0),"weapon excluded");definitions[0].object.type=_object_type_equipment;
   for(int p=0;p<=6;p++){definitions[0].equipment.powerup_type=p;
-   CHECK(pickups_definition_allowed(0)==(p==2||p==3||p==6),"powerup filter %d",p);}
+   CHECK(pickups_definition_allowed(0)==(p==2||p==3||p==5||p==6),"powerup filter %d",p);}
   definitions[0].object.type=_object_type_vehicle;CHECK(!pickups_definition_allowed(0),"vehicle included");
   setup(_object_type_weapon);connection=1;coop_pickups_register(0,placements_data,&palette);CHECK(!objects[0].item.flags,"client scaled");
   connection=2;coop=0;coop_pickups_register(0,placements_data,&palette);CHECK(!objects[0].item.flags,"singleplayer scaled");
   coop=1;setting=0;coop_pickups_new_game();coop_pickups_register(0,placements_data,&palette);CHECK(!objects[0].item.flags,"disabled scaled");
+ } else CASE("health-kits") {
+  for(int p=1;p<=128;p++)for(int pct=50;pct<=200;pct+=150){
+   percent=pct;setup(_object_type_equipment);
+   definitions[0].equipment.powerup_type=_equipment_powerup_health;
+   objects[0].item.flags=FLAG(_equipment_orient_to_ground_bit);
+   memset(&game,0,sizeof(game));for(int i=0;i<p;i++)game.players[i]=1;
+   coop_pickups_register(0,placements_data,&palette);coop_pickups_update();
+   int expected=1+MIN((pct*(p-1)+50)/100,7);
+   CHECK(used==expected,"health kits: players %d percent %d: %d/%d",p,pct,used,expected);
+   CHECK(objects[0].object.position.x==0&&objects[0].object.position.y==0,"original health kit moved");
+   for(int i=1;i<used;i++){
+    CHECK(objects[i].definition_index==0&&objects[i].object.type==_object_type_equipment,"health kit definition changed");
+    CHECK((objects[i].item.flags&PICKUPS_COPY_FLAG)&&!(objects[i].item.flags&PICKUPS_COUNT_MASK),"health copy can multiply");
+    CHECK(TEST_FLAG(objects[i].item.flags,_equipment_orient_to_ground_bit),"health kit lost ground orientation");
+    CHECK(!collision_test_sphere(&objects[i].object.bounding_sphere_center,.2f,NONE),"health kit clips map");
+    for(int j=0;j<i;j++){real_vector3d d;vector_from_points3d(&objects[j].object.position,&objects[i].object.position,&d);
+     CHECK(d.i*d.i+d.j*d.j+d.k*d.k>.4f*.4f,"health kits overlap");}
+   }
+   coop_pickups_update();CHECK(used==expected,"health kits recursively scaled");
+  }
+  /* Health kits use the same no-floor/no-space fallback as other equipment. */
+  percent=100;
+  setup(_object_type_equipment);definitions[0].equipment.powerup_type=_equipment_powerup_health;
+  gap=1;coop_pickups_register(0,placements_data,&palette);coop_pickups_update();CHECK(used==1,"health kit spawned over void");gap=0;
+  setup(_object_type_equipment);definitions[0].equipment.powerup_type=_equipment_powerup_health;
+  crowded=1;coop_pickups_register(0,placements_data,&palette);coop_pickups_update();CHECK(used==1,"health kit spawned in full space");
  } else CASE("floor-and-walls") {
   real_point3d p;CHECK(pickups_position(0,&objects[0].object.position,.2f,0,&p),"open floor rejected");
   gap=1;CHECK(!pickups_position(0,&objects[0].object.position,.2f,0,&p),"void accepted");gap=0;

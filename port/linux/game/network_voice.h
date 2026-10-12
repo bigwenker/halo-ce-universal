@@ -20,6 +20,7 @@ enum
 	_voice_mode_team_enemy_proximity,
 	_voice_mode_team_global,
 	_voice_mode_team_global_enemy_proximity,
+	_voice_mode_all_global,
 	NUMBER_OF_VOICE_MODES
 };
 

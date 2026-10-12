@@ -380,9 +380,11 @@ symbols in this file:
 #include "interface/player_ui.h"
 #include "saved games/player_profile.h"
 #include "interface/ui_widget.h"
+#include "network_coop.h" /* port: the live play mode before loading ui.map */
 #include "main/main.h"
 #include "memory/data.h"
 #include "networking/network_client_manager.h"
+#include "network_extensions.h" /* port: port/linux/game/network_extensions.c */
 #include "networking/network_client_message_handler.h"
 #include "networking/network_connection.h"
 #include "networking/network_game_globals.h"
@@ -1010,6 +1012,9 @@ boolean network_game_client_switch_to_pregame(
 
 	if (client->state != _network_game_client_state_pregame)
 	{
+		/* port: ui.map has no live campaign, so keep the confirmed play mode. */
+		boolean cooperative = network_coop_active();
+
 		network_game_reset_for_next_round(&client->game, TRUE);
 		network_connection_keep_alive(client->connection);
 		client->next_update_number = 0;
@@ -1019,7 +1024,7 @@ boolean network_game_client_switch_to_pregame(
 		network_game_client_late_join_time = 0;
 		network_game_client_late_join_clock_pending = FALSE;
 		network_event("switching to pregame");
-		network_game_reset_to_pregame_ui();
+		network_game_reset_to_pregame_ui(cooperative);
 		network_connection_keep_alive(client->connection);
 	}
 
@@ -2038,6 +2043,12 @@ boolean network_game_client_initiate_join_game(
 		0x157,
 		client && (client->state == _network_game_client_state_searching) && game && join_parameters && client->connection && !network_connection_connected(client->connection) && (game->platform == network_game_get_local_platform()));
 
+	/* port: only probe a host advertising the optional fork handshake. */
+	{
+		long slot = game - client->available_games;
+		network_extensions_select_host(slot >= 0 && slot < MAXIMUM_NETWORK_ADVERTISED_GAMES &&
+			(network_game_client_advertised_versions[slot].flags & HALO_PORT_ADVERTISED_FORK_EXTENSIONS_FLAG) != 0);
+	}
 	client->join_in_progress = TRUE;
 	client->connect_process = 0;
 	client->connection_attempt_time = system_milliseconds();

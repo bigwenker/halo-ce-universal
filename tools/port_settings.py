@@ -88,6 +88,8 @@ SCREENS = {
              None),
             ("PER-PIXEL LIGHTING:", "display.per_pixel_lighting", ON_OFF,
              "Light models for each pixel, without the facets\nof the Xbox's lighting for each vertex.", None),
+            ("DISABLE LOD:", "display.disable_lod", [("OFF", "false"), ("ON", "true")],
+             "Keep full detail at any distance, except cryotubes.\nMay reduce performance.", None),
             ("SHIELD GLOW:", "display.shield_glow", ON_OFF,
              "Shields light their surroundings as they flare,\nin the shield's own color.", None),
             ("GLOW INTENSITY:", "display.shield_glow_intensity", [("DEFAULT", "default"), ("LIGHT SHOW", "light_show")],
@@ -195,7 +197,7 @@ SCREENS = {
 # pending edits, Defaults, OK and Cancel as the other settings screens.
 _video = SCREENS["video_settings"]
 _graphics = {"display.high_res_hud", "display.high_res_text", "display.anti_aliasing",
-             "display.shadow_resolution", "display.per_pixel_lighting",
+             "display.shadow_resolution", "display.disable_lod", "display.per_pixel_lighting",
              "display.shield_glow", "display.shield_glow_intensity"}
 SCREENS["video_settings/graphics"] = {
     "screen": "graphics_settings_screen", "header": _video["header"], "spacing": 30,
@@ -264,12 +266,13 @@ WIDE_SETTINGS = {"audio.output_device", "audio.input_device"}
 TEAMPLAY_EDIT = "main_menu/settings_select/multiplayer_setup/teamplay_options_edit"
 VOICE_QUALITIES = (8, 12, 16, 24, 32, 48, 64)
 TEAMPLAY_ROWS = [
-    ("voice_mode", "VOICE CHAT:", ["OFF", "TEAM NEAR", "ANYONE NEAR", "TEAM", "TEAM, ENEMIES NEAR"], [
+    ("voice_mode", "VOICE CHAT:", ["OFF", "TEAM NEAR", "ANYONE NEAR", "TEAM", "TEAM, ENEMIES NEAR", "ALL"], [
         "No voice chat during the game.",
         "Players hear their teammates who are near them.",
         "Players hear everyone who is near them.",
         "Players hear all their teammates, wherever they\\nare.",
         "Players hear all their teammates, and the enemies\\nwho are near them.",
+        "Players hear everyone, wherever they are, with\\nno proximity effects.",
     ]),
     ("voice_lobby", "LOBBY VOICE CHAT:", ["ON", "OFF"], [
         "Everyone hears everyone in the lobby, before and\\nafter the game.",
@@ -547,7 +550,23 @@ MT = "main_menu/multiplayer_type_select"
 # and their helps after the five of its own (its helps are the rows' values'
 # in turn: menu_functions.c's gametype_option_help)
 SLAYER_EDIT = "main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit"
+FRIENDLY_FIRE_CHOICES = ["ON", "50% LESS", "75% LESS", "OFF"]
+FRIENDLY_FIRE_HELP = [
+    "Friendly hits deal normal damage.",
+    "Friendly hits deal 50% less damage to shields and health.",
+    "Friendly hits deal 75% less damage to shields and health.",
+    "Friendly hits cannot damage shields or health.",
+]
+
+PLAYER_EDIT = "main_menu/settings_select/multiplayer_setup/player_options_edit"
+AIM_ASSIST_HELP = [
+    "Players keep their current mouse aim assist setting.",
+    "Disable mouse aim assist for mouse/keyboard players.\\nController and touch aim assist are unchanged.",
+]
+
 STRING_INSERTS = {
+    f"{PLAYER_EDIT}/player_options_labels": [(8, ["AIM ASSIST:"])],
+    f"{PLAYER_EDIT}/cap_player_options": [(28, AIM_ASSIST_HELP)],
     # (Teamplay Options' voice chat and vote kick rows, after its own:
     # TEAMPLAY_ROWS)
     f"{TEAMPLAY_EDIT}/teamplay_options_labels": [(3, [label for _, label, *_ in TEAMPLAY_ROWS])],
@@ -578,6 +597,15 @@ def LOADOUT_HELPS(slot: str) -> list:
 
 
 STRING_OVERRIDES.update({
+    f"{TEAMPLAY_EDIT}/var_friendly_fire": FRIENDLY_FIRE_CHOICES,
+    f"{TEAMPLAY_EDIT}/cap_teamplay_options": FRIENDLY_FIRE_HELP + [
+        'No respawn time penalty will be assessed to players\\nwho kill a teammate.',
+        'Players who kill a teammate will be assessed a \\nfive-second respawn penalty the next time they die.',
+        'Players who kill a teammate will be assessed a \\nten-second respawn penalty the next time they die.',
+        'Players who kill a teammate will be assessed\\na fifteen-second respawn penalty the next time\\nthey die.',
+        'Team autobalancing will be disabled.  Players will\\nbe free to change teams as they wish.',
+        'Team autobalancing will be enabled.  Players will\\nnot be able to change to a more full team.',
+    ],
     f"{MT}/multiplayer_options": ["JOIN GAME", "CREATE GAME", "INTERNET", "LAN", "DIRECT LINK", "EDIT GAMETYPES",
                                   "SERVER BROWSER", "CO-OP CAMPAIGN"],
     f"{MT}/multiplayer_option_descriptions": [
@@ -635,6 +663,10 @@ MAP_KIND_CHOOSER = "main_menu/new_select/list_item_0_map_kind"
 # changes to the PC version's widgets (by our names): attributes set, all
 # their handlers replaced, children added, game data inputs added
 WIDGET_PATCHES = {
+    f"{PLAYER_EDIT}/player_options_menu": {"insert_before": {
+        f"{PLAYER_EDIT}/player_button_bar": [
+            f'<child widget="{PLAYER_EDIT}/op_aim_assist" x="54" y="313"/>']}},
+    f"{PLAYER_EDIT}/player_options_help": {"set": {"top": 345, "height": 60}},
     # (the profile settings' picture: on Gamepad Setup's row, the profile's
     # button settings, BITMAP_FRAMES; menu_functions.c's
     # profile_gamepad_layout)
@@ -1049,26 +1081,29 @@ COOP_ENEMIES_MULTIPLIERS = [2, 4, 8, 16, 32]
 # settings' values)
 COOP_SETUP_SCREENS = [
     ("coop_options", "CO-OP OPTIONS", "Friendly fire, the enemies and player collisions,\\nfor this game.", [
-        ("coop_friendly_fire", "FRIENDLY FIRE:", ["OFF", "ON", "SHIELD ONLY", "EXPLOSIVES ONLY"], [
-            "Players can not be hurt by weapons and explosives\\nfired by the other players.",
-            "Players can be hurt by weapons or explosives\\nfired by the other players.",
-            "Damage from the other players will only reduce\\nshields. Health will be unaffected.",
-            "Players can be hurt by damage from explosives\\nfired by the other players.",
-        ]),
-        ("coop_extra_enemies", "EXTRA ENEMIES:", ["NONE", "PER PLAYER", "STATIC MULTIPLIER"], [
-            "Enemy squads are as the campaign has them.",
+        ("coop_friendly_fire", "FRIENDLY FIRE:", FRIENDLY_FIRE_CHOICES, FRIENDLY_FIRE_HELP),
+        ("coop_chain_damage", "CHAIN-REACTION DAMAGE:", ["DEFAULT", "75%", "50%", "25%"],
+         ["Player damage from grenades triggered by a chain\\nreaction. Thrown grenades and enemies are unchanged."] * 4),
+        ("coop_extra_enemies", "EXTRA ENEMIES:", ["PER PLAYER", "STATIC MULTIPLIER", "NONE"], [
             "Enemy squads grow with the players: by the value of\\n'Per Player' for each player past the first.",
-            "Enemy squads are the amount below times as large,\\nhowever many players there are.",
+            "Enemy squads use 'Multiplier', however many players\\nthere are.",
+            "Enemy squads are as the campaign has them.",
         ]),
-        ("coop_extra_pickups", "EXTRA PICKUPS:", ["OFF", "ON"], [
+        ("coop_extra_pickups", "EXTRA PICKUPS:", ["PER PLAYER", "STATIC MULTIPLIER", "NONE"], [
+            "Pickups grow with the players: by the value of\\n'Per Player' for each player past the first.",
+            "Pickups use 'Multiplier', up to eight times as many,\\nhowever many players there are.",
             "Pickups are as the campaign has them.",
-            "Pickup amounts such as weapons and overshields grow\\nwith the players: by the value of 'Per Player'\\nfor each player past the first.",
         ]),
-        ("coop_enemies_per_player", "PER PLAYER:", [f"{value}%" for value in COOP_ENEMIES_PERCENTAGES],
-         ["For each player past the first, enemy squads/pickups\\nget this much more of themselves (100%: as many again)."] *
-         len(COOP_ENEMIES_PERCENTAGES)),
+        ("coop_extra_vehicles", "EXTRA VEHICLES:", ["PER PLAYER", "STATIC MULTIPLIER", "NONE"], [
+            "Vehicles respawn after being driven a short distance\\nbased on the number of players: by two thirds the value of\\n'Per Player' for each player past the first.",
+            "Vehicles respawn after being driven a short distance,\\nwith extra copies equal to ('Multiplier' - 1) * 2/3,\\nrounded down, however many players there are.",
+            "Vehicles are as the campaign has them.",
+        ]),
         ("coop_enemies_multiplier", "MULTIPLIER:", [f"{value}X" for value in COOP_ENEMIES_MULTIPLIERS],
-         ["Each enemy squad is this many times as large."] * len(COOP_ENEMIES_MULTIPLIERS)),
+         ["Static enemy, pickup and vehicle amounts.\\nPickups are capped at eight times as many."] * len(COOP_ENEMIES_MULTIPLIERS)),
+        ("coop_enemies_per_player", "PER PLAYER:", [f"{value}%" for value in COOP_ENEMIES_PERCENTAGES],
+         ["For each player past the first, enemy squads, pickups\\nand vehicles get this much more (100%: as many again)."] *
+         len(COOP_ENEMIES_PERCENTAGES)),
         ("coop_player_collisions", "PLAYER COLLISIONS:", ["ON", "OFF"], [
             "Players bump into each other, as in the campaign.",
             "Players walk through each other, so that no one\\nblocks a doorway. The AI's characters still block.",
@@ -1409,6 +1444,27 @@ def _item_options_extras() -> list:
     return lines
 
 
+def _player_options_extras() -> list:
+    """The host's aim-assist policy, hidden while editing saved gametypes."""
+    base = PLAYER_EDIT
+    lines = _widget(f"{base}/op_aim_assist", [("width", 512), ("height", 28),
+        ("flags", "pass_unhandled_to_focused_child"), ("bitmap", "bitmaps/option_bkds"),
+        ("color", "#FF2896FF")], [f'<child widget="{base}/aim_assist_label"/>',
+        f'<child widget="{base}/aim_assist_spinner" x="286" y="1"/>'])
+    lines += _widget(f"{base}/aim_assist_label", [("type", "text"), ("controller", 1),
+        ("width", 280), ("height", 22), ("string_list", f"{base}/player_options_labels"),
+        ("string_index", 8), ("font", "ui\\large_ui"), ("color", "#FF2896FF"),
+        ("text_x", 13), ("text_y", 4)], [])
+    lines += _widget(f"{base}/aim_assist_spinner", [("type", "spinner"), ("top", 2),
+        ("width", 206), ("height", 20), ("flags", "pass_unhandled_to_focused_child left_right_tabs_items"),
+        ("string_list", f"{base}/var_aim_assist"), ("font", "ui\\large_ui"),
+        ("color", "#FF2896FF"), ("align", "center"), ("text_y", 4),
+        ("list_flags", "items_from_strings"), ("header_bitmap", "bitmaps/arrow_sm_left"),
+        ("footer_bitmap", "bitmaps/arrow_sm_right"), ("header_bounds", "7 -13 19 -7"),
+        ("footer_bounds", "7 208 19 214")], ['<on event="left_mouse" run="mouse spinner 1wide click"/>'])
+    return lines + _strings(f"{base}/var_aim_assist", ["ALLOWED", "BLOCK M+KB"])
+
+
 def _teamplay_options_extras() -> list:
     """Teamplay Options' rows of the port's: the host's voice chat
     (port/linux/game/network_voice.c) and vote kicks (network_votekick.c),
@@ -1463,18 +1519,63 @@ def _map_kind() -> list:
     return lines
 
 
+def _coop_pause() -> list:
+    """The multiplayer pause layout for campaign maps, which contain only
+    campaign pause tags. Leave Game is the host's end-to-lobby action, so it
+    needs no separate End Game row. Coordinates match the three-row MP menu,
+    including its two- and four-viewport forms."""
+    base = "pause/coop"
+    lines = []
+    for count, width, height, x, y in [(1, 640, 480, 210, 147),
+                                       (2, 640, 240, 210, 35),
+                                       (4, 320, 240, 50, 29)]:
+        lines += _widget(f"{base}/{count}p_pause_game",
+                         [("width", width), ("height", height),
+                          ("flags", "pass_unhandled_to_focused_child")],
+                         ['<on event="b" close="all"/>', '<on event="back" close="all"/>',
+                          f'<child widget="{base}/box" x="{x}" y="{y}"/>',
+                          f'<child widget="{base}/list" x="{x + 8}" y="{y + 43}"/>',
+                          f'<child widget="{base}/prompts" x="{x + 25}" y="{y + 168}"/>'])
+    # The campaign's own footer is installed by menu_tags.c after map load;
+    # ui.map does not contain it, so an external XML reference would fail.
+    lines += _widget(f"{base}/prompts", [("width", 200), ("height", 22)], [])
+    lines += _widget(f"{base}/box", [("width", 226), ("height", 194)],
+                     [f'<child widget="{base}/box_{piece}" x="{x}"/>'
+                      for piece, x in [("left", -4), ("center", 12), ("right", 206)]])
+    for piece, width in [("left", 16), ("center", 194), ("right", 16)]:
+        lines += _widget(f"{base}/box_{piece}", [("width", width), ("height", 256),
+                                               ("bitmap", f"pause/pausebox_{piece}")], [])
+    lines += _widget(f"{base}/list", [("type", "column_list"), ("width", 202), ("height", 110),
+                                    ("flags", "pass_unhandled_to_focused_child up_down_tabs_items")],
+                     [f'<child widget="{base}/{name}" y="{index * 35}"/>'
+                      for index, name in enumerate(["resume", "settings", "leave"])])
+    for name, label, handler in [
+            ("resume", "RESUME GAME", 'close="all"'),
+            ("settings", "SETTINGS", 'run="profile set edit begin" branch="true" '
+             f'open="{PE}/player_profile_edit_screen"'),
+            ("leave", "LEAVE GAME", 'run="port coop leave game"')]:
+        lines += _widget(f"{base}/{name}", [("type", "text"), ("width", 202), ("height", 27),
+                                           ("text", label), ("font", "ui\\large_ui"),
+                                           ("color", "#FF7FAFFF"), ("align", "center")],
+                         [f'<on event="a" {handler}/>', f'<on event="start" {handler}/>',
+                          '<on event="left_mouse" run="mouse emit accept event"/>'])
+    return lines
+
+
 def multiplayer_files() -> dict:
     """the port's multiplayer widgets: the browser's additions, the server
     settings, the lobby"""
     head = ['<?xml version="1.0" encoding="UTF-8"?>',
             "<!-- The port's multiplayer screens, in the PC version's style (tools/port_settings.py) -->", "<menus>"]
     return {
+        "pause.coop.xml": head + _coop_pause() + ["</menus>", ""],
         f"{MT}/join_game".replace("/", ".") + ".port.xml": head + _join_game_extras() + ["</menus>", ""],
         f"{MT}/server_settings".replace("/", ".") + ".xml": head + _server_settings() + ["</menus>", ""],
         f"{MT}/lobby".replace("/", ".") + ".xml": head + _lobby() + ["</menus>", ""],
         f"{MT}/coop".replace("/", ".") + ".xml": head + _coop() + ["</menus>", ""],
         "main_menu/new_select".replace("/", ".") + ".port.xml": head + _map_kind() + ["</menus>", ""],
         "main_menu/settings_select/multiplayer_setup/item_options_edit".replace("/", ".") + ".port.xml": head + _item_options_extras() + ["</menus>", ""],
+        PLAYER_EDIT.replace("/", ".") + ".port.xml": head + _player_options_extras() + ["</menus>", ""],
         TEAMPLAY_EDIT.replace("/", ".") + ".port.xml": head + _teamplay_options_extras() + ["</menus>", ""],
     }
 

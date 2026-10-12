@@ -141,6 +141,7 @@ symbols in this file:
 
 #define real_local_random real_local_random_inline
 #include "cseries/cseries.h"
+#include "items/items.h"
 #include "cseries/errors.h"
 #include "bitmaps/bitmaps.h"
 #include "cseries/profile.h"
@@ -185,6 +186,7 @@ enum effect_flags
 	_effect_invisible_bit,
 	_effect_delete_on_stop_bit,
 	_effect_nonviolent_bit,
+	_effect_chain_reaction_bit,
 	NUMBER_OF_EFFECT_FLAGS
 };
 
@@ -611,6 +613,55 @@ static struct effect_marker_list const *global_effect_marker_list;
 
 static struct profile_section effects_update_section = {"effects_update", NONE, TRUE};
 
+/* Attribution can outlive both the loose grenade and the projectile that
+   armed it. Keep full handles outside checkpoint data, keyed by effect slot
+   and generation; clear them before loading any saved state. */
+struct effect_chain_owner
+{
+	short identifier;
+	boolean valid;
+	long player_index, object_index;
+	short team_index;
+};
+static struct effect_chain_owner effect_chain_owners[HALO_PORT_MAXIMUM_EFFECTS];
+
+void effects_chain_reaction_reset(void)
+{
+	memset(effect_chain_owners, 0, sizeof(effect_chain_owners));
+}
+static struct effect_chain_owner *effect_chain_slot(struct effect_datum const *effect)
+{
+	long slot = ((byte const *)effect - (byte const *)effect_data->data) / sizeof(*effect);
+	return slot >= 0 && slot < HALO_PORT_MAXIMUM_EFFECTS ? &effect_chain_owners[slot] : NULL;
+}
+static void effect_chain_capture(struct effect_datum *effect, long owner_index)
+{
+	struct effect_chain_owner *saved = effect_chain_slot(effect);
+	struct item_datum *item;
+	if (!saved) return;
+	saved->valid = FALSE;
+	if (!TEST_FLAG(effect->header.flags, _effect_chain_reaction_bit)) return;
+	item = item_get(owner_index);
+	saved->identifier = effect->header.identifier;
+	saved->player_index = item->object.owner_player_index;
+	saved->object_index = item->object.owner_object_index;
+	saved->team_index = item->object.owner_team_index;
+	saved->valid = TRUE;
+	effect->owner_object_index = saved->object_index;
+}
+static void effect_chain_damage(struct effect_datum const *effect, struct damage_data *damage)
+{
+	struct effect_chain_owner const *saved;
+	if (!TEST_FLAG(effect->header.flags, _effect_chain_reaction_bit)) return;
+	saved = effect_chain_slot(effect);
+	if (saved && saved->valid && saved->identifier == effect->header.identifier)
+	{
+		damage->owner_player_index = saved->player_index;
+		damage->owner_object_index = saved->object_index;
+		damage->owner_team_index = saved->team_index;
+	}
+}
+
 /* ---------- public code */
 
 void effects_initialize(
@@ -629,6 +680,7 @@ void effects_initialize(
 void effects_initialize_for_new_map(
 	void)
 {
+	effects_chain_reaction_reset();
 	data_make_valid(effect_data);
 	data_make_valid(effect_location_data);
 
@@ -1543,8 +1595,10 @@ static long effect_allocate(
 				effect->definition_index = definition_index;
 				effect->owner_object_index = owner_object_index;
 				effect->local_player_index = NONE;
-				effect->header.flags = 0;
+				effect->header.flags = item_is_chain_reaction_grenade(owner_object_index) ?
+					FLAG(_effect_chain_reaction_bit) : 0;
 
+				effect_chain_capture(effect, owner_object_index);
 				effect_set_event(effect_index, 0);
 			}
 		}
@@ -1742,6 +1796,8 @@ static void effect_generate_part(
 				object_try_and_get(effect->owner_object_index);
 
 			damage_data_new(&damage, part_definition->reference.index);
+			SET_FLAG(damage.flags, _damage_chain_reaction_bit,
+				TEST_FLAG(effect->header.flags, _effect_chain_reaction_bit));
 
 			if (owner)
 			{
@@ -1749,6 +1805,7 @@ static void effect_generate_part(
 				damage.owner_object_index = effect->owner_object_index;
 				damage.owner_team_index = owner->object.owner_team_index;
 			}
+			effect_chain_damage(effect, &damage);
 
 			damage.scale = scale;
 			damage.location = effect->location;

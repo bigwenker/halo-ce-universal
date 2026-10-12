@@ -69,6 +69,7 @@ symbols in this file:
 
 /* ---------- headers */
 
+#include "network_social.h"
 #include "cseries/cseries.h"
 #include "cseries/cseries_windows.h"
 #include "ai/ai_profile.h"
@@ -385,6 +386,7 @@ void interface_draw_fullscreen_overlays(
 	/* port: a map's download (port/linux/game/map_share.c) */
 	map_share_render();
 	terminal_draw();
+	chat_draw();
 	main_framerate_render();
 	render_debug_profile();
 

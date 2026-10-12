@@ -31,9 +31,11 @@ PRELUDE = r'''
 #include <stdlib.h>
 #include <string.h>
 typedef float real;
+typedef int boolean;
 #define NONE (-1)
 #define REAL_MAX FLT_MAX
 #define NUMBER_OF_DETAIL_LEVELS_PER_MODEL 5
+#define NUMBEROF(a) (sizeof(a)/sizeof((a)[0]))
 #define TEST_FLAG(v,b) (((v)&(1u<<(b)))!=0)
 #define ABS(x) fabsf(x)
 #define MAX(a,b) ((a)>(b)?(a):(b))
@@ -55,6 +57,7 @@ static struct object_definition definition={{{1}}};
 static struct {short debug_model_lod;} rasterizer_debug_options={NONE};
 static const char *model_name="weapons\\needler\\needler",*weapon_name="weapons\\needler\\needler";
 static int reads;
+static boolean full_detail;
 static const char *tag_get_name(long i){reads++;CHECK(i==1||i==2);return i==1?model_name:weapon_name;}
 static struct object_datum *object_try_and_get(long i){reads++;return i==7?&object:NULL;}
 static struct object_definition *object_definition_get(long i){CHECK(i==2);return &definition;}
@@ -92,6 +95,11 @@ int main(void){
  for(unsigned i=0;i<sizeof(invalid)/sizeof(*invalid);i++)unchanged(invalid[i],7,0);
  for(int i=0;i<5;i++){rasterizer_debug_options.debug_model_lod=i;CHECK(select_detail(20,7,0)==i);}
  rasterizer_debug_options.debug_model_lod=NONE;
+ /* The opt-in full-detail policy supersedes dropped-Needler bias/culling. */
+ full_detail=1;
+ for(int n=0;n<=800;n++)CHECK(select_detail(n*.25f,7,0)==4);
+ model.detail_cutoff_pixels[0]=30;CHECK(select_detail(20,7,0)==4);model=original_model;
+ full_detail=0;
  /* A model hidden by its authored visibility cutoff stays hidden. */
  model.detail_cutoff_pixels[0]=30;CHECK(select_detail(20,7,0)==NONE);model=original_model;
  CHECK(select_detail(-1,7,0)==NONE);
@@ -143,11 +151,11 @@ def main():
     source = (ROOT/'source/models/models.c').read_text()
     helper = block(source, 'static real model_detail_selection_pixels(')
     body = block(source, 'void render_model(')
-    gate = 'if (level_of_detail_pixels>=model->detail_cutoff_pixels[0] || TEST_FLAG(flags, _render_model_shadow_bit))'
+    gate = 'if (full_detail || level_of_detail_pixels>=model->detail_cutoff_pixels[0] || TEST_FLAG(flags, _render_model_shadow_bit))'
     assert body.index(gate) < body.index('real geometry_detail_pixels = model_detail_selection_pixels(')
     assert 'model_index, model, unique_identifier, flags, level_of_detail_pixels' in body
     assert body.count('geometry_detail_pixels') == 2
-    start = body.index('geometry_detail_level_index = NUMBER_OF_DETAIL_LEVELS_PER_MODEL-1;')
+    start = body.index('geometry_detail_level_index = render_lod_geometry_level(')
     end = body.index('\n\t\tmatch_assert(', start)
     selector = '''static short select_detail(real level_of_detail_pixels,long object_index,unsigned flags){
         struct model *value=&model;short geometry_detail_level_index;
@@ -157,9 +165,11 @@ def main():
             return geometry_detail_level_index;
         }return NONE;
     }
-    '''.replace('GATE', gate.replace('model->', 'value->')).replace('SELECTION', body[start:end].replace('model->', 'value->'))
+    '''.replace('GATE', gate.replace('model->', 'value->')).replace('SELECTION', body[start:end].replace('render_lod_geometry_level(model,', 'render_lod_geometry_level(value,'))
     cameras = (ROOT/'source/render/render_cameras.c').read_text()
-    unit = PRELUDE + helper + '\n' + block(cameras, 'real render_frustum_sphere_diameter_in_pixels(') + '\n' + selector + TESTS
+    lod = (ROOT/'port/linux/game/render_lod.c').read_text()
+    geometry = block(lod, 'short render_lod_geometry_level(')
+    unit = PRELUDE + helper + '\n' + geometry + '\n' + block(cameras, 'real render_frustum_sphere_diameter_in_pixels(') + '\n' + selector + TESTS
     flags = ['-std=gnu11', '-O2', '-fuse-ld=lld'] + (['--target=i686-pc-windows-msvc'] if sys.platform == 'win32' else ['-m32', '-lm'])
     modes = [('Windows', ['-U__linux__', '-DHALO_WINDOWS=1'], 1),
              ('Linux', ['-D__linux__=1'], 1),

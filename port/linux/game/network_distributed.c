@@ -52,6 +52,7 @@ Players are named by their absolute index, which is the same on every
 machine (their datum identifiers need not be).
 */
 
+#include "network_social.h"
 #include "cseries.h"
 #include "cseries/errors.h"
 #include "cache/cache_files.h"
@@ -77,6 +78,10 @@ machine (their datum identifiers need not be).
 #include "network_coop.h"
 #include "network_distributed.h"
 #include "network_voice.h"
+#include "network_extensions.h"
+#include "network_aim_assist.h"
+#include "network_suicide.h"
+#include "network_killfeed.h"
 #include "halo_spray.h"
 #include "map_share.h"
 #include "profile_sections.h"
@@ -1024,6 +1029,8 @@ void distributed_send(
 	word size,
 	short destination)
 {
+	if ((destination == _distributed_to_host || destination == _distributed_to_host_reliably) &&
+		!network_extensions_allows(NONE, type)) return;
 	distributed_fill_header(message, type, count, size);
 	switch (destination)
 	{
@@ -1034,10 +1041,22 @@ void distributed_send(
 		short index;
 
 		for (index = 0; index < machine_count; index++)
-			distributed_batch_add((short)machine_indices[index], message, size, distributed_entry_size(count, size));
+			if (network_extensions_allows(machine_indices[index], type))
+				distributed_batch_add((short)machine_indices[index], message, size, distributed_entry_size(count, size));
 		break;
 	}
-	case _distributed_to_clients_reliably: network_distributed_server_send_to_all_reliably(message, size); break;
+	case _distributed_to_clients_reliably:
+		if (network_extensions_feature(type))
+		{
+			long machines[HALO_PORT_MAXIMUM_NETWORK_MACHINES];
+			short count = distributed_client_machines(machines, NUMBEROF(machines));
+			short i;
+			for (i = 0; i < count; i++)
+				if (network_extensions_allows(machines[i], type))
+					network_distributed_server_send_to_machine_reliably(machines[i], message, size);
+		}
+		else network_distributed_server_send_to_all_reliably(message, size);
+		break;
 	case _distributed_to_host:
 		distributed_batch_add(HOST_SENDER, message, size, distributed_entry_size(count, size));
 		break;
@@ -1052,7 +1071,8 @@ void distributed_send_to_machine(
 	short count,
 	word size)
 {
-	if (machine_index < 0 || machine_index >= HALO_PORT_MAXIMUM_NETWORK_MACHINES)
+	if (machine_index < 0 || machine_index >= HALO_PORT_MAXIMUM_NETWORK_MACHINES ||
+		!network_extensions_allows(machine_index, type))
 		return;
 	distributed_fill_header(message, type, count, size);
 	distributed_batch_add((short)machine_index, message, size, distributed_entry_size(count, size));
@@ -1065,6 +1085,7 @@ void distributed_send_to_machine_reliably(
 	short count,
 	word size)
 {
+	if (!network_extensions_allows(machine_index, type)) return;
 	distributed_fill_header(message, type, count, size);
 	network_distributed_server_send_to_machine_reliably(machine_index, message, size);
 }
@@ -3368,6 +3389,11 @@ void network_distributed_new_game(
 	network_damage_new_game();
 	network_actors_new_game();
 	network_coop_new_game();
+	network_extensions_reset();
+	network_aim_assist_reset();
+	network_suicide_reset();
+	network_killfeed_reset();
+	network_social_reset();
 	network_votekick_new_game();
 }
 
@@ -3838,7 +3864,7 @@ void network_distributed_kick(
 	char notice[MAXIMUM_NOTICE_LENGTH];
 
 	distributed_printable(kept_names, sizeof(kept_names), names);
-	snprintf(notice, sizeof(notice), "%s kicked by the host", kept_names);
+	snprintf(notice, sizeof(notice), "%s was kicked by host", kept_names);
 	/* (to every client in the game: in the lobby, the host's own) */
 	if (distributed_game_in_progress())
 		distributed_send_notice(notice);
@@ -3982,10 +4008,37 @@ void network_distributed_handle_message(
 	short index;
 	word entry_size;
 
+	if (size >= sizeof(header))
+	{
+		boolean reliable = machine_index == NONE ? !network_connection_last_read_was_unreliable() : distributed_handling_stream_message;
+		csmemcpy(&header, message, sizeof(header));
+		if (header.type == _distributed_message_fork_capabilities)
+		{
+			network_extensions_handle(machine_index, message, size, reliable && !distributed_handling_batch);
+			return;
+		}
+		if (!network_extensions_allows(machine_index, header.type))
+			return;
+	}
 	/* (voice chat's, in the lobby too: network_voice.c) */
 	if(network_spray_handles_message(message,size))
 	{
 		network_spray_handle_message(machine_index,message,size);
+		return;
+	}
+	if (network_social_handles_message(message, size))
+	{
+		network_social_handle_message(machine_index, message, size);
+		return;
+	}
+	if (network_aim_assist_handles_message(message, size))
+	{
+		network_aim_assist_handle_message(machine_index, message, size);
+		return;
+	}
+	if (network_suicide_handles_message(message, size))
+	{
+		network_suicide_handle_message(machine_index, message, size, distributed_handling_stream_message);
 		return;
 	}
 	if (network_voice_handles_message(message, size))
@@ -4046,6 +4099,7 @@ void network_distributed_handle_message(
 	case _distributed_message_actor_states: entry_size = network_actors_entry_size(); break;
 	case _distributed_message_structure_bsp: entry_size = sizeof(struct distributed_structure_bsp); break;
 	case _distributed_message_coop_presentation: entry_size = network_coop_presentation_entry_size(); break;
+	case _distributed_message_coop_death: entry_size = network_killfeed_entry_size(); break;
 	case _distributed_message_coop_events: entry_size = network_coop_event_entry_size(); break;
 	case _distributed_message_coop_skip_vote: entry_size = network_coop_skip_vote_entry_size(); break;
 	case _distributed_message_coop_device_groups: entry_size = network_coop_device_group_entry_size(); break;
@@ -4150,6 +4204,10 @@ void network_distributed_handle_message(
 		break;
 	case _distributed_message_coop_presentation:
 		network_coop_handle_presentation(entries, header.game_time);
+		break;
+	case _distributed_message_coop_death:
+		network_killfeed_handle_message(entries, (word)(size - sizeof(header)),
+			header.count, !network_connection_last_read_was_unreliable());
 		break;
 	case _distributed_message_coop_events:
 		network_coop_handle_events(entries, header.count);
@@ -4271,6 +4329,7 @@ void network_distributed_handle_message(
 
 		/* (its count 1: the client asks again, having failed to make one of
 		the host's objects) */
+		network_aim_assist_send_policy(machine_index);
 		network_objects_client_asked(machine_index, header.count != 0);
 		/* (a machine new at its index, which may have joined the game in
 		progress: every player's statistics and the game type's state, after

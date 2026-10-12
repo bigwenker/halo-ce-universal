@@ -37,6 +37,9 @@ enum
 	_damage_bypasses_shields_bit,
 	_damage_damaged_one_object_bit,
 	_damage_no_statistics_bit,
+	/* Host-derived provenance; client hit reports cannot set these. */
+	_damage_chain_reaction_bit,
+	_damage_headshot_bit,
 	NUMBER_OF_DAMAGE_DATA_FLAGS,
 };
 

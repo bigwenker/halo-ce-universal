@@ -184,12 +184,25 @@ lists a public game with a password with its invite's token sealed with the
 password's key (`p2p_lobby.c`), a listing of another layout; version 21
 sends each killing blow again reliably and an object come to rest three
 times (a client waits for a player's blow before its body dies without one),
-and switches co-op's BSP on the host's crossing alone; version 26 has each
-machine say its WebRTC in internet play's signalling (a native build's
-certificate, a browser's ICE credentials too), so that browsers play
-(port/linux/README.md, "Browsers"); version 27 shares Custom Edition maps
-(below, "Map sharing"): a client asks the host for a map it lacks, and the
-game's players reach each other to send it.
+and switches co-op's BSP on the host's crossing alone; version 22 names a
+Custom Edition map `custom_maps\<name>`, which older clients cannot load or
+explain; version 23 keeps the blocks of a Custom Edition map that 22 cut to
+the Xbox tools' limits, so both place the same objects; version 24 sends the
+gametype's PC vehicle set; version 25 sends a unit's integrated light with
+its object state; version 26 has each machine say its WebRTC in internet
+play's signalling (a native build's certificate, a browser's ICE credentials
+too), so that browsers play (port/linux/README.md, "Browsers"); version 27
+shares Custom Edition maps (below, "Map sharing"): a client asks the host for
+a map it lacks, and the game's players reach each other to send it; version
+28 holds the players of a machine still downloading the map out of the game
+until it has the map, keeps a multiplayer map's first scripted BSP, leaves
+dynamic lights and the flashlight on past the Xbox game's player and vehicle
+limits, and readies a second weapon picked up while firing.
+
+`port/linux/network_format.txt` records the wire format of the current
+version (`tools/network_format.py`): `test_linux_port.py` fails when the
+sources' messages, kinds, bits, structs sent whole or the sizes of their
+arrays differ from it.
 
 A client plays by its host's rules: in another's game (searching for it,
 in its lobby, or playing it) the developer console, the telnet console
@@ -263,6 +276,12 @@ as it changes), for the scoreboard, whose right click frees the mouse to
 pick a player; the host's own scoreboard adds Kick and Ban. Builds without
 votes drop both kinds as unknown, so the network version is unchanged.
 
+The host's local `votekick` request uses its direct Kick instead: no vote,
+eligibility wait, cooldown or temporary vote ban, even with votes disabled.
+The red notice "X was kicked by host" is broadcast. A running
+vote against that machine ends without passing; votes against others remain.
+Client requests still use the authenticated stream and the normal vote rules.
+
 Voice chat (`network_voice.c`, the sound in `port/linux/src/voice_audio.c`)
 travels as distributed messages too, but in the lobby as well as in a game:
 `network_voice_handles_message` takes them before the netcode's checks that
@@ -283,9 +302,41 @@ never sends a machine its own. A listener sets the gain and pan of a voice
 heard for being near by its own view of the speaker's unit. Mutes are each
 machine's own. Builds without voice chat never say they hear voices, so the
 host sends them none, and drop the kinds as unknown.
+Teamplay Options' All mode (`network.voice_mode = "all_global"`) relays
+everyone globally, regardless of team, distance or death, at full gain and
+centered pan. The host advertises the existing enabled Team mode to clients
+and selects the existing global route per frame, so older voice-capable
+clients can participate too. Local mutes and the lobby voice setting still apply.
 A speed hack of less than a tenth is let be: the host's bounds on how far
 and how fast a client's player moves and fires hold it to the host's time
 anyway.
+
+## Optional features in this fork's integration build
+
+The integration build uses upstream's protocol 28, including its unchanged
+map-sharing messages 83–86. Fork features use private message IDs 240–246
+and 250 instead. They are not part of the upstream PR branches.
+
+A fork host sets an otherwise unused advertisement flag (0x80). Only clients
+that see that flag send the revision-1 capability request, on the authenticated
+reliable connection after loading. The host acknowledges the supported feature
+mask; each outgoing feature message is filtered for each recipient, including
+batched unreliable scores. Incoming extension messages require that peer's
+negotiated feature. The mask is cleared at every round and whenever a machine
+slot is reused. Stock hosts receive no probes or fork payloads. Stock clients
+receive the unchanged game protocol, including map sharing and voice chat.
+
+Chat, co-op scores/death text, remote kill/suicide requests and sprays require
+a matching extension-capable host and client. Unsupported commands report that
+the host lacks support. Host-only pickup/vehicle scaling and damage rules still
+use normal object and damage replication. All voice mode still uses the
+existing global route and advertises the existing enabled Team mode.
+
+The host's AIM ASSIST option defaults to ALLOWED. BLOCK M+KB applies to the
+host and negotiated fork clients; it cannot enforce a rule in unmodified
+upstream clients. Controller/touch behavior, saved preferences and bullets'
+autoaim are unchanged. A client joining an upstream host retains upstream's
+normal mouse magnetism behavior instead of waiting for a policy it never sends.
 
 ## Joining a game in progress
 
@@ -463,7 +514,11 @@ menus show a map without its hash, unless two versions are listed.
    would leave a falling body hanging until its turn round all of them),
    and a few of those at rest, round them all. A client takes the host's
    word on whether each is at rest even when its copy is close enough to
-   leave where it is. A client puts its copies there, and the difference is
+   leave where it is. A body's pose goes with it: one lying limp that the
+   host moves stops lying limp (the blast that moved the host's reaches
+   only the machines that see the body's player), and one the host has at
+   rest is on the ground, so it lies limp again where it stops instead of
+   keeping the pose of its fall in the air. A client puts its copies there, and the difference is
    drawn fading over a few ticks (`render_interpolation.c`) instead of a
    jump. A client drives its own player's vehicle and sends where it is,
    which the host takes within a tolerance, as it does its own player's
