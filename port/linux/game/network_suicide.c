@@ -8,6 +8,7 @@
 #include "networking/network_game_globals.h"
 #include "network_distributed.h"
 #include "network_suicide.h"
+#include "network_extensions.h"
 #include "units/units.h"
 #include <ctype.h>
 #include <string.h>
@@ -67,6 +68,11 @@ static boolean suicide_request(void)
     }
     if (game_connection() != _game_connection_network_client)
         return suicide_accept(index, player->unit_index);
+    if (!network_extensions_allows(NONE, _distributed_message_suicide_request))
+    {
+        console_warning("This host does not support kill/suicide");
+        return FALSE;
+    }
     memset(&message, 0, sizeof(message));
     message.header.type = _distributed_message_suicide_request;
     message.header.count = 1;

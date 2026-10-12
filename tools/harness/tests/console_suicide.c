@@ -56,6 +56,7 @@ static void distributed_send(void *message,byte type,byte count,word size,int di
 boolean network_distributed_client_send_reliably(void *message,word size){memcpy(wire,message,size);wire_size=size;sent++;return TRUE;}
 
 enum { _distributed_message_suicide_request=84 };
+static boolean network_extensions_allows(long machine, byte type) { (void)machine; (void)type; return TRUE; }
 #include "under_test.inc"
 static void setup(void){
  for(int i=0;i<128;i++)handles[i]=NONE;for(int i=0;i<20;i++)unit_handles[i]=NONE;

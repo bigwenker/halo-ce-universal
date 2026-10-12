@@ -56,6 +56,7 @@ static void terminal_printf(real_argb_color const *color,char const *format,...)
 static void telnet_console_print(char const *text){snprintf(shown_text,sizeof(shown_text),"%s",text);shown++;}
 static void distributed_send(void *message,byte type,byte count,word size,int direction){memcpy(wire,message,size);wire_size=size;sent++;}
 boolean network_distributed_client_send_reliably(void *message,word size){memcpy(wire,message,size);wire_size=size;sent++;return TRUE;}
+static boolean network_extensions_allows(long machine, byte type) { (void)machine; (void)type; return TRUE; }
 #include "under_test.inc"
 static void setup(void){
  for(int i=0;i<128;i++)handles[i]=NONE;for(int i=0;i<20;i++)unit_handles[i]=NONE;

@@ -65,6 +65,7 @@ static void file_free(void *data){if(data){CHECK(data==file_allocation,"file rel
 #define MATCH_FILE(file) file
 #define MATCH_LINE(line) line
 static void debug_free(void *data,const char *file,long line){(void)data;(void)file;(void)line;CHECK(FALSE,"CRT spray buffer passed to engine allocator");}
+static boolean network_extensions_allows(long machine,byte type){return TRUE;}
 #include "under_test.inc"
 int main(int argc,char **argv){const char *case_name=argc>1?argv[1]:"";struct spray_pose pose={{0,0,.5f},{1.5f,0,0},4};char name[32]="spoofed";
  if(!strncmp(case_name,"publish-",8)){

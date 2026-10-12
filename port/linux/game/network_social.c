@@ -12,6 +12,7 @@
 #include "network_distributed.h"
 #include "network_coop.h"
 #include "network_social.h"
+#include "network_extensions.h"
 #include "networking/network_game_globals.h"
 #include "objects/objects.h"
 #include "objects/damage.h"
@@ -164,6 +165,9 @@ static boolean social_request_send(byte operation, char const *text)
     message.request.player = (byte)social_slot(index); message.request.operation = operation;
     if (text) social_clean_text(message.request.text, sizeof(message.request.text), text);
     if (game_connection() == _game_connection_network_client) {
+        if (!network_extensions_allows(NONE, _distributed_message_social_request)) {
+            console_warning("This host does not support match chat"); return FALSE;
+        }
         build_message_header(&message.header.header, sizeof(message), 2, 0);
         return network_distributed_client_send_reliably(&message, sizeof(message));
     }

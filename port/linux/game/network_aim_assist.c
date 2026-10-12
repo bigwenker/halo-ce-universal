@@ -9,7 +9,7 @@
 #include <string.h>
 
 int config_boolean(char const *name);
-static boolean client_blocks_mouse = TRUE;
+static boolean client_blocks_mouse = FALSE;
 static short sent_policy = NONE;
 struct aim_assist_policy_message
 {
@@ -20,8 +20,8 @@ struct aim_assist_policy_message
 
 void network_aim_assist_reset(void)
 {
-    /* Until the host's reliable policy arrives, a client cannot opt in. */
-    client_blocks_mouse = TRUE;
+    /* Upstream hosts have no fork policy; preserve their normal behavior. */
+    client_blocks_mouse = FALSE;
     sent_policy = NONE;
 }
 

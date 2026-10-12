@@ -5,6 +5,7 @@
 #include "interface/ui_widget.h"
 #include "memory/data.h"
 #include "network_distributed.h"
+#include "network_extensions.h"
 #include "networking/network_client_manager.h"
 #include "networking/network_game_globals.h"
 #include "objects/objects.h"
@@ -50,7 +51,7 @@ static int spray_send(void *context, int peer, const void *data, size_t size, in
 {
 	word buffer[(SPRAY_SHARE_PACKET + 1) / 2];
 	(void)context;
-	if (size > sizeof(buffer))
+	if (size > sizeof(buffer) || !network_extensions_allows(host_role ? peer : NONE, SPRAY_SHARE_TYPE))
 		return 0;
 	csmemcpy(buffer, data, size);
 	build_message_header(&buffer[0], (word)size, 2, 0);
@@ -147,7 +148,8 @@ void network_spray_update(void)
 	byte present[SPRAY_SHARE_PEERS] = {0};
 	int count, i;
 	if (!current || machine == NONE || !game_in_progress() || main_menu_is_active() ||
-		game_connection() == _game_connection_local)
+		game_connection() == _game_connection_local ||
+		(!host && !network_extensions_allows(NONE, SPRAY_SHARE_TYPE)))
 	{
 		if (share)
 			network_spray_reset();
@@ -172,7 +174,8 @@ void network_spray_update(void)
 	{
 		count = network_distributed_server_machines(indices, SPRAY_SHARE_PEERS);
 		for (i = 0; i < count; i++)
-			if (indices[i] >= 0 && indices[i] < SPRAY_SHARE_PEERS)
+			if (indices[i] >= 0 && indices[i] < SPRAY_SHARE_PEERS &&
+				network_extensions_allows(indices[i], SPRAY_SHARE_TYPE))
 				present[indices[i]] = 1;
 		for (i = 0; i < SPRAY_SHARE_PEERS; i++)
 			spray_share_peer(share, i, present[i]);

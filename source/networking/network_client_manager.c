@@ -383,6 +383,7 @@ symbols in this file:
 #include "main/main.h"
 #include "memory/data.h"
 #include "networking/network_client_manager.h"
+#include "network_extensions.h" /* port: port/linux/game/network_extensions.c */
 #include "networking/network_client_message_handler.h"
 #include "networking/network_connection.h"
 #include "networking/network_game_globals.h"
@@ -391,6 +392,7 @@ symbols in this file:
 #include "networking/network_messages.h"
 #include "networking/network_server_manager.h"
 #include "text/unicode.h"
+#include "map_share.h" /* port: port/linux/game/map_share.c */
 
 /* ---------- constants */
 
@@ -1491,6 +1493,12 @@ boolean network_game_client_add_player(
 		0x530,
 		client && (local_player_index>=0) && (local_player_index<MAXIMUM_NUMBER_OF_LOCAL_PLAYERS));
 
+	/* port: not until the host's settings name the game's map, and a game
+	in progress whose map is being downloaded not until it is (map sharing:
+	port/linux/game/map_share.c); asked again each frame */
+	if (map_share_holds_players())
+		return TRUE;
+
 	/* port: the pregame screen asks each frame until the host's settings
 	have the player: once every half second, not each frame (the host
 	refused and logged each repeat) */
@@ -2031,6 +2039,12 @@ boolean network_game_client_initiate_join_game(
 		0x157,
 		client && (client->state == _network_game_client_state_searching) && game && join_parameters && client->connection && !network_connection_connected(client->connection) && (game->platform == network_game_get_local_platform()));
 
+	/* port: only probe a host advertising the optional fork handshake. */
+	{
+		long slot = game - client->available_games;
+		network_extensions_select_host(slot >= 0 && slot < MAXIMUM_NETWORK_ADVERTISED_GAMES &&
+			(network_game_client_advertised_versions[slot].flags & HALO_PORT_ADVERTISED_FORK_EXTENSIONS_FLAG) != 0);
+	}
 	client->join_in_progress = TRUE;
 	client->connect_process = 0;
 	client->connection_attempt_time = system_milliseconds();

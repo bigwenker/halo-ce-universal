@@ -66,6 +66,7 @@ machine (their datum identifiers need not be).
 #include "interface/ui_widget.h"
 #include "game/player_queues_new.h"
 #include "networking/network_game_globals.h"
+#include "networking/network_connection.h"
 #include "objects/objects.h"
 #include "objects/damage.h"
 #include "scenario/scenario.h"
@@ -77,10 +78,12 @@ machine (their datum identifiers need not be).
 #include "network_coop.h"
 #include "network_distributed.h"
 #include "network_voice.h"
+#include "network_extensions.h"
 #include "network_aim_assist.h"
 #include "network_suicide.h"
 #include "network_killfeed.h"
 #include "halo_spray.h"
+#include "map_share.h"
 #include "profile_sections.h"
 
 #include <limits.h>
@@ -1026,6 +1029,8 @@ void distributed_send(
 	word size,
 	short destination)
 {
+	if ((destination == _distributed_to_host || destination == _distributed_to_host_reliably) &&
+		!network_extensions_allows(NONE, type)) return;
 	distributed_fill_header(message, type, count, size);
 	switch (destination)
 	{
@@ -1036,10 +1041,22 @@ void distributed_send(
 		short index;
 
 		for (index = 0; index < machine_count; index++)
-			distributed_batch_add((short)machine_indices[index], message, size, distributed_entry_size(count, size));
+			if (network_extensions_allows(machine_indices[index], type))
+				distributed_batch_add((short)machine_indices[index], message, size, distributed_entry_size(count, size));
 		break;
 	}
-	case _distributed_to_clients_reliably: network_distributed_server_send_to_all_reliably(message, size); break;
+	case _distributed_to_clients_reliably:
+		if (network_extensions_feature(type))
+		{
+			long machines[HALO_PORT_MAXIMUM_NETWORK_MACHINES];
+			short count = distributed_client_machines(machines, NUMBEROF(machines));
+			short i;
+			for (i = 0; i < count; i++)
+				if (network_extensions_allows(machines[i], type))
+					network_distributed_server_send_to_machine_reliably(machines[i], message, size);
+		}
+		else network_distributed_server_send_to_all_reliably(message, size);
+		break;
 	case _distributed_to_host:
 		distributed_batch_add(HOST_SENDER, message, size, distributed_entry_size(count, size));
 		break;
@@ -1054,7 +1071,8 @@ void distributed_send_to_machine(
 	short count,
 	word size)
 {
-	if (machine_index < 0 || machine_index >= HALO_PORT_MAXIMUM_NETWORK_MACHINES)
+	if (machine_index < 0 || machine_index >= HALO_PORT_MAXIMUM_NETWORK_MACHINES ||
+		!network_extensions_allows(machine_index, type))
 		return;
 	distributed_fill_header(message, type, count, size);
 	distributed_batch_add((short)machine_index, message, size, distributed_entry_size(count, size));
@@ -1067,6 +1085,7 @@ void distributed_send_to_machine_reliably(
 	short count,
 	word size)
 {
+	if (!network_extensions_allows(machine_index, type)) return;
 	distributed_fill_header(message, type, count, size);
 	network_distributed_server_send_to_machine_reliably(machine_index, message, size);
 }
@@ -3370,6 +3389,7 @@ void network_distributed_new_game(
 	network_damage_new_game();
 	network_actors_new_game();
 	network_coop_new_game();
+	network_extensions_reset();
 	network_aim_assist_reset();
 	network_suicide_reset();
 	network_killfeed_reset();
@@ -3988,6 +4008,18 @@ void network_distributed_handle_message(
 	short index;
 	word entry_size;
 
+	if (size >= sizeof(header))
+	{
+		boolean reliable = machine_index == NONE ? !network_connection_last_read_was_unreliable() : distributed_handling_stream_message;
+		csmemcpy(&header, message, sizeof(header));
+		if (header.type == _distributed_message_fork_capabilities)
+		{
+			network_extensions_handle(machine_index, message, size, reliable && !distributed_handling_batch);
+			return;
+		}
+		if (!network_extensions_allows(machine_index, header.type))
+			return;
+	}
 	/* (voice chat's, in the lobby too: network_voice.c) */
 	if(network_spray_handles_message(message,size))
 	{
@@ -4012,6 +4044,14 @@ void network_distributed_handle_message(
 	if (network_voice_handles_message(message, size))
 	{
 		network_voice_handle_message(machine_index, message, size);
+		return;
+	}
+	/* (map sharing's, in the lobby too, over the host's connection alone:
+	map_share.c) */
+	if (map_share_handles_message(message, size))
+	{
+		map_share_handle_message(machine_index, message, size, machine_index != NONE ?
+			distributed_handling_stream_message : !network_connection_last_read_was_unreliable());
 		return;
 	}
 	/* (none between games: loading, or in the menus) */

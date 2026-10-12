@@ -382,8 +382,10 @@ symbols in this file:
 #include "networking/network_server_manager.h" /* port: a co-op game's level won */
 #include "network_coop.h" /* port: port/linux/game/network_coop.c */
 #include "network_voice.h" /* port: port/linux/game/network_voice.c */
+#include "network_extensions.h" /* port: port/linux/game/network_extensions.c */
 #include "network_aim_assist.h" /* port: port/linux/game/network_aim_assist.c */
 #include "halo_spray.h"
+#include "map_share.h" /* port: port/linux/game/map_share.c */
 #include "profile_sections.h" /* port: port/linux/include/profile_sections.h */
 #ifdef HALO_PROFILE
 #include "profile_trace.h" /* port: port/linux/src/profile_trace.c */
@@ -3523,9 +3525,12 @@ static boolean main_loop_iteration(
 			/* port: voice chat, in the lobby and in game (port/linux/game/network_voice.c) */
 			network_voice_update();
 			/* port: apply and replicate the host's mouse aim-assist policy. */
+			network_extensions_update();
 			network_aim_assist_update();
 			network_social_update();
 			network_spray_update();
+			/* port: map sharing, in the lobby and in game (port/linux/game/map_share.c) */
+			map_share_update();
 			profile_scope_enter(main_network_start_frame_section)
 			connection = main_globals.connection;
 			if (connection==_game_connection_network_client)
