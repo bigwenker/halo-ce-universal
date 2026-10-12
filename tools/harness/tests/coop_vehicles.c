@@ -119,7 +119,7 @@ static void settle(void) {int i;for(i=0;i<VEHICLE_SETTLE_TICKS;i++)coop_vehicles
 static void drive(long index,float metres) {
  struct test_object *v=get(index);long driver=make(1,0);
  player.unit_index=driver;objects[1].unit.player_index=0;objects[1].object.parent_object_index=index;
- v->unit.driver_object_index=driver;coop_vehicles_update();v->object.position.x+=metres/3.048f;coop_vehicles_update();
+ v->unit.driver_object_index=driver;coop_vehicles_update();v->object.position.x+=metres/3.048f;v->object.bounding_sphere_center.x+=metres/3.048f;coop_vehicles_update();
 }
 static void counts(void) {
  int p,x,m;reset();
@@ -139,9 +139,18 @@ static void authority(void) {
  coop=1;coop_vehicles_new_game();coop_vehicles_register(make(2,3),&sources[0]);coop_vehicles_register(make(3,6),&sources[1]);CHECK(!coop_vehicle_homes.count,"dropship/turret registered");
 }
 static void driving(void) {
- long index=reset();settle();get(index)->object.position.x=4;coop_vehicles_update();CHECK(!new_count,"unoccupied movement copied");
- get(index)->object.position.x=0;drive(index,9.9f);CHECK(!new_count,"before ten metres");
- get(index)->object.position.x=10.1f/3.048f;coop_vehicles_update();CHECK(new_count==1,"after ten metres");
+ long index;int i;
+ float radii[]={.2f,.7f,2.f,8.f};
+ for(i=0;i<4;i++){
+  float threshold=2*radii[i]*1.15f;
+  index=reset();get(index)->object.bounding_sphere_radius=radii[i];settle();
+  /* An offset model origin must not affect sphere separation. */
+  get(index)->object.position.x=100;get(index)->object.bounding_sphere_center.x=100;coop_vehicles_update();CHECK(!new_count,"unoccupied movement copied");
+  get(index)->object.position.x=0;get(index)->object.bounding_sphere_center.x=0;
+  drive(index,(threshold-.01f)*3.048f);CHECK(!new_count,"before buffered clearance radius %f",radii[i]);
+  get(index)->object.bounding_sphere_center.x=threshold+.01f;
+  coop_vehicles_update();CHECK(new_count==1,"after buffered clearance radius %f",radii[i]);
+ }
  reset();settle();identifiers[0]+=0x10000;coop_vehicles_update();CHECK(!new_count,"reused slot accepted");
 }
 static void delivery(void) {

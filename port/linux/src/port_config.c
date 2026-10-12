@@ -487,8 +487,8 @@ static const struct config_setting config_settings[] =
 		"the original pickups. Only safe nearby places receive copies." },
 	{ "network.coop_vehicles", _config_string, "\"none\"", "HALO_NET_COOP_VEHICLES", _environment_value, _platform_all,
 		"Extra campaign vehicles: \"none\", \"per_player\" or \"multiplier\".\n"
-		"After a player drives a vehicle ten\n"
-		"metres from its unloaded starting place, make one more there, up to\n"
+		"After a player clears its unloaded starting place by both bounding\n"
+		"radii plus 15 percent, make one more there, up to\n"
 		"floor((players - 1) * coop_enemies / 100) extras, or coop_enemies_multiplier - 1 in static mode.\n"
 		"The host alone creates them, and waits while the starting place is blocked." },
 	{ "network.coop_enemies", _config_integer, "50", "HALO_NET_COOP_ENEMIES", _environment_value, _platform_all,

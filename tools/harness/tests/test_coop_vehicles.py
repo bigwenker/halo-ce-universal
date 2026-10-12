@@ -20,6 +20,8 @@ def test_case(case):
 
 @pytest.mark.parametrize('fault,case', [
     (('game_connection() == _game_connection_network_server', 'TRUE'), 'authority'),
+    (('#define VEHICLE_CLEARANCE 1.15f', '#define VEHICLE_CLEARANCE 1.0f'), 'driving'),
+    (('(home->radius + vehicle->object.bounding_sphere_radius)', '(home->radius)'), 'driving'),
     (('home->copies >= budget', '((void)budget, FALSE)'), 'chain'),
     (('!home->entered ||', 'FALSE ||'), 'driving'),
     (('vehicle->object.parent_object_index != NONE', 'FALSE'), 'delivery'),

@@ -2,7 +2,7 @@
 COOP_VEHICLES.C
 
 EXTRA VEHICLES: one replacement at the cleared starting place whenever a
-player takes the previous vehicle ten metres away. Each authored placement
+player clears the previous vehicle from the home, with a 15 percent buffer. Each authored placement
 has its own floor-rounded PER PLAYER budget or STATIC MULTIPLIER total;
 copies never register as new
 sources. Pelican cargo is anchored only after detaching and coming to rest.
@@ -45,7 +45,7 @@ typedef char coop_vehicle_type_offset_assert[
 	offsetof(struct coop_vehicle_definition, type) == 0x2f4 ? 1 : -1];
 
 enum { VEHICLE_HOMES = 256, VEHICLE_SETTLE_TICKS = 15 };
-#define VEHICLE_AWAY (10.0f / 3.048f) /* hud_nav_points.c: metres per world unit */
+#define VEHICLE_CLEARANCE 1.15f
 #define VEHICLE_COLLISION_FLAGS (FLAG(_collision_test_structure_bit) | FLAG(_collision_test_objects_bit) | \
 	_collision_test_objects_sight_blocking_flags | FLAG(_collision_test_front_facing_surfaces_bit) | \
 	FLAG(_collision_test_back_facing_surfaces_bit))
@@ -264,7 +264,7 @@ void coop_vehicles_update(void)
 	{
 		struct coop_vehicle_home *home = &coop_vehicle_homes.homes[number];
 		struct vehicle_datum *vehicle = vehicle_datum_try_and_get(home->current);
-		real dx, dy, dz;
+		real dx, dy, dz, clearance;
 		long copy;
 		struct object_placement_data placement;
 
@@ -292,14 +292,17 @@ void coop_vehicles_update(void)
 			home->entered = TRUE;
 		if (!home->entered || home->copies >= budget || game_time_get() % 6)
 			continue;
-		dx = vehicle->object.position.x - home->placement.position.x;
-		dy = vehicle->object.position.y - home->placement.position.y;
-		dz = vehicle->object.position.z - home->placement.position.z;
-		if (dx*dx + dy*dy + dz*dz < VEHICLE_AWAY*VEHICLE_AWAY ||
+		/* Separate both bounding spheres, including a buffer, before
+		checking the pad against the collision meshes. */
+		clearance = (home->radius + vehicle->object.bounding_sphere_radius) * VEHICLE_CLEARANCE;
+		dx = vehicle->object.bounding_sphere_center.x - home->center.x;
+		dy = vehicle->object.bounding_sphere_center.y - home->center.y;
+		dz = vehicle->object.bounding_sphere_center.z - home->center.z;
+		if (dx*dx + dy*dy + dz*dz < clearance*clearance ||
 			object_header_data->actual_count >= MAXIMUM_OBJECTS_PER_MAP - 512 || !vehicles_home_clear(home))
 			continue;
 		placement = home->placement;
-		/* vehicle_new lifts physics coop_vehicle_homes by half their tag radius. */
+		/* vehicle_new lifts physics objects by half their tag radius. */
 		placement.position.z -= vehicle_definition_get(home->definition)->object.bounding_radius * 0.5f;
 		copy = object_new(&placement);
 		if (copy == NONE)
