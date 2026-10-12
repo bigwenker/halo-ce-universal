@@ -40,9 +40,11 @@ enum _distributed_actor_shield_over_charging_bit 3
 enum _distributed_actor_super_camouflaged_bit 5
 enum _distributed_message_actor_damage 73
 enum _distributed_message_actor_states 64
+enum _distributed_message_aim_assist_policy 241
 enum _distributed_message_batch 16
 enum _distributed_message_client_identity 18
 enum _distributed_message_client_ready 9
+enum _distributed_message_coop_death 243
 enum _distributed_message_coop_device_groups 68
 enum _distributed_message_coop_device_states 77
 enum _distributed_message_coop_events 71
@@ -55,6 +57,7 @@ enum _distributed_message_coop_skip_vote 70
 enum _distributed_message_coop_sounds_retired 67
 enum _distributed_message_damage_animations 75
 enum _distributed_message_damage_events 10
+enum _distributed_message_fork_capabilities 240
 enum _distributed_message_game_state 7
 enum _distributed_message_hit_reports 11
 enum _distributed_message_inventories 4
@@ -72,7 +75,11 @@ enum _distributed_message_player_inputs 14
 enum _distributed_message_player_prediction 1
 enum _distributed_message_player_statistics 3
 enum _distributed_message_relayed_actions 15
+enum _distributed_message_social_line 245
+enum _distributed_message_social_request 244
+enum _distributed_message_social_scores 246
 enum _distributed_message_structure_bsp 65
+enum _distributed_message_suicide_request 242
 enum _distributed_message_unit_states 2
 enum _distributed_message_vehicle_prediction 12
 enum _distributed_message_voice_config 82

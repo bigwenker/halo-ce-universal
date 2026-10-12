@@ -314,7 +314,7 @@ anyway.
 ## Optional features in this fork's integration build
 
 The integration build uses upstream's protocol 28, including its unchanged
-map-sharing messages 83–86. Fork features use private message IDs 240–246
+map-sharing messages 83-86. Fork features use private message IDs 240-246
 and 250 instead. They are not part of the upstream PR branches.
 
 A fork host sets an otherwise unused advertisement flag (0x80). Only clients
