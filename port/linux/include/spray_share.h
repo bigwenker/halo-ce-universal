@@ -3,7 +3,7 @@
 #define SPRAY_SHARE_H
 #include <stddef.h>
 #include <stdint.h>
-#define SPRAY_SHARE_LIMIT (2u * 1024u * 1024u)
+#define SPRAY_SHARE_LIMIT (5u * 1024u * 1024u)
 #define SPRAY_SHARE_SLOTS 16
 #define SPRAY_SHARE_PEERS 128
 #define SPRAY_SHARE_PACKET 1152

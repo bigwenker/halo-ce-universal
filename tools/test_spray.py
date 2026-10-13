@@ -1,6 +1,7 @@
 """Real spray PNG loader and GL pass: pixels, occlusion and restored state."""
 import argparse
 import os
+import re
 from pathlib import Path
 import subprocess
 import sys
@@ -97,6 +98,9 @@ int main(int argc,char **argv){
  CHECK(!spray_image_load_slot(-1,saved,&aspect)&&!spray_image_load_slot(SPRAY_SHARE_SLOTS,saved,&aspect));
  CHECK(!halo_spray_file_save("bad",3,"bad",again,sizeof(again),&aspect));halo_spray_file_free(bytes);CHECK(!spray_decode_bytes);
  CHECK(SDL_RemovePath(saved));CHECK(SDL_RemovePath(again));
+ image(argv[1],"encoded-within-limit.png");CHECK(spray_image_load(&aspect));
+ CHECK(halo_spray_file_read(&bytes,&byte_count));CHECK(byte_count>2u*1024u*1024u&&byte_count<=SPRAY_SHARE_LIMIT);
+ CHECK(spray_image_load_bytes(3,bytes,byte_count,&aspect));halo_spray_file_free(bytes);
  const char *formats[]={"rgb.png","palette.png","gray.png","rgba.png"};
  for(int i=0;i<4;i++){image(argv[1],formats[i]);CHECK(spray_image_load(&aspect));CHECK(aspect==1);}
  halo_spray_image_forget();for(int i=0;i<SPRAY_SHARE_SLOTS;i++)CHECK(!spray_textures[i]);halo_spray_image_forget();
@@ -131,7 +135,11 @@ def main():
         for mode, name in [('RGB', 'rgb'), ('P', 'palette'), ('L', 'gray')]:
             image.convert(mode).save(path / f'{name}.png')
         (path / 'invalid.png').write_bytes(b'not a png')
-        (path / 'encoded-large.png').write_bytes(b'x' * (2 * 1024 * 1024 + 1))
+        header = (ROOT / 'port/linux/include/spray_share.h').read_text()
+        limit_mib = int(re.search(r'#define SPRAY_SHARE_LIMIT \((\d+)u \* 1024u \* 1024u\)', header)[1])
+        (path / 'encoded-large.png').write_bytes(b'x' * (limit_mib * 1024 * 1024 + 1))
+        Image.new('RGBA', (1024, 1200), (255, 0, 0, 255)).save(path / 'encoded-within-limit.png', compress_level=0)
+        assert 2 * 1024 * 1024 < (path / 'encoded-within-limit.png').stat().st_size <= limit_mib * 1024 * 1024
         Image.new('RGB', (2049, 1)).save(path / 'large.png')
         (path / 'spray.c').write_text(PREFIX + source + TEST)
         subprocess.run([*command, str(path / 'spray.c'), *libraries, '-o', str(path / 'spray.exe')], check=True)

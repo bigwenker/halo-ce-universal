@@ -20,6 +20,7 @@ def executable(control=None):
     return build('spray_share', (('api.inc', header + crypto_header), ('under_test.inc', crypto + source)))
 
 CONTROLS = {
+    'bitmap': ('unsigned char bits[RECEIVE_BITMAP_BYTES];', 'unsigned char bits[256];', 'limit'),
     'size': ('size > SPRAY_SHARE_LIMIT ||', 'size > SPRAY_SHARE_LIMIT+1 ||', 'limit'),
     'digest': ('if (!memcmp(hash, r->image.hash, 32))', 'if (1)', 'corruption'),
     'token': ('if (!q->token || get64(p + 16) != q->token)', 'if (!q->token)', 'wrong-token'),
@@ -40,11 +41,12 @@ def test_peer_to_peer_png(tmp_path):
     # UDP sockets, separate processes, and deliberate 1-in-7 datagram loss.
     import struct
     import zlib
-    width = 512
-    raw = b''.join(b'\x00' + hashlib.shake_256(str(y).encode()).digest(width * 4) for y in range(width))
+    width, height = 1024, 1200
+    raw = b''.join(b'\x00' + hashlib.shake_256(str(y).encode()).digest(width * 4) for y in range(height))
     def chunk(kind, data):
         return struct.pack('!I', len(data)) + kind + data + struct.pack('!I', zlib.crc32(kind + data))
-    png = b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('!2I5B', width, width, 8, 6, 0, 0, 0)) + chunk(b'IDAT', zlib.compress(raw)) + chunk(b'IEND', b'')
+    png = b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('!2I5B', width, height, 8, 6, 0, 0, 0)) + chunk(b'IDAT', zlib.compress(raw)) + chunk(b'IEND', b'')
+    assert 2 * 1024 * 1024 < len(png) <= 5 * 1024 * 1024
     source = tmp_path / 'spray.png'
     source.write_bytes(png)
     # Pick consecutive unused ports, rather than assume a fixed test port.
@@ -65,7 +67,7 @@ def test_peer_to_peer_png(tmp_path):
     try:
         for peer in [0, 2, 1]:
             destination = tmp_path / f'peer{peer}.png'
-            processes.append(subprocess.Popen([str(executable()), 'socket', str(peer), str(base), str(source), str(destination), '12000'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True))
+            processes.append(subprocess.Popen([str(executable()), 'socket', str(peer), str(base), str(source), str(destination), '24000'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True))
         for process in processes:
             stdout, stderr = process.communicate(timeout=45)
             assert process.returncode == 0, stdout + stderr

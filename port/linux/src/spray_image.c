@@ -87,7 +87,7 @@ int halo_spray_file_read(void **data, size_t *size)
 		fseek(file, 0, SEEK_SET))
 	{
 		fclose(file);
-		console_printf(FALSE, "Spray Image: PNG must be at most 2 MiB");
+		console_printf(FALSE, "Spray Image: PNG must be at most 5 MiB");
 		return 0;
 	}
 	bytes = malloc((size_t)length);
@@ -207,7 +207,7 @@ int spray_image_load_slot(int slot, const char *path, float *aspect)
 	if (length <= 0 || length > SPRAY_SHARE_LIMIT)
 	{
 		SDL_CloseIO(file);
-		console_printf(FALSE, "Spray Image: PNG must be at most 2 MiB");
+		console_printf(FALSE, "Spray Image: PNG must be at most 5 MiB");
 		return 0;
 	}
 	data = SDL_LoadFile_IO(file, &size, TRUE);

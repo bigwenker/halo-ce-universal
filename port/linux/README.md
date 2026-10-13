@@ -1211,7 +1211,7 @@ listed in "Game source changes" in [../web/README.md](../web/README.md).
 
 Spray Image follows Screenshot in Controls Setup > Actions and defaults to T.
 Put the source PNG at `sprays/spray.png` beside the executable (next to `maps/`).
-The folder is created automatically. PNGs are limited to 2 MiB encoded and
+The folder is created automatically. PNGs are limited to 5 MiB encoded and
 2048 pixels per dimension; decoder allocations and GPU residency are bounded.
 The four-second cooldown and random plasma-rifle overheat2/overheat3 sound are
 preserved. Sprays use actual level-surface decal clipping and depth testing.
@@ -1231,3 +1231,6 @@ Capability negotiation prevents image/placement traffic to upstream clients;
 an upstream host ignores three small probes and sprays remain local in that game.
 Shared sprays require a spray-capable host and receiving clients. One local
 player per machine is supported. This is a fork feature, with no upstream PR.
+Older spray builds with the 2 MiB limit reject larger images; all receiving
+peers and the host must support 5 MiB to share those images. The 64 KiB/s
+budget is unchanged, so a maximum-size image takes longer to distribute.

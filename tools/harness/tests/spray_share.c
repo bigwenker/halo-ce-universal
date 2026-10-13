@@ -67,7 +67,7 @@ int main(int argc,char **argv){const char *case_name=argc>1?argv[1]:"";setup();
   for(uint32_t t=0;t<200;t+=16)pump(t);
   CHECK(spray_share_available(endpoints[1].share)&&spray_share_available(endpoints[2].share),"handshake failed");
   struct spray_pose pose={{0,0,0},{1.5f,0,0},4};size_t size=SPRAY_SHARE_LIMIT;unsigned char *data=malloc(size+1);CHECK(data,"alloc");for(size_t i=0;i<=size;i++)data[i]=(unsigned char)(i*13);
-  CASE("limit"){CHECK(!spray_share_publish(endpoints[1].share,1,data,size+1,pose,"test"),"over-limit admitted");}
+  CASE("limit"){CHECK(SPRAY_SHARE_LIMIT==5u*1024u*1024u,"wrong limit");CHECK(sizeof(((struct incoming *)0)->bits)*8u*CHUNK>=SPRAY_SHARE_LIMIT,"receive bitmap too small");CHECK(!spray_share_publish(endpoints[1].share,1,data,size+1,pose,"test"),"over-limit admitted");}
   CASE("invalid-placement"){pose.direction[0]=99;CHECK(spray_share_publish(endpoints[1].share,1,data,32,pose,"test"),"local publish");for(uint32_t t=200;t<5000;t+=16)pump(t);CHECK(!endpoints[0].ready&&!endpoints[2].ready,"invalid placement relayed");free(data);return 0;}
   CASE("loss")drop=1;
   CASE("corruption")bad=1;
@@ -76,14 +76,14 @@ int main(int argc,char **argv){const char *case_name=argc>1?argv[1]:"";setup();
   CHECK(spray_share_publish(endpoints[1].share,1,data,size,pose,"test"),"publish failed");
   CASE("disconnect")spray_share_peer(endpoints[0].share,1,0);
   CASE("wrong-token"){endpoints[1].share->peers[0].token++;}
-  for(uint32_t t=200;t<(!strcmp(case_name,"wrong-token")?4000u:120000u);t+=16)pump(t);
+  for(uint32_t t=200;t<(!strcmp(case_name,"wrong-token")?4000u:300000u);t+=16)pump(t);
   if(!strcmp(case_name,"corruption")||!strcmp(case_name,"disconnect")||!strcmp(case_name,"wrong-token"))CHECK(!endpoints[0].ready&&!endpoints[2].ready,"invalid transfer admitted");
   else{CHECK(endpoints[0].ready>=1&&endpoints[2].ready>=1,"share incomplete: ready %d,%d; receive %u; sender next %u,slot %d, pending %u; capable %d",endpoints[0].ready,endpoints[2].ready,endpoints[0].share->peers[1].receive.count,endpoints[1].share->peers[0].next,endpoints[1].share->peers[0].sending,endpoints[1].share->peers[0].pending,endpoints[0].share->peers[1].capable);int slot=slot_for(endpoints[2].share,1);CHECK(endpoints[2].share->images[slot].size==size&&!memcmp(endpoints[2].share->images[slot].data,data,size),"download differs");
-   CASE("cache"){int before=endpoints[2].packets;pose.origin[1]=.2f;CHECK(spray_share_publish(endpoints[1].share,1,data,size,pose,"test"),"repeat");for(uint32_t t=120000;t<130000;t+=16)pump(t);CHECK(endpoints[2].ready>=2&&endpoints[2].packets-before<20,"cache retransferred entire PNG");}
+   CASE("cache"){int before=endpoints[2].packets;pose.origin[1]=.2f;CHECK(spray_share_publish(endpoints[1].share,1,data,size,pose,"test"),"repeat");for(uint32_t t=300000;t<310000;t+=16)pump(t);CHECK(endpoints[2].ready>=2&&endpoints[2].packets-before<20,"cache retransferred entire PNG");}
    CASE("host-restart"){
     spray_share_free(endpoints[0].share);struct spray_share_callbacks cb={send_packet,accept_spray,ready};endpoints[0].share=spray_share_new(1,UINT64_C(0x987654321),cb,&endpoints[0]);
     for(int i=1;i<4;i++)spray_share_peer(endpoints[0].share,i,1);int before=endpoints[2].ready;
-    for(uint32_t t=120000;t<300000;t+=16)pump(t);CHECK(endpoints[2].ready>before,"host key/map reset did not recover");
+    for(uint32_t t=300000;t<600000;t+=16)pump(t);CHECK(endpoints[2].ready>before,"host key/map reset did not recover");
    }
   }free(data);
  }

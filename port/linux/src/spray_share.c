@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #define CHUNK 1024u
+#define RECEIVE_BITMAP_BYTES ((SPRAY_SHARE_LIMIT + CHUNK * 8u - 1u) / (CHUNK * 8u))
 #define WINDOW 8
 #define HEADER 24u
 #define OFFER 100u
@@ -32,7 +33,7 @@ struct image
 struct incoming
 {
 	struct image image;
-	unsigned char bits[256];
+	unsigned char bits[RECEIVE_BITMAP_BYTES];
 	uint32_t count, last;
 	int slot;
 };
