@@ -23,6 +23,7 @@ host_sdl_create_directory
 host_sdl_current_time
 host_sdl_date_time
 host_sdl_path_info
+host_sdl_directory_list
 host_sdl_save_rgba_png
 host_sdl_ticks
 host_sdl_thread_id

@@ -10,6 +10,8 @@ typedef int64_t SDL_Time;
 typedef int SDL_PixelFormat;
 typedef int SDL_PathType;
 typedef void SDL_IOStream;
+typedef enum {SDL_ENUM_CONTINUE,SDL_ENUM_SUCCESS,SDL_ENUM_FAILURE} SDL_EnumerationResult;
+typedef SDL_EnumerationResult (*SDL_EnumerateDirectoryCallback)(void *,const char *,const char *);
 typedef struct {int year,month,day,hour,minute,second,nanosecond,day_of_week,utc_offset;} SDL_DateTime;
 typedef struct {SDL_PathType type;uint64_t size;SDL_Time create_time,modify_time,access_time;} SDL_PathInfo;
 typedef struct {int w,h,pitch,format,refcount;void *pixels;} SDL_Surface;
@@ -20,6 +22,7 @@ static char error_text[256];
 static void host_sdl_set_error(const char *message){snprintf(error_text,sizeof(error_text),"%s",message);}
 static int host_sdl_base_path(char *buffer,unsigned size){snprintf(buffer,size,"/game/");return 1;}
 static int host_sdl_create_directory(const char *path){return !strcmp(path,"/game/screenshots");}
+static int host_sdl_directory_list(const char *path,char *names,unsigned capacity){(void)path;(void)names;(void)capacity;return -1;}
 static int host_sdl_current_time(void *ticks){*(int64_t *)ticks=1234567890123LL;return 1;}
 static int host_sdl_date_time(long long ticks,void *date,int local){CHECK(ticks==1234567890123LL&&local==1,"time truncated");((SDL_DateTime *)date)->year=2026;return 1;}
 static int host_sdl_path_info(const char *path,int *type,long long *values){CHECK(!strcmp(path,"spray.png"),"wrong path");if(!exists)return 0;if(type)*type=2;if(values){values[0]=9876543210LL;values[1]=11;values[2]=22;values[3]=33;}return 1;}

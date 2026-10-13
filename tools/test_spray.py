@@ -92,8 +92,22 @@ int main(int argc,char **argv){
  CHECK(!spray_image_load_bytes(2,"bad",3,&aspect)&&spray_textures[2]==memory_texture);
  char saved[4096],again[4096];CHECK(halo_spray_file_save(bytes,byte_count,"../../profile/:evil",saved,sizeof(saved),&aspect));
  CHECK(strstr(saved,"/spray_profileevil_")&&!strstr(saved,".."));
- CHECK(halo_spray_file_save(bytes,byte_count,"../../profile/:evil",again,sizeof(again),&aspect));CHECK(strcmp(saved,again));
+ CHECK(halo_spray_file_save(bytes,byte_count,"../../profile/:evil",again,sizeof(again),&aspect));CHECK(!strcmp(saved,again));
+ unsigned char hash[32];crypto_blake2b(hash,32,bytes,byte_count);void *cached=malloc(byte_count);CHECK(cached);
+ CHECK(halo_spray_file_cached(hash,byte_count,cached)&&!memcmp(bytes,cached,byte_count));
+ CHECK(!halo_spray_file_cached(hash,byte_count-1,cached));
+ FILE *changed=fopen(saved,"r+b");CHECK(changed);CHECK(fputc(0,changed)!=EOF);CHECK(!fclose(changed));
+ CHECK(!halo_spray_file_cached(hash,byte_count,cached));
+ CHECK(halo_spray_file_save(bytes,byte_count,"repair",again,sizeof(again),&aspect));CHECK(strcmp(saved,again));
+ CHECK(halo_spray_file_cached(hash,byte_count,cached));
+ char index[4096],directory[4096];CHECK(spray_cache_paths(hash,index,sizeof(index),directory,sizeof(directory)));
+ CHECK(SDL_SaveFile(index,"../outside.png",14));CHECK(!halo_spray_file_cached(hash,byte_count,cached));
+ CHECK(halo_spray_file_save(bytes,byte_count,"repair",saved,sizeof(saved),&aspect));free(cached);
  size_t received_count;void *received=SDL_LoadFile(saved,&received_count);CHECK(received&&received_count==byte_count&&!memcmp(received,bytes,byte_count));SDL_free(received);
+ unsigned char *legacy=malloc(byte_count+1),*legacy_copy=malloc(byte_count+1);CHECK(legacy&&legacy_copy);memcpy(legacy,bytes,byte_count);legacy[byte_count]=0;
+ char legacy_path[4096];SDL_snprintf(legacy_path,sizeof(legacy_path),"%s/spray_legacy.png",directory);CHECK(SDL_SaveFile(legacy_path,legacy,byte_count+1));
+ crypto_blake2b(hash,32,legacy,byte_count+1);CHECK(halo_spray_file_cached(hash,byte_count+1,legacy_copy)&&!memcmp(legacy,legacy_copy,byte_count+1));
+ CHECK(halo_spray_file_save(legacy,byte_count+1,"legacy",again,sizeof(again),&aspect)&&!strcmp(again,legacy_path));free(legacy);free(legacy_copy);
  CHECK(spray_image_load_slot(1,saved,&aspect));CHECK(spray_textures[1]&&spray_textures[0]==prior);
  CHECK(!spray_image_load_slot(-1,saved,&aspect)&&!spray_image_load_slot(SPRAY_SHARE_SLOTS,saved,&aspect));
  CHECK(!halo_spray_file_save("bad",3,"bad",again,sizeof(again),&aspect));halo_spray_file_free(bytes);CHECK(!spray_decode_bytes);
@@ -127,7 +141,9 @@ def main():
     source = (ROOT / 'port/linux/src/spray_image.c').read_text().replace('#include "xgpu.h"', '')
     source = source.replace('void console_printf(BOOL warning, const char *format, ...);', '')
     source = source.replace('"../../third_party/stb/stb_image.h"', '"stb_image.h"')
+    source = source.replace('"../../third_party/monocypher/monocypher.h"', '"monocypher.h"')
     command = [args.cc, '-std=gnu11', '-O2', '-fuse-ld=lld', '-I' + str(ROOT / 'port/linux/src'), '-I' + str(ROOT / 'port/third_party/stb')]
+    command += ['-I' + str(ROOT / 'port/third_party/monocypher'), str(ROOT / 'port/third_party/monocypher/monocypher.c')]
     env = dict(os.environ)
     if sys.platform == 'win32':
         sdl = next((ROOT / 'build/windows/third_party').glob('SDL3-*/include')).parent

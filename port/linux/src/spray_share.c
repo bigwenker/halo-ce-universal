@@ -371,15 +371,24 @@ void spray_share_receive(struct spray_share *s, int peer, const void *data, size
 		if (s->host && !s->cb.accept(s->context, peer, &im.pose, im.name))
 			return;
 		slot = slot_for(s, im.owner);
-		/* Cache hits still apply the new placement, but never write another download. */
-		if (s->images[slot].data && s->images[slot].size == length &&
-			!memcmp(s->images[slot].hash, im.hash, 32))
+		/* Content identity is independent of owner, slot, placement and session. */
+		for (i = 0; i < SPRAY_SHARE_SLOTS; i++)
+			if (s->images[i].data && s->images[i].size == length &&
+				!memcmp(s->images[i].hash, im.hash, 32))
+				break;
+		im.data = malloc(length);
+		if (!im.data)
+			return;
+		if (i < SPRAY_SHARE_SLOTS || (s->cb.cached && s->cb.cached(s->context, im.hash, length, im.data)))
 		{
-			im.data = malloc(length);
-			if (!im.data)
-				return;
-			memcpy(im.data, s->images[slot].data, length);
-			if (commit(s, &im, slot, im.owner == s->images[slot].owner && s->images[slot].local))
+			int local = i < SPRAY_SHARE_SLOTS && im.owner == s->images[i].owner && s->images[i].local;
+			if (i < SPRAY_SHARE_SLOTS)
+				memcpy(im.data, s->images[i].data, length);
+			cancel_receive(s, q);
+			/* Relay ids must remain host-wide even when no DATA is needed. */
+			if (s->host)
+				im.id = ++s->serial;
+			if (commit(s, &im, slot, local))
 			{
 				q->completed = id;
 				packet(s, peer, DONE, id, NULL, 0, 1);
@@ -389,10 +398,10 @@ void spray_share_receive(struct spray_share *s, int peer, const void *data, size
 		}
 		cancel_receive(s, q);
 		if (s->active_receives >= 4)
+		{
+			free(im.data);
 			return;
-		im.data = malloc(length);
-		if (!im.data)
-			return;
+		}
 		q->receive.image = im;
 		q->receive.slot = slot;
 		q->receive.last = s->now;
@@ -510,6 +519,9 @@ void spray_share_update(struct spray_share *s, uint32_t now)
 		if (q->sending < 0)
 			continue;
 		im = &s->images[q->sending];
+		/* Give a cached receiver time to answer DONE before sending image bytes. */
+		if (!q->next && now - q->offer_at < RETRY)
+			continue;
 		if (now - q->sent_at >= TIMEOUT)
 		{
 			q->sending = -1;

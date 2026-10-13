@@ -22,6 +22,8 @@ struct spray_share_callbacks
 	/* Validate/decode and persist before an image becomes visible or is relayed. */
 	int (*ready)(void *, int, int, const void *, size_t, const struct spray_pose *, const char *,
 				 int);
+	/* Optional persistent lookup. Fill exactly size bytes in caller-owned storage. */
+	int (*cached)(void *, const unsigned char[32], size_t, void *);
 };
 struct spray_share *spray_share_new(int host, uint64_t nonce,
 									struct spray_share_callbacks callbacks, void *context);

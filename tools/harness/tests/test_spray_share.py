@@ -31,7 +31,7 @@ def test_negative_control(control):
     status, output = run(executable(control), CONTROLS[control][2])
     assert status == 1, output
 
-@pytest.mark.parametrize('case', ['limit', 'loss', 'corruption', 'disconnect', 'wrong-token', 'invalid-placement', 'cache', 'upstream', 'upstream-host', 'host-restart'])
+@pytest.mark.parametrize('case', ['limit', 'loss', 'corruption', 'disconnect', 'wrong-token', 'invalid-placement', 'cache', 'cache-other-owner', 'cache-reconnect', 'upstream', 'upstream-host', 'host-restart'])
 def test_transfer(case):
     status, output = run(executable(), case)
     assert status == 0, output

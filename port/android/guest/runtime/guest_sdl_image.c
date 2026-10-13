@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <limits.h>
+#include <string.h>
 #include <SDL3/SDL.h>
 #include "guest_host.h"
 _Static_assert(sizeof(SDL_DateTime) == 36, "SDL_DateTime guest ABI");
@@ -75,6 +76,37 @@ bool SDL_GetPathInfo(const char *path, SDL_PathInfo *info)
  if (info) { info->type = (SDL_PathType)type; info->size = values[0];
              info->create_time = values[1]; info->modify_time = values[2]; info->access_time = values[3]; }
  return true;
+}
+/* The native SDL must not call a guest function pointer. Transfer bounded
+ * names, then invoke the enumeration callback inside the guest instead. */
+bool SDL_EnumerateDirectory(const char *path, SDL_EnumerateDirectoryCallback callback, void *userdata)
+{
+ char *names, *directory;
+ size_t length, at;
+ int used;
+ bool result = true;
+ if (!path || !callback) return SDL_SetError("Invalid directory enumeration");
+ length = strlen(path);
+ if (length > 4096) return SDL_SetError("Directory path too long");
+ names = malloc(1024u * 1024u); directory = malloc(length + 2);
+ if (!names || !directory) { free(names); free(directory); return SDL_SetError("Directory allocation failed"); }
+ memcpy(directory, path, length);
+ if (!length || directory[length - 1] != '/') directory[length++] = '/';
+ directory[length] = 0;
+ used = host_sdl_directory_list(path, names, 1024u * 1024u);
+ if (used < 0 || used > 1024 * 1024) result = SDL_SetError("Directory listing failed or too large");
+ for (at = 0; result && at < (size_t)used;)
+ {
+  size_t end = at;
+  SDL_EnumerationResult action;
+  while (end < (size_t)used && names[end]) end++;
+  if (end == (size_t)used) { result = SDL_SetError("Invalid directory listing"); break; }
+  action = callback(userdata, directory, names + at);
+  if (action == SDL_ENUM_SUCCESS) break;
+  if (action != SDL_ENUM_CONTINUE) { result = false; break; }
+  at = end + 1;
+ }
+ free(names); free(directory); return result;
 }
 /* The screenshot caller needs only RGBA32 pixels, dimensions and pitch. */
 SDL_Surface *SDL_CreateSurface(int width, int height, SDL_PixelFormat format)

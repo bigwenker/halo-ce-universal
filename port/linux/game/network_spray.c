@@ -130,6 +130,12 @@ static int spray_ready(void *context, int slot, int owner, const void *data, siz
 	return 1;
 }
 
+static int spray_cached(void *context, const unsigned char hash[32], size_t size, void *data)
+{
+	(void)context;
+	return halo_spray_file_cached(hash, size, data);
+}
+
 void network_spray_reset(void)
 {
 	spray_share_free(share);
@@ -158,7 +164,7 @@ void network_spray_update(void)
 	if (!share || current != session || host != host_role || machine != local_machine)
 	{
 		uint64_t nonce;
-		struct spray_share_callbacks cb = {spray_send, spray_accept, spray_ready};
+		struct spray_share_callbacks cb = {spray_send, spray_accept, spray_ready, spray_cached};
 		network_spray_reset();
 		posix_random_bytes(&nonce, sizeof(nonce));
 		if (!nonce)

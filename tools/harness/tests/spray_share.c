@@ -6,12 +6,13 @@
 #include <time.h>
 #include "api.inc"
 #include "under_test.inc"
-struct endpoint {struct spray_share *share;int id,ready,socket,base,loss,packets,vanilla;char path[4096];};
+struct endpoint {struct spray_share *share;int id,ready,socket,base,loss,packets,vanilla,data_packets;char path[4096];unsigned char *cached;size_t cached_size;unsigned char cached_hash[32];};
 static struct endpoint endpoints[4];
 struct queued {int from,to,reliable;size_t size;unsigned char data[SPRAY_SHARE_PACKET];};
 static struct queued queue[16384];static int head,tail,bad,drop;
 static int send_packet(void *context,int peer,const void *data,size_t size,int reliable){
  struct endpoint *e=context;int to=e->id?0:peer;e->packets++;
+ if(((const unsigned char *)data)[13]==DATA)e->data_packets++;
  CHECK(size<=SPRAY_SHARE_PACKET,"packet exceeds tunnel MTU");
  if(e->socket>=0){struct sockaddr_in a={0};a.sin_family=AF_INET;a.sin_addr.s_addr=htonl(INADDR_LOOPBACK);a.sin_port=htons((uint16_t)(e->base+to));
   if(!reliable&&e->loss&&e->packets%7==0)return 1;
@@ -28,10 +29,13 @@ static int accept_spray(void *context,int owner,struct spray_pose *pose,char nam
 }
 static int ready(void *context,int slot,int owner,const void *data,size_t size,const struct spray_pose *pose,const char *name,int local){
  struct endpoint *e=context;(void)slot;(void)pose;(void)local;CHECK(owner>=0&&owner<128,"bad owner");CHECK(size&&size<=SPRAY_SHARE_LIMIT,"bad size");CHECK(name[31]==0,"unterminated name");e->ready++;
+ free(e->cached);e->cached=malloc(size);CHECK(e->cached,"cache allocation");memcpy(e->cached,data,size);e->cached_size=size;crypto_blake2b(e->cached_hash,32,data,size);
  if(e->path[0]){FILE *f=fopen(e->path,"wb");CHECK(f,"download path unavailable");CHECK(fwrite(data,1,size,f)==size,"short download write");CHECK(!fclose(f),"close failed");}
  return 1;
 }
-static void setup(void){struct spray_share_callbacks cb={send_packet,accept_spray,ready};for(int i=0;i<4;i++){
+static int cached(void *context,const unsigned char hash[32],size_t size,void *data){struct endpoint *e=context;
+ if(size!=e->cached_size||memcmp(hash,e->cached_hash,32))return 0;memcpy(data,e->cached,size);return 1;}
+static void setup(void){struct spray_share_callbacks cb={send_packet,accept_spray,ready,cached};for(int i=0;i<4;i++){
  endpoints[i].id=i;endpoints[i].socket=-1;endpoints[i].share=spray_share_new(i==0,UINT64_C(0xabcdef123400)+i,cb,&endpoints[i]);CHECK(endpoints[i].share,"alloc");
  if(i)spray_share_peer(endpoints[i].share,0,1);else for(int j=1;j<4;j++)spray_share_peer(endpoints[0].share,j,1);
 }}
@@ -80,6 +84,21 @@ int main(int argc,char **argv){const char *case_name=argc>1?argv[1]:"";setup();
   if(!strcmp(case_name,"corruption")||!strcmp(case_name,"disconnect")||!strcmp(case_name,"wrong-token"))CHECK(!endpoints[0].ready&&!endpoints[2].ready,"invalid transfer admitted");
   else{CHECK(endpoints[0].ready>=1&&endpoints[2].ready>=1,"share incomplete: ready %d,%d; receive %u; sender next %u,slot %d, pending %u; capable %d",endpoints[0].ready,endpoints[2].ready,endpoints[0].share->peers[1].receive.count,endpoints[1].share->peers[0].next,endpoints[1].share->peers[0].sending,endpoints[1].share->peers[0].pending,endpoints[0].share->peers[1].capable);int slot=slot_for(endpoints[2].share,1);CHECK(endpoints[2].share->images[slot].size==size&&!memcmp(endpoints[2].share->images[slot].data,data,size),"download differs");
    CASE("cache"){int before=endpoints[2].packets;pose.origin[1]=.2f;CHECK(spray_share_publish(endpoints[1].share,1,data,size,pose,"test"),"repeat");for(uint32_t t=300000;t<310000;t+=16)pump(t);CHECK(endpoints[2].ready>=2&&endpoints[2].packets-before<20,"cache retransferred entire PNG");}
+   CASE("cache-other-owner"){
+    int before=endpoints[0].data_packets+endpoints[1].data_packets+endpoints[2].data_packets;
+    pose.origin[1]=.4f;CHECK(spray_share_publish(endpoints[2].share,2,data,size,pose,"other"),"other owner publish");
+    for(uint32_t t=300000;t<310000;t+=16)pump(t);
+    CHECK(endpoints[0].data_packets+endpoints[1].data_packets+endpoints[2].data_packets==before,"same content from another owner was retransferred");
+    int a=-1,b=-1;for(int i=0;i<SPRAY_SHARE_SLOTS;i++){if(endpoints[0].share->images[i].owner==1&&endpoints[0].share->images[i].data)a=i;if(endpoints[0].share->images[i].owner==2&&endpoints[0].share->images[i].data)b=i;}
+    CHECK(a>=0&&b>=0&&endpoints[0].share->images[a].id!=endpoints[0].share->images[b].id,"cached host relay reused a client id");
+   }
+   CASE("cache-reconnect"){
+    int before=endpoints[0].data_packets;struct spray_share_callbacks cb={send_packet,accept_spray,ready,cached};
+    spray_share_free(endpoints[2].share);endpoints[2].share=spray_share_new(0,UINT64_C(0x88776655),cb,&endpoints[2]);
+    spray_share_peer(endpoints[0].share,2,0);spray_share_peer(endpoints[0].share,2,1);spray_share_peer(endpoints[2].share,0,1);
+    for(uint32_t t=300000;t<310000;t+=16)pump(t);
+    CHECK(endpoints[2].ready>=2,"persistent cache did not apply placement after reconnect");CHECK(endpoints[0].data_packets==before,"persistent cache retransferred image bytes");
+   }
    CASE("host-restart"){
     spray_share_free(endpoints[0].share);struct spray_share_callbacks cb={send_packet,accept_spray,ready};endpoints[0].share=spray_share_new(1,UINT64_C(0x987654321),cb,&endpoints[0]);
     for(int i=1;i<4;i++)spray_share_peer(endpoints[0].share,i,1);int before=endpoints[2].ready;

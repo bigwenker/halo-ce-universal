@@ -63,6 +63,7 @@ int host_sdl_create_directory(const char *path);
 int host_sdl_current_time(void *ticks);
 int host_sdl_date_time(long long ticks, void *date, int local);
 int host_sdl_path_info(const char *path, int *type, long long *values);
+int host_sdl_directory_list(const char *path, char *names, unsigned int capacity);
 int host_sdl_save_rgba_png(int width, int height, int pitch, const void *pixels, const char *path);
 long long host_sdl_ticks(void);
 long long host_sdl_thread_id(void);

@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "../../third_party/monocypher/monocypher.h"
 
 #define STBI_ONLY_PNG
 #define STBI_NO_STDIO
@@ -125,6 +126,134 @@ int halo_spray_png_aspect(const void *data, size_t size, float *aspect)
 	return 1;
 }
 
+/* The sidecar index keeps the human-readable download names. Only its digest
+   is trusted: the indexed file is length-checked and hashed again on reuse. */
+static int spray_cache_paths(const unsigned char hash[32], char *index, size_t capacity,
+	char *directory, size_t directory_capacity)
+{
+	char hex[65], folder[4096];
+	int i;
+	if (!spray_source_path(directory, directory_capacity))
+		return 0;
+	*strrchr(directory, '/') = 0;
+	for (i = 0; i < 32; i++)
+		SDL_snprintf(hex + i * 2, 3, "%02x", hash[i]);
+	if (SDL_snprintf(folder, sizeof(folder), "%s/.cache", directory) >= (int)sizeof(folder) ||
+		!SDL_CreateDirectory(folder))
+		return 0;
+	return SDL_snprintf(index, capacity, "%s/%s.ref", folder, hex) < (int)capacity;
+}
+
+static void spray_cache_record(const unsigned char hash[32], const char *path);
+struct spray_legacy_lookup
+{
+	const unsigned char *hash;
+	size_t size, capacity;
+	void *data;
+	char *path;
+	int found;
+};
+static SDL_EnumerationResult SDLCALL spray_legacy_entry(void *context, const char *directory, const char *name)
+{
+	struct spray_legacy_lookup *lookup = context;
+	SDL_PathInfo info;
+	char path[4096];
+	unsigned char hash[32];
+	FILE *file;
+	size_t n;
+	size_t directory_length = strlen(directory);
+	if (directory_length && (directory[directory_length - 1] == '/' || directory[directory_length - 1] == '\\')) directory_length--;
+	if (strncmp(name, "spray_", 6) ||
+		SDL_snprintf(path, sizeof(path), "%.*s/%s", (int)directory_length, directory, name) >= (int)sizeof(path) ||
+		!SDL_GetPathInfo(path, &info) || info.type != SDL_PATHTYPE_FILE || info.size != lookup->size ||
+		!(file = fopen(path, "rb"))) return SDL_ENUM_CONTINUE;
+	n = fread(lookup->data, 1, lookup->size, file);
+	if (n != lookup->size || ferror(file) || fgetc(file) != EOF) { fclose(file); return SDL_ENUM_CONTINUE; }
+	fclose(file);
+	crypto_blake2b(hash, 32, lookup->data, lookup->size);
+	spray_cache_record(hash, path);
+	if (memcmp(hash, lookup->hash, 32) || strlen(path) >= lookup->capacity) return SDL_ENUM_CONTINUE;
+	memcpy(lookup->path, path, strlen(path) + 1); lookup->found = 1;
+	return SDL_ENUM_SUCCESS;
+}
+
+/* Adopt pre-index downloads lazily. Only equal-size candidates are read, once
+   per offered size; subsequent lookups use the digest index directly. */
+static int spray_legacy_find(const char *directory, const unsigned char hash[32], size_t size,
+	void *data, char *path, size_t capacity)
+{
+	static size_t scanned[64];
+	static int count;
+	struct spray_legacy_lookup lookup = {hash, size, capacity, data, path, 0};
+	int i;
+	for (i = 0; i < count; i++) if (scanned[i] == size) return 0;
+	if (count < 64) scanned[count++] = size;
+	SDL_EnumerateDirectory(directory, spray_legacy_entry, &lookup);
+	return lookup.found;
+}
+
+static int spray_cached_read(const unsigned char hash[32], size_t size, void *data,
+	char *path, size_t capacity)
+{
+	char index[4096], directory[4096], name[256];
+	unsigned char digest[32];
+	FILE *file;
+	size_t n, i;
+	if (!data || !size || size > SPRAY_SHARE_LIMIT ||
+		!spray_cache_paths(hash, index, sizeof(index), directory, sizeof(directory)))
+		return 0;
+	file = fopen(index, "rb");
+	if (!file) return spray_legacy_find(directory, hash, size, data, path, capacity);
+	n = fread(name, 1, sizeof(name) - 1, file);
+	if (ferror(file) || fgetc(file) != EOF) { fclose(file); return 0; }
+	fclose(file);
+	name[n] = 0;
+	if (!n || strstr(name, ".."))
+		return 0;
+	for (i = 0; i < n; i++)
+		if (!((name[i] >= 'a' && name[i] <= 'z') || (name[i] >= 'A' && name[i] <= 'Z') ||
+			(name[i] >= '0' && name[i] <= '9') || name[i] == '_' || name[i] == '-' || name[i] == '.'))
+			return 0;
+	if (SDL_snprintf(path, capacity, "%s/%s", directory, name) >= (int)capacity ||
+		!(file = fopen(path, "rb")))
+		return 0;
+	n = fread(data, 1, size, file);
+	if (n != size || ferror(file) || fgetc(file) != EOF) { fclose(file); return 0; }
+	fclose(file);
+	crypto_blake2b(digest, 32, data, size);
+	return !memcmp(hash, digest, 32);
+}
+
+int halo_spray_file_cached(const unsigned char hash[32], size_t size, void *data)
+{
+	char path[4096];
+	return spray_cached_read(hash, size, data, path, sizeof(path));
+}
+
+static void spray_cache_record(const unsigned char hash[32], const char *path)
+{
+	char index[4096], directory[4096], temporary[4096];
+	const char *name = strrchr(path, '/');
+	FILE *file;
+	if (!name || !spray_cache_paths(hash, index, sizeof(index), directory, sizeof(directory)) ||
+		SDL_snprintf(temporary, sizeof(temporary), "%s.part", index) >= (int)sizeof(temporary))
+		return;
+	file = fopen(temporary, "wb");
+	if (file)
+	{
+		size_t n = strlen(++name), written = fwrite(name, 1, n, file);
+		int closed = fclose(file);
+		if (!closed && written == n)
+		{
+			/* A stale entry may refer to a file the user deleted or changed. */
+			remove(index);
+			if (!rename(temporary, index))
+				return;
+		}
+		remove(temporary);
+	}
+}
+
 int halo_spray_file_save(const void *data, size_t size, const char *name, char *path,
 						 size_t capacity, float *aspect)
 {
@@ -135,10 +264,21 @@ int halo_spray_file_save(const void *data, size_t size, const char *name, char *
 	FILE *file;
 	int i, n = 0, attempt;
 	size_t written;
+	unsigned char hash[32];
+	void *cached;
 	if (!halo_spray_png_aspect(data, size, aspect) ||
 		!spray_source_path(base_path, sizeof(base_path)) || !SDL_GetCurrentTime(&time) ||
 		!SDL_TimeToDateTime(time, &date, TRUE))
 		return 0;
+	crypto_blake2b(hash, 32, data, size);
+	cached = malloc(size);
+	if (cached)
+	{
+		int found = spray_cached_read(hash, size, cached, path, capacity);
+		free(cached);
+		if (found)
+			return 1;
+	}
 	for (i = 0; name && name[i] && n < 31; i++)
 	{
 		unsigned char c = (unsigned char)name[i];
@@ -178,6 +318,7 @@ int halo_spray_file_save(const void *data, size_t size, const char *name, char *
 			remove(temporary);
 			return 0;
 		}
+		spray_cache_record(hash, path);
 		return 1;
 	}
 	return 0;

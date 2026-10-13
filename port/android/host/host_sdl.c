@@ -522,6 +522,27 @@ int host_sdl_base_path(char *buffer, uint32_t size)
  SDL_strlcpy(buffer, base, size); return 1;
 }
 int host_sdl_create_directory(const char *path) { return SDL_CreateDirectory(path); }
+struct host_directory_buffer
+{
+ char *names;
+ size_t used, capacity;
+};
+static SDL_EnumerationResult SDLCALL host_directory_name(void *userdata, const char *directory, const char *name)
+{
+ struct host_directory_buffer *buffer = userdata;
+ size_t length = strlen(name) + 1;
+ (void)directory;
+ if (length > buffer->capacity - buffer->used) return SDL_ENUM_FAILURE;
+ memcpy(buffer->names + buffer->used, name, length); buffer->used += length;
+ return SDL_ENUM_CONTINUE;
+}
+int host_sdl_directory_list(const char *path, char *names, unsigned int capacity)
+{
+ struct host_directory_buffer buffer = {names, 0, capacity};
+ if (!path || !names || !capacity || capacity > 1024u * 1024u ||
+     !SDL_EnumerateDirectory(path, host_directory_name, &buffer)) return -1;
+ return (int)buffer.used;
+}
 int host_sdl_current_time(void *ticks) { return SDL_GetCurrentTime(ticks); }
 int host_sdl_date_time(int64_t ticks, void *date, int local) { return SDL_TimeToDateTime(ticks, date, local != 0); }
 int host_sdl_path_info(const char *path, int *type, int64_t *values)
