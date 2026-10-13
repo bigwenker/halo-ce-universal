@@ -46,7 +46,7 @@ int halo_spray_file_read(void **data, size_t *size);
 void halo_spray_file_free(void *data);
 int halo_spray_file_save(const void *data, size_t size, const char *name,
  char *path, size_t capacity, float *aspect);
-int halo_spray_png_aspect(const void *data, size_t size, float *aspect);
+int halo_spray_image_aspect(const void *data, size_t size, float *aspect);
 int halo_spray_file_cached(const unsigned char hash[32], size_t size, void *data);
 void network_spray_update(void);
 int network_spray_handles_message(const void *message, unsigned short size);

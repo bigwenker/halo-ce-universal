@@ -7,6 +7,8 @@
 #include "../../third_party/monocypher/monocypher.h"
 
 #define STBI_ONLY_PNG
+#define STBI_ONLY_JPEG
+#define STBI_ONLY_GIF
 #define STBI_NO_STDIO
 #define STBI_NO_LINEAR
 #define STBI_NO_HDR
@@ -56,10 +58,34 @@ static void *spray_decode_realloc(void *data, size_t size)
 #define STBI_FREE spray_decode_free
 #define STB_IMAGE_IMPLEMENTATION
 #include "../../third_party/stb/stb_image.h"
+#include "spray_gif.h"
 
 static GLuint spray_program, spray_array, spray_buffer;
 static GLuint spray_textures[SPRAY_SHARE_SLOTS];
 static size_t spray_texture_bytes[SPRAY_SHARE_SLOTS];
+static unsigned char spray_texture_hashes[SPRAY_SHARE_SLOTS][32];
+static float spray_texture_aspects[SPRAY_SHARE_SLOTS];
+static struct spray_animation
+{
+	unsigned char *pixels;
+	int *delays, width, height, frames, frame;
+	Uint64 started, duration;
+} spray_animations[SPRAY_SHARE_SLOTS];
+
+static size_t spray_animation_size(int slot)
+{
+	struct spray_animation *a = &spray_animations[slot];
+	return a->pixels ? (size_t)a->width * a->height * 4 * a->frames : 0;
+}
+
+static void spray_release_slot(int slot)
+{
+	if (spray_textures[slot]) glDeleteTextures(1, &spray_textures[slot]);
+	spray_textures[slot] = 0; spray_texture_bytes[slot] = 0;
+	stbi_image_free(spray_animations[slot].pixels);
+	stbi_image_free(spray_animations[slot].delays);
+	memset(&spray_animations[slot], 0, sizeof(spray_animations[slot]));
+}
 void console_printf(BOOL warning, const char *format, ...);
 
 static int spray_source_path(char *path, size_t capacity)
@@ -74,6 +100,21 @@ static int spray_source_path(char *path, size_t capacity)
 	return SDL_snprintf(path, capacity, "%s/spray.png", directory) < (int)capacity;
 }
 
+/* Deterministic priority when more than one source image is present. */
+static int spray_find_source_path(char *path, size_t capacity)
+{
+	const char *extensions[] = {"png", "jpg", "jpeg", "gif"};
+	SDL_PathInfo info;
+	char base[4096];
+	int i;
+	if (!spray_source_path(base, sizeof(base))) return 0;
+	*strrchr(base, '.') = 0;
+	for (i = 0; i < 4; i++)
+		if (SDL_snprintf(path, capacity, "%s.%s", base, extensions[i]) < (int)capacity &&
+			SDL_GetPathInfo(path, &info) && info.type == SDL_PATHTYPE_FILE) return 1;
+	return 0;
+}
+
 int halo_spray_file_read(void **data, size_t *size)
 {
 	char path[4096];
@@ -82,16 +123,16 @@ int halo_spray_file_read(void **data, size_t *size)
 	void *bytes;
 	*data = NULL;
 	*size = 0;
-	if (!spray_source_path(path, sizeof(path)) || !(file = fopen(path, "rb")))
+	if (!spray_find_source_path(path, sizeof(path)) || !(file = fopen(path, "rb")))
 	{
-		console_printf(FALSE, "Spray Image: put spray.png in sprays/ beside halo.exe");
+		console_printf(FALSE, "Spray Image: put spray.png, spray.jpg or spray.gif in sprays/ beside halo.exe");
 		return 0;
 	}
 	if (fseek(file, 0, SEEK_END) || (length = ftell(file)) <= 0 || length > SPRAY_SHARE_LIMIT ||
 		fseek(file, 0, SEEK_SET))
 	{
 		fclose(file);
-		console_printf(FALSE, "Spray Image: PNG must be at most 5 MiB");
+		console_printf(FALSE, "Spray Image: image must be at most 5 MiB");
 		return 0;
 	}
 	bytes = malloc((size_t)length);
@@ -112,16 +153,24 @@ void halo_spray_file_free(void *data)
 	free(data);
 }
 
-int halo_spray_png_aspect(const void *data, size_t size, float *aspect)
+int halo_spray_image_aspect(const void *data, size_t size, float *aspect)
 {
-	int width, height, channels;
+	int width, height, frames;
+	int *delays = NULL;
 	unsigned char *pixels;
+	unsigned char hash[32];
+	int i;
 	if (!data || !size || size > SPRAY_SHARE_LIMIT)
 		return 0;
-	pixels = stbi_load_from_memory(data, (int)size, &width, &height, &channels, 4);
+	crypto_blake2b(hash, 32, data, size);
+	for (i = 0; i < SPRAY_SHARE_SLOTS; i++)
+		if (spray_texture_aspects[i] > 0.0f && !memcmp(hash, spray_texture_hashes[i], 32))
+		{ *aspect = spray_texture_aspects[i]; return 1; }
+	pixels = spray_decode_image(data, size, &width, &height, &frames, &delays);
 	if (!pixels)
 		return 0;
 	stbi_image_free(pixels);
+	stbi_image_free(delays);
 	*aspect = (float)height / width;
 	return 1;
 }
@@ -263,10 +312,11 @@ int halo_spray_file_save(const void *data, size_t size, const char *name, char *
 	SDL_PathInfo info;
 	FILE *file;
 	int i, n = 0, attempt;
+	const char *extension = spray_image_extension(data, size);
 	size_t written;
 	unsigned char hash[32];
 	void *cached;
-	if (!halo_spray_png_aspect(data, size, aspect) ||
+	if (!halo_spray_image_aspect(data, size, aspect) ||
 		!spray_source_path(base_path, sizeof(base_path)) || !SDL_GetCurrentTime(&time) ||
 		!SDL_TimeToDateTime(time, &date, TRUE))
 		return 0;
@@ -296,9 +346,9 @@ int halo_spray_file_save(const void *data, size_t size, const char *name, char *
 	*strrchr(base_path, '/') = 0;
 	for (attempt = 0; attempt < 1000; attempt++)
 	{
-		if (SDL_snprintf(path, capacity, "%s/spray_%s_%04d-%02d-%02d_%02d.%02d.%02d_%03d.png",
+		if (SDL_snprintf(path, capacity, "%s/spray_%s_%04d-%02d-%02d_%02d.%02d.%02d_%03d.%s",
 						 base_path, safe, date.year, date.month, date.day, date.hour, date.minute,
-						 date.second, attempt) >= (int)capacity)
+						 date.second, attempt, extension) >= (int)capacity)
 			return 0;
 		if (SDL_GetPathInfo(path, &info))
 			continue;
@@ -327,7 +377,7 @@ int halo_spray_file_save(const void *data, size_t size, const char *name, char *
 int spray_image_load(float *aspect)
 {
 	char path[4096];
-	if (!spray_source_path(path, sizeof(path)))
+	if (!spray_find_source_path(path, sizeof(path)))
 		return 0;
 	return spray_image_load_slot(0, path, aspect);
 }
@@ -344,14 +394,14 @@ int spray_image_load_slot(int slot, const char *path, float *aspect)
 	file = SDL_IOFromFile(path, "rb");
 	if (!file)
 	{
-		console_printf(FALSE, "Spray Image: put spray.png in sprays/ beside halo.exe");
+		console_printf(FALSE, "Spray Image: put spray.png, spray.jpg or spray.gif in sprays/ beside halo.exe");
 		return 0;
 	}
 	length = SDL_GetIOSize(file);
 	if (length <= 0 || length > SPRAY_SHARE_LIMIT)
 	{
 		SDL_CloseIO(file);
-		console_printf(FALSE, "Spray Image: PNG must be at most 5 MiB");
+		console_printf(FALSE, "Spray Image: image must be at most 5 MiB");
 		return 0;
 	}
 	data = SDL_LoadFile_IO(file, &size, TRUE);
@@ -366,27 +416,9 @@ int spray_image_load_slot(int slot, const char *path, float *aspect)
 	return result;
 }
 
-int spray_image_load_bytes(int slot, const void *data, size_t size, float *aspect)
+static GLuint spray_upload_pixels(GLuint texture, int width, int height, const unsigned char *pixels, int replace)
 {
-	unsigned char *pixels;
-	int width, height, channels;
-	GLuint texture;
-	GLint active, bound, unpack_buffer, alignment, row_length, skip_rows, skip_pixels, maximum_size;
-	if (slot < 0 || slot >= SPRAY_SHARE_SLOTS || !data || !size || size > SPRAY_SHARE_LIMIT)
-		return 0;
-	pixels = stbi_load_from_memory(data, (int)size, &width, &height, &channels, 4);
-	if (!pixels)
-	{
-		console_printf(FALSE, "Spray Image: invalid PNG (maximum 4096 x 4096)");
-		return 0;
-	}
-	glGetIntegerv(GL_MAX_TEXTURE_SIZE, &maximum_size);
-	if (width > maximum_size || height > maximum_size)
-	{
-		stbi_image_free(pixels);
-		console_printf(FALSE, "Spray Image: PNG exceeds this device's texture size limit");
-		return 0;
-	}
+	GLint active, bound, unpack_buffer, alignment, row_length, skip_rows, skip_pixels;
 	/* Uploads must not inherit a previous draw's pixel-unpack buffer or strides. */
 	glGetIntegerv(GL_ACTIVE_TEXTURE, &active);
 	glActiveTexture(GL_TEXTURE0);
@@ -401,9 +433,10 @@ int spray_image_load_bytes(int slot, const void *data, size_t size, float *aspec
 	glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
 	glPixelStorei(GL_UNPACK_SKIP_ROWS, 0);
 	glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
-	glGenTextures(1, &texture);
+	if (!texture) glGenTextures(1, &texture);
 	glBindTexture(GL_TEXTURE_2D, texture);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+	if (replace) glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+	else glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -416,29 +449,67 @@ int spray_image_load_bytes(int slot, const void *data, size_t size, float *aspec
 	glPixelStorei(GL_UNPACK_SKIP_ROWS, skip_rows);
 	glPixelStorei(GL_UNPACK_SKIP_PIXELS, skip_pixels);
 	glActiveTexture(active);
-	stbi_image_free(pixels);
+	return texture;
+}
+
+int spray_image_load_bytes(int slot, const void *data, size_t size, float *aspect)
+{
+	unsigned char *pixels;
+	int width, height, frames;
+	int *delays = NULL;
+	GLuint texture;
+	GLint maximum_size;
+	unsigned char hash[32];
+	if (slot < 0 || slot >= SPRAY_SHARE_SLOTS || !data || !size || size > SPRAY_SHARE_LIMIT)
+		return 0;
+	crypto_blake2b(hash, 32, data, size);
+	if (spray_textures[slot] && !memcmp(hash, spray_texture_hashes[slot], 32))
+	{ *aspect = spray_texture_aspects[slot]; return 1; }
+	pixels = spray_decode_image(data, size, &width, &height, &frames, &delays);
+	if (!pixels)
+	{
+		console_printf(FALSE, "Spray Image: invalid image or GIF animation too large (maximum 4096 x 4096)");
+		return 0;
+	}
+	glGetIntegerv(GL_MAX_TEXTURE_SIZE, &maximum_size);
+	if (width > maximum_size || height > maximum_size)
+	{
+		stbi_image_free(pixels);
+		stbi_image_free(delays);
+		console_printf(FALSE, "Spray Image: image exceeds this device's texture size limit");
+		return 0;
+	}
+	texture = spray_upload_pixels(0, width, height, pixels, 0);
 	/* Bound aggregate GPU residency to 128 MiB, including mipmaps. A single
 	   4096-square RGBA texture with its mipmaps needs about 85 MiB. */
 	{
-		size_t bytes = (size_t)width * height * 4 * 4 / 3, total = 0;
+		size_t bytes = (size_t)width * height * 4 * 4 / 3, total = 0, animations = 0;
+		size_t animation_bytes = frames > 1 ? (size_t)width * height * 4 * frames : 0;
 		int i;
 		for (i = 0; i < SPRAY_SHARE_SLOTS; i++)
 			if (i != slot)
-				total += spray_texture_bytes[i];
-		for (i = 0; i < SPRAY_SHARE_SLOTS && total + bytes > SPRAY_TEXTURE_LIMIT; i++)
+				{ total += spray_texture_bytes[i]; animations += spray_animation_size(i); }
+		for (i = 0; i < SPRAY_SHARE_SLOTS && (total + bytes > SPRAY_TEXTURE_LIMIT || animations + animation_bytes > SPRAY_ANIMATION_LIMIT); i++)
 			if (i != slot && spray_textures[i])
 			{
-				glDeleteTextures(1, &spray_textures[i]);
-				spray_textures[i] = 0;
-				total -= spray_texture_bytes[i];
-				spray_texture_bytes[i] = 0;
+				total -= spray_texture_bytes[i]; animations -= spray_animation_size(i);
+				spray_release_slot(i);
 			}
-		if (spray_textures[slot])
-			glDeleteTextures(1, &spray_textures[slot]);
+		spray_release_slot(slot);
 		spray_textures[slot] = texture;
 		spray_texture_bytes[slot] = bytes;
 	}
+	if (frames > 1)
+	{
+		struct spray_animation *a = &spray_animations[slot];
+		int i;
+		a->pixels = pixels; a->delays = delays; a->width = width; a->height = height; a->frames = frames;
+		a->started = SDL_GetTicks();
+		for (i = 0; i < frames; i++) a->duration += delays[i];
+	}
+	else { stbi_image_free(pixels); stbi_image_free(delays); }
 	*aspect = (float)height / width;
+	memcpy(spray_texture_hashes[slot], hash, 32); spray_texture_aspects[slot] = *aspect;
 	xgpu_gl_state_invalidate();
 	return 1;
 }
@@ -446,14 +517,25 @@ int spray_image_load_bytes(int slot, const void *data, size_t size, float *aspec
 void halo_spray_image_forget(void)
 {
 	int i;
-	for (i = 0; i < SPRAY_SHARE_SLOTS; i++)
-		if (spray_textures[i])
-		{
-			glDeleteTextures(1, &spray_textures[i]);
-			spray_textures[i] = 0;
-			spray_texture_bytes[i] = 0;
-			xgpu_gl_state_invalidate();
-		}
+	for (i = 0; i < SPRAY_SHARE_SLOTS; i++) spray_release_slot(i);
+	xgpu_gl_state_invalidate();
+}
+
+static void spray_animate(int slot, Uint64 now)
+{
+	struct spray_animation *a = &spray_animations[slot];
+	Uint64 elapsed;
+	int frame;
+	if (!a->pixels || !a->duration) return;
+	elapsed = (now - a->started) % a->duration;
+	for (frame = 0; frame + 1 < a->frames && elapsed >= (Uint64)a->delays[frame]; frame++)
+		elapsed -= a->delays[frame];
+	if (frame != a->frame)
+	{
+		spray_upload_pixels(spray_textures[slot], a->width, a->height,
+			a->pixels + (size_t)frame * a->width * a->height * 4, 1);
+		a->frame = frame;
+	}
 }
 
 static int spray_prepare(void)
@@ -511,6 +593,7 @@ void halo_spray_image_draw_slot(int slot, struct halo_spray_clip_vertex const *v
 	if (slot < 0 || slot >= SPRAY_SHARE_SLOTS || !spray_textures[slot] || count <= 0 ||
 		count > HALO_SPRAY_MAXIMUM_VERTICES || !spray_prepare())
 		return;
+	spray_animate(slot, SDL_GetTicks());
 	glGetIntegerv(GL_CURRENT_PROGRAM, &program);
 	glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &array);
 	glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &buffer);

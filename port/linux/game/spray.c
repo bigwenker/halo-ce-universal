@@ -34,7 +34,7 @@ int network_spray_ready(int slot,int owner,const void *data,size_t size,
   if(!isfinite(pose->origin[i])||fabsf(pose->origin[i])>32768||!isfinite(pose->direction[i]))return 0;
   origin.n[i]=pose->origin[i];direction.n[i]=pose->direction[i];length+=direction.n[i]*direction.n[i];
  }
- if(length<2.249f||length>2.251f||!halo_spray_png_aspect(data,size,&aspect)||
+ if(length<2.249f||length>2.251f||!halo_spray_image_aspect(data,size,&aspect)||
   /* The host already checked moving blockers at the time of placement.
    * A transfer can finish later: project onto the static wall, regardless of
    * where players have since moved, died or respawned. */

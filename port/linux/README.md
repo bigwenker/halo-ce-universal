@@ -347,8 +347,8 @@ clients and in `init.txt`, without becoming map-script functions.
 | `display.window_size` | `""` | `HALO_WINDOW_SIZE` | The size of the window, as `"<width>x<height>"`, such as `"1920x1080"`, 640x480 or more. You can change the size of the window; the game's picture takes its shape. Empty: `display.window_scale` decides. Video Setup's Window Size sets it, from sizes of each shape (4:3, 16:10, 16:9 and 21:9) that fit the desktop; it shows with Windowed. |
 | `display.window_scale` | `2` | `HALO_WINDOW_SCALE` | Used when `display.window_size` is empty: the size of the window, as a multiple of 640x480. |
 | `display.vsync` | `true` | `HALO_NO_VSYNC=1` sets `false` | `true`: each frame waits for the display. |
-| `display.fov` | `0.0` | `HALO_FOV` | Console `fov_desired`: world horizontal FOV at 16:9, 20Ã¢â‚¬â€œ150 degrees; 0 uses the authored view. Applies to local first-person cameras on foot; scopes and special cameras retain the behavior described above. |
-| `display.viewmodel_fov` | `0.0` | `HALO_VIEWMODEL_FOV` | Console `viewmodel_fov`: independent weapon/hands FOV at 16:9, 20Ã¢â‚¬â€œ150 degrees; 0 follows world FOV. First-person models, transparent effects, particles and flares use the same projection. Invalid file/environment values follow world FOV. |
+| `display.fov` | `0.0` | `HALO_FOV` | Console `fov_desired`: world horizontal FOV at 16:9, 20â€“150 degrees; 0 uses the authored view. Applies to local first-person cameras on foot; scopes and special cameras retain the behavior described above. |
+| `display.viewmodel_fov` | `0.0` | `HALO_VIEWMODEL_FOV` | Console `viewmodel_fov`: independent weapon/hands FOV at 16:9, 20â€“150 degrees; 0 follows world FOV. First-person models, transparent effects, particles and flares use the same projection. Invalid file/environment values follow world FOV. |
 | `display.viewmodel_visible` | `true` | `HALO_VIEWMODEL_VIS` | Console `viewmodel_vis`: display the local first-person weapon, hands and attached visual effects. Hiding them preserves gameplay, sound, animations and world lights. |
 | `display.max_fps` | `0` | `HALO_MAX_FPS` | With vsync off, the most frames each second. `0`: twice the display's refresh rate. `-1`: no limit, which can hang some Intel graphics (Raptor Lake), resetting the desktop's graphics too. |
 | `display.anti_aliasing` | `"off"` | `HALO_ANTI_ALIASING` | The smoothing of jagged edges, which the Xbox did not have. `"off"`: none, as on the Xbox. `"fxaa"` or `"smaa"`: a pass over the 3D view after the game draws it. The HUD and the menus stay sharp. SMAA is the sharper and costs more. `"ssaa2x"`: the game draws at two times the resolution in each direction (at most the GPU's largest texture), and the picture is scaled down. The GPU does four times the work. Not with `display.resolution_scaling = "original"`. `"msaa2x"`, `"msaa4x"` or `"msaa8x"`: each pixel of the 3D view has that many samples (at most the GPU's). On Android, `"smaa"` gives FXAA and `"ssaa2x"` none. A change applies from the next frame. Refer to "Anti-aliasing" in "What operates". |
@@ -440,7 +440,7 @@ clients and in `init.txt`, without becoming map-script functions.
 | `debug.network_latency`, `debug.network_loss`, `debug.network_corrupt`, `debug.network_corrupt_stream`, `debug.network_corrupt_after` | `0` | `HALO_NETWORK_LATENCY`, `HALO_NETWORK_LOSS`, `HALO_NETWORK_CORRUPT`, `HALO_NETWORK_CORRUPT_STREAM`, `HALO_NETWORK_CORRUPT_AFTER` | The game holds all the data that it receives for this number of milliseconds, ignores this percentage of the datagrams, and damages this percentage of the datagrams it receives, and this percentage of its reads of streams, at random (bytes changed, cut short, stretched or replaced), from this many seconds after the start. Use the first two to test the netcode as on the internet, and the others to test that nothing another machine sends can crash the game (a damaged stream is closed, so a little goes a long way; a host's messages to its own client are damaged too, so start damaging once the game has started). |
 | `debug.voice_test` | `false` | `HALO_VOICE_TEST` | Automatic tests of voice chat: a tone replaces the microphone, and each voice that the game hears is written to the log once each second. |
 | `debug.telnet_console`, `debug.telnet_console_port` | `false`, `2323` | `HALO_TELNET_CONSOLE`, `HALO_TELNET_CONSOLE_PORT` | The game listens on 127.0.0.1, on this port, for a script console (connect with telnet). The console has no password, so only this computer can reach it. |
-| `debug.profile_record`, `debug.profile_record_when`, `debug.profile_memory` | `false`, `"start"`, `256` | `HALO_PROFILE_RECORD`, `HALO_PROFILE_RECORD_WHEN`, `HALO_PROFILE_MEMORY` | Profiling builds only (`configure.py --profile`). Record without a command; `"start"` records from the first frame until the first map change, `"game"` records each game outside the main menu. Memory is 4Ã¢â‚¬â€œ1024 MB. Numbered `profile_<stamp>_<role>.part<n>.json` files remain in `profiles/` after recording. Refer to "Profiling builds" in the main README. |
+| `debug.profile_record`, `debug.profile_record_when`, `debug.profile_memory` | `false`, `"start"`, `256` | `HALO_PROFILE_RECORD`, `HALO_PROFILE_RECORD_WHEN`, `HALO_PROFILE_MEMORY` | Profiling builds only (`configure.py --profile`). Record without a command; `"start"` records from the first frame until the first map change, `"game"` records each game outside the main menu. Memory is 4â€“1024 MB. Numbered `profile_<stamp>_<role>.part<n>.json` files remain in `profiles/` after recording. Refer to "Profiling builds" in the main README. |
 
 
 With Mesa drivers, the game sends its GL calls through the GL thread of
@@ -931,7 +931,7 @@ Only machines with the invite can find the game:
     leaving.
   So that every player can be named, the host trims the spaces around a
   name and removes characters that draw as nothing. A
-  letter with a mark is typed as the plain letter (`ban jose` for "JosÃƒÂ©").
+  letter with a mark is typed as the plain letter (`ban jose` for "JosÃ©").
   A name with nothing left to type becomes "Player", and a name that another
   player already has gets a number ("Player 2"). The game refuses a profile
   name that is blank, and a multiplayer game refuses a profile whose name was
@@ -1210,19 +1210,23 @@ listed in "Game source changes" in [../web/README.md](../web/README.md).
 ### Image sprays (fork feature)
 
 Spray Image follows Screenshot in Controls Setup > Actions and defaults to T.
-Put the source PNG at `sprays/spray.png` beside the executable (next to `maps/`).
-The folder is created automatically. PNGs are limited to 5 MiB encoded and
+Put `spray.png`, `spray.jpg`, `spray.jpeg` or `spray.gif` in `sprays/` beside
+the executable (next to `maps/`). If several exist, that is their priority order.
+The folder is created automatically. Images are limited to 5 MiB encoded and
 4096 pixels per dimension; decoder allocations are bounded to 320 MiB while
 decoding (including 16-bit PNG working buffers), and GPU residency to 128 MiB.
 Devices with a smaller hardware texture limit reject images beyond that limit.
+Animated GIFs loop with their frame delays, transparency and disposal. A GIF
+may have at most 256 frames and 64 MiB of decoded frames; aggregate animation
+storage is also capped at 64 MiB, evicting older image slots when necessary.
 The four-second cooldown and random plasma-rifle overheat2/overheat3 sound are
 preserved. Sprays use actual level-surface decal clipping and depth testing.
 They are temporary visuals outside checkpoints, cleared on map/BSP changes.
 
 In multiplayer, capable clients upload to the host using the existing connection;
 the host validates the player's live unit, wall ray, distance and cooldown, then
-relays to other capable clients. Received PNGs are saved as
-`sprays/spray_<profile>_<YYYY-MM-DD_HH.MM.SS>_<sequence>.png`, with sanitized
+relays to other capable clients. Received images are saved as
+`sprays/spray_<profile>_<YYYY-MM-DD_HH.MM.SS>_<sequence>.<png|jpg|gif>`, with sanitized
 profile names. BLAKE2b content hashes reuse identical images across owners and
 sessions. A small `sprays/.cache/` index points to the original download, which
 is length-checked and hashed before reuse; changed or missing files download
@@ -1242,3 +1246,5 @@ player per machine is supported. This is a fork feature, with no upstream PR.
 Older spray builds with the 2 MiB limit reject larger images; all receiving
 peers and the host must support 5 MiB to share those images. The 64 KiB/s
 budget is unchanged, so a maximum-size image takes longer to distribute.
+JPEG/GIF sharing requires receiving builds with the new decoders; older PNG-only
+builds still play normally but cannot display those formats.

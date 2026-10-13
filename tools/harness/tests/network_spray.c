@@ -55,6 +55,7 @@ static char file_path[128];
 static void *file_allocation;
 static int file_allocations,file_releases;
 static int spray_source_path(char *path,size_t size){return snprintf(path,size,"%s",file_path)<(int)size;}
+static int spray_find_source_path(char *path,size_t size){return spray_source_path(path,size);}
 static void *file_malloc(size_t size){CHECK(!file_allocation,"file buffer leaked");file_allocation=malloc(size);if(file_allocation)file_allocations++;return file_allocation;}
 static void file_free(void *data){if(data){CHECK(data==file_allocation,"file released an unowned buffer");free(data);file_allocation=NULL;file_releases++;}}
 #define console_printf(...) ((void)0)

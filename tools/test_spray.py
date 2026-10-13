@@ -25,6 +25,12 @@ static GLuint xgpu_link_program(GLuint v,GLuint f,const char *what){
 }
 '''
 TEST = r'''
+static void gif_texture(int slot,const char *root,int frame){
+ char path[4096];size_t size;SDL_snprintf(path,sizeof(path),"%s/frame%d.rgba",root,frame);unsigned char *expected=SDL_LoadFile(path,&size);CHECK(expected&&size==1024);
+ unsigned char actual[1024];GLint active,bound;glGetIntegerv(GL_ACTIVE_TEXTURE,&active);glActiveTexture(GL_TEXTURE0);glGetIntegerv(GL_TEXTURE_BINDING_2D,&bound);
+ glBindTexture(GL_TEXTURE_2D,spray_textures[slot]);glGetTexImage(GL_TEXTURE_2D,0,GL_RGBA,GL_UNSIGNED_BYTE,actual);glBindTexture(GL_TEXTURE_2D,bound);glActiveTexture(active);
+ for(int i=0;i<256;i++){CHECK(actual[i*4+3]==expected[i*4+3]);if(expected[i*4+3])CHECK(!memcmp(actual+i*4,expected+i*4,3));}SDL_free(expected);
+}
 static struct halo_spray_clip_vertex quad[6]={
  {{-1,-1,.3f,1},{0,1}},{{1,-1,.3f,1},{1,1}},{{1,1,.3f,1},{1,0}},
  {{-1,-1,.3f,1},{0,1}},{{1,1,.3f,1},{1,0}},{{-1,1,.3f,1},{0,0}}};
@@ -116,7 +122,7 @@ int main(int argc,char **argv){
  CHECK(halo_spray_file_read(&bytes,&byte_count));CHECK(byte_count>2u*1024u*1024u&&byte_count<=SPRAY_SHARE_LIMIT);
  CHECK(spray_image_load_bytes(3,bytes,byte_count,&aspect));halo_spray_file_free(bytes);
  image(argv[1],"maximum.png");CHECK(halo_spray_file_read(&bytes,&byte_count));
- CHECK(halo_spray_png_aspect(bytes,byte_count,&aspect)&&aspect==1);
+ CHECK(halo_spray_image_aspect(bytes,byte_count,&aspect)&&aspect==1);
  CHECK(spray_image_load_bytes(4,bytes,byte_count,&aspect)&&aspect==1);CHECK(!spray_decode_bytes);
  CHECK(spray_texture_bytes[4]>64u*1024u*1024u&&spray_texture_bytes[4]<=SPRAY_TEXTURE_LIMIT);
  glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);halo_spray_image_draw_slot(4,quad,6);
@@ -127,9 +133,43 @@ int main(int argc,char **argv){
  image(argv[1],"too-tall.png");CHECK(!spray_image_load(&aspect)&&spray_textures[5]==maximum_texture);CHECK(!spray_decode_bytes);
  const char *formats[]={"rgb.png","palette.png","gray.png","rgba.png"};
  for(int i=0;i<4;i++){image(argv[1],formats[i]);CHECK(spray_image_load(&aspect));CHECK(aspect==1);}
+ image(argv[1],"photo.jpg");CHECK(halo_spray_file_read(&bytes,&byte_count));CHECK(spray_image_load_bytes(6,bytes,byte_count,&aspect));
+ CHECK(halo_spray_file_save(bytes,byte_count,"jpeg",saved,sizeof(saved),&aspect));CHECK(!strcmp(strrchr(saved,'.'),".jpg"));halo_spray_file_free(bytes);
+ image(argv[1],"animated.gif");CHECK(halo_spray_file_read(&bytes,&byte_count));
+ int width,height,frames,*delays=NULL;unsigned char *decoded=spray_decode_image(bytes,byte_count,&width,&height,&frames,&delays);
+ CHECK(decoded&&width==16&&height==16&&frames==3&&delays[0]==100&&delays[1]==200&&delays[2]==300);
+ for(int i=0;i<frames;i++){char reference[4096];size_t reference_size;SDL_snprintf(reference,sizeof(reference),"%s/frame%d.rgba",argv[1],i);
+  unsigned char *expected=SDL_LoadFile(reference,&reference_size);CHECK(expected&&reference_size==16*16*4);
+  for(int n=0;n<16*16;n++){CHECK(decoded[(i*256+n)*4+3]==expected[n*4+3]);if(expected[n*4+3])CHECK(!memcmp(decoded+(i*256+n)*4,expected+n*4,3));}SDL_free(expected);}
+ stbi_image_free(decoded);stbi_image_free(delays);
+ CHECK(spray_image_load_bytes(7,bytes,byte_count,&aspect));CHECK(spray_animations[7].frames==3);
+ gif_texture(7,argv[1],0);
+ CHECK(halo_spray_file_save(bytes,byte_count,"gif",saved,sizeof(saved),&aspect));CHECK(!strcmp(strrchr(saved,'.'),".gif"));
+ spray_animate(7,spray_animations[7].started+100);CHECK(spray_animations[7].frame==1);
+ gif_texture(7,argv[1],1);
+ spray_animate(7,spray_animations[7].started+300);CHECK(spray_animations[7].frame==2);
+ gif_texture(7,argv[1],2);
+ spray_animate(7,spray_animations[7].started+600);CHECK(spray_animations[7].frame==0);
+ gif_texture(7,argv[1],0);
+ GLuint gif_texture=spray_textures[7];CHECK(!spray_image_load_bytes(7,bytes,byte_count-1,&aspect)&&spray_textures[7]==gif_texture);
+ halo_spray_file_free(bytes);
+ image(argv[1],"too-many.gif");CHECK(!spray_image_load(&aspect));
+ image(argv[1],"animation-large.gif");CHECK(!spray_image_load(&aspect));
+ image(argv[1],"too-wide.gif");CHECK(!spray_image_load(&aspect));
+ image(argv[1],"resident.gif");CHECK(halo_spray_file_read(&bytes,&byte_count));
+ CHECK(spray_image_load_bytes(8,bytes,byte_count,&aspect));CHECK(spray_image_load_bytes(9,bytes,byte_count,&aspect));CHECK(spray_image_load_bytes(10,bytes,byte_count,&aspect));
+ size_t animation_resident=0;for(int i=0;i<SPRAY_SHARE_SLOTS;i++)animation_resident+=spray_animation_size(i);CHECK(animation_resident<=SPRAY_ANIMATION_LIMIT);
+ CHECK(!spray_animations[8].pixels&&spray_animations[9].pixels&&spray_animations[10].pixels);halo_spray_file_free(bytes);
  halo_spray_image_forget();for(int i=0;i<SPRAY_SHARE_SLOTS;i++)CHECK(!spray_textures[i]);halo_spray_image_forget();
+ CHECK(!spray_decode_bytes);
  char path[4096];CHECK(spray_source_path(path,sizeof(path)));CHECK(SDL_RemovePath(path));CHECK(!spray_image_load(&aspect));
- CHECK(glGetError()==GL_NO_ERROR);CHECK(invalidations);SDL_GL_DestroyContext(c);SDL_DestroyWindow(w);SDL_Quit();puts("Spray PNG and GL regressions passed");return 0;
+ char fixture[4096],jpg[4096],gif[4096];size_t source_size;void *source_bytes;
+ SDL_snprintf(fixture,sizeof(fixture),"%s/photo.jpg",argv[1]);source_bytes=SDL_LoadFile(fixture,&source_size);CHECK(source_bytes);strcpy(jpg,path);strcpy(strrchr(jpg,'.'),".jpg");CHECK(SDL_SaveFile(jpg,source_bytes,source_size));SDL_free(source_bytes);
+ CHECK(spray_image_load(&aspect));CHECK(halo_spray_file_read(&bytes,&byte_count));CHECK(!strcmp(spray_image_extension(bytes,byte_count),"jpg"));halo_spray_file_free(bytes);
+ SDL_snprintf(fixture,sizeof(fixture),"%s/animated.gif",argv[1]);source_bytes=SDL_LoadFile(fixture,&source_size);CHECK(source_bytes);strcpy(gif,path);strcpy(strrchr(gif,'.'),".gif");CHECK(SDL_SaveFile(gif,source_bytes,source_size));SDL_free(source_bytes);
+ CHECK(spray_find_source_path(fixture,sizeof(fixture))&&!strcmp(fixture,jpg));CHECK(SDL_RemovePath(jpg));CHECK(spray_image_load(&aspect)&&spray_animations[0].frames==3);CHECK(SDL_RemovePath(gif));
+ halo_spray_image_forget();CHECK(!spray_decode_bytes);
+ CHECK(glGetError()==GL_NO_ERROR);CHECK(invalidations);SDL_GL_DestroyContext(c);SDL_DestroyWindow(w);SDL_Quit();puts("Spray PNG/JPEG/GIF, cache and GL regressions passed");return 0;
 }
 '''
 
@@ -169,6 +209,21 @@ def main():
         Image.new('RGBA', (4096, 4096), (255, 0, 0, 255)).save(path / 'maximum.png')
         Image.new('RGB', (4097, 1)).save(path / 'large.png')
         Image.new('RGB', (1, 4097)).save(path / 'too-tall.png')
+        image.convert('RGB').save(path / 'photo.jpg', quality=95)
+        palette = [0,0,0,255,0,0,0,255,0,0,0,255] + [0]*756
+        first = Image.new('P', (16,16));first.putpalette(palette);first.paste(1,(0,0,8,16))
+        second = first.copy();second.paste(2,(8,0,16,8))
+        third = first.copy();third.paste(3,(8,8,16,16))
+        first.save(path/'animated.gif',save_all=True,append_images=[second,third],duration=[100,200,300],loop=0,disposal=[1,3,2],transparency=0,optimize=False)
+        with Image.open(path/'animated.gif') as gif:
+            for i in range(gif.n_frames):
+                gif.seek(i);(path/f'frame{i}.rgba').write_bytes(gif.convert('RGBA').tobytes())
+        tiny = [Image.new('RGB',(1,1),(i%256,0,0)) for i in range(257)]
+        tiny[0].save(path/'too-many.gif',save_all=True,append_images=tiny[1:],duration=100,optimize=False)
+        huge = [Image.new('RGB',(2048,2048),(i*40,0,0)) for i in range(5)]
+        huge[0].save(path/'animation-large.gif',save_all=True,append_images=huge[1:],duration=100,optimize=False)
+        huge[0].save(path/'resident.gif',save_all=True,append_images=huge[1:2],duration=100,optimize=False)
+        Image.new('RGB',(4097,1)).save(path/'too-wide.gif')
         (path / 'spray.c').write_text(PREFIX + source + TEST)
         subprocess.run([*command, str(path / 'spray.c'), *libraries, '-o', str(path / 'spray.exe')], check=True)
         subprocess.run([str(path / 'spray.exe'), str(path)], cwd=ROOT, env=env, check=True, timeout=30)

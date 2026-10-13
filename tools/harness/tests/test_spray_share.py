@@ -36,7 +36,8 @@ def test_transfer(case):
     status, output = run(executable(), case)
     assert status == 0, output
 
-def test_peer_to_peer_png(tmp_path):
+@pytest.mark.parametrize('kind', ['png', 'jpg', 'gif'])
+def test_peer_to_peer_images(tmp_path, kind):
     # A real PNG goes from client A through the host to client B, using real
     # UDP sockets, separate processes, and deliberate 1-in-7 datagram loss.
     import struct
@@ -47,7 +48,9 @@ def test_peer_to_peer_png(tmp_path):
         return struct.pack('!I', len(data)) + kind + data + struct.pack('!I', zlib.crc32(kind + data))
     png = b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('!2I5B', width, height, 8, 6, 0, 0, 0)) + chunk(b'IDAT', zlib.compress(raw)) + chunk(b'IEND', b'')
     assert 2 * 1024 * 1024 < len(png) <= 5 * 1024 * 1024
-    source = tmp_path / 'spray.png'
+    if kind != 'png':
+        png = (Path(__file__).resolve().parents[1] / 'fixtures' / ('spray.' + kind)).read_bytes()
+    source = tmp_path / ('spray.' + kind)
     source.write_bytes(png)
     # Pick consecutive unused ports, rather than assume a fixed test port.
     for base in range(32000, 60000, 4):
@@ -66,13 +69,13 @@ def test_peer_to_peer_png(tmp_path):
     processes = []
     try:
         for peer in [0, 2, 1]:
-            destination = tmp_path / f'peer{peer}.png'
-            processes.append(subprocess.Popen([str(executable()), 'socket', str(peer), str(base), str(source), str(destination), '24000'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True))
+            destination = tmp_path / f'peer{peer}.{kind}'
+            processes.append(subprocess.Popen([str(executable()), 'socket', str(peer), str(base), str(source), str(destination), '24000' if kind == 'png' else '3000'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True))
         for process in processes:
             stdout, stderr = process.communicate(timeout=45)
             assert process.returncode == 0, stdout + stderr
         for peer in [0, 1, 2]:
-            assert (tmp_path / f'peer{peer}.png').read_bytes() == png
+            assert (tmp_path / f'peer{peer}.{kind}').read_bytes() == png
     finally:
         for process in processes:
             if process.poll() is None:

@@ -13,5 +13,8 @@ with it at the display's resolution (`port/linux/src/text_hires.c`); it
 builds into the Linux, Windows and Android platform layers.
 
 `stb_image.h` v2.30, from the same commit, is copied unchanged. The image
-spray loader (`port/linux/src/spray_image.c`) builds its PNG decoder only,
-with a 2048-pixel dimension limit and a bounded decoder allocation budget.
+spray loader (`port/linux/src/spray_image.c`) builds its PNG, JPEG and GIF
+decoders, with a 4096-pixel dimension limit and bounded decoder allocations.
+`spray_gif.h` preflights animation storage and drives the pinned decoder with
+the two-back frame required by GIF's restore-previous disposal, into bounded
+storage; the vendored header remains unchanged.

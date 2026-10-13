@@ -69,7 +69,7 @@ void network_spray_reset(void){}
 long network_spray_unit(int owner){(void)owner;return unit;}
 int network_spray_publish(struct spray_pose pose){(void)pose;return 0;}
 int network_spray_is_local(int owner){return owner==0;}
-int halo_spray_png_aspect(const void *data,size_t size,float *aspect){(void)data;(void)size;*aspect=1;return !missing;}
+int halo_spray_image_aspect(const void *data,size_t size,float *aspect){(void)data;(void)size;*aspect=1;return !missing;}
 int halo_spray_file_save(const void *data,size_t size,const char *name,char *path,size_t capacity,float *aspect){(void)data;(void)size;(void)name;(void)capacity;saves++;strcpy(path,"fake.png");*aspect=1;return 1;}
 int halo_spray_image_load_bytes(int slot,const void *data,size_t size,float *aspect){CHECK(slot>=0&&slot<SPRAY_SHARE_SLOTS&&data&&size,"invalid memory image");loads++;*aspect=1;return !upload_failed;}
 int halo_spray_image_load_slot(int slot,const char *path,float *aspect){(void)slot;(void)path;return halo_spray_image_load(aspect);}
