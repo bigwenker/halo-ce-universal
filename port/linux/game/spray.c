@@ -10,6 +10,7 @@
 #include "sound/sound_manager.h"
 #include "sound/sound_definitions.h"
 #include "scenario/scenario.h"
+#include "main/console.h"
 #include <math.h>
 #include <string.h>
 

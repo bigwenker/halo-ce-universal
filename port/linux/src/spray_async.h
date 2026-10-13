@@ -234,7 +234,7 @@ int halo_spray_image_enqueue(int slot, const void *data, size_t size, const unsi
  spray_jobs[slot].generation++; spray_jobs[slot].state = image && !save ? 3 : 1; spray_jobs[slot].save = save;
  spray_jobs[slot].result = image; spray_jobs[slot].data = copy; spray_jobs[slot].size = size;
  memcpy(spray_jobs[slot].hash, hash, 32);
- SDL_strlcpy(spray_jobs[slot].name, name ? name : "", sizeof(spray_jobs[slot].name));
+ SDL_snprintf(spray_jobs[slot].name, sizeof(spray_jobs[slot].name), "%s", name ? name : "");
  pthread_cond_signal(&spray_work_changed); pthread_mutex_unlock(&spray_work_lock);
  spray_async_used[slot] = 1; spray_visible[slot] = 0; spray_uploads[slot].active = 0;
  free(old_data); spray_prepared_release(old);
