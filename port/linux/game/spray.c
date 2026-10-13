@@ -10,7 +10,6 @@
 #include "sound/sound_manager.h"
 #include "sound/sound_definitions.h"
 #include "scenario/scenario.h"
-#include "../../third_party/monocypher/monocypher.h"
 #include <math.h>
 #include <string.h>
 
@@ -18,16 +17,19 @@ static struct halo_spray_vertex spray_vertices[HALO_SPRAY_MAXIMUM_VERTICES];
 static int spray_vertex_count;
 static boolean spray_cooldown_active;
 static unsigned long spray_last_tick;
+static boolean spray_pending;
+static short spray_pending_bsp;
+static struct render_camera spray_pending_camera;
 static struct {
  struct halo_spray_vertex vertices[HALO_SPRAY_MAXIMUM_VERTICES];
- int count,dirty;char path[4096];unsigned char hash[32];
+ int count;unsigned char hash[32];
 } shared_sprays[SPRAY_SHARE_SLOTS];
 
 int network_spray_ready(int slot,int owner,const void *data,size_t size,
- const struct spray_pose *pose,const char *name,int local)
+ const struct spray_pose *pose,const char *name,int local,const unsigned char hash[32])
 {
  struct collision_result collision;real_point3d origin;real_vector3d direction;
- float aspect,length=0;unsigned char hash[32];int i,count;
+ float aspect,length=0;int i,count;
  static struct halo_spray_vertex vertices[HALO_SPRAY_MAXIMUM_VERTICES];
  if(slot<0||slot>=SPRAY_SHARE_SLOTS||pose->bsp!=global_structure_bsp_index_get())return 0;
  for(i=0;i<3;i++){
@@ -41,17 +43,10 @@ int network_spray_ready(int slot,int owner,const void *data,size_t size,
   !collision_test_vector(FLAG(_collision_test_front_facing_surfaces_bit)|FLAG(_collision_test_structure_bit),
    &origin,&direction,NONE,&collision)||collision.type!=_collision_result_structure)return 0;
  count=decal_build_spray_geometry(&collision,aspect,vertices,HALO_SPRAY_MAXIMUM_VERTICES);if(!count)return 0;
- crypto_blake2b(hash,32,data,size);
- /* Local publication and host echoes never create a downloaded copy. Use the
-  * published bytes so changing spray.png cannot change an existing decal. */
- if(local||network_spray_is_local(owner)){
-  if(!halo_spray_image_load_bytes(slot,data,size,&aspect))return 0;
-  shared_sprays[slot].path[0]=0;shared_sprays[slot].dirty=0;
-  memcpy(shared_sprays[slot].hash,hash,32);
- }else if(!shared_sprays[slot].path[0]||memcmp(hash,shared_sprays[slot].hash,32)){
-  char path[4096];if(!halo_spray_file_save(data,size,name,path,sizeof(path),&aspect))return 0;
-  memcpy(shared_sprays[slot].path,path,strlen(path)+1);memcpy(shared_sprays[slot].hash,hash,32);shared_sprays[slot].dirty=1;
- }
+ /* Queue immutable bytes once. The native worker decodes and persists remote
+  * content; local publication and echoes never create a downloaded copy. */
+ if(!halo_spray_image_enqueue(slot,data,size,hash,name,!(local||network_spray_is_local(owner))))return 0;
+ memcpy(shared_sprays[slot].hash,hash,32);
  memcpy(shared_sprays[slot].vertices,vertices,(size_t)count*sizeof(*vertices));shared_sprays[slot].count=count;return 1;
 }
 
@@ -59,6 +54,7 @@ void halo_spray_reset(void)
 {
 	spray_vertex_count = 0;
 	spray_cooldown_active = FALSE;
+	spray_pending = FALSE;
 	platform_spray_take_request();
 	network_spray_reset();
 	memset(shared_sprays,0,sizeof(shared_sprays));
@@ -92,8 +88,29 @@ void halo_spray_render(short local_player_index, struct render_camera const *cam
 	static struct halo_spray_clip_vertex projected[HALO_SPRAY_MAXIMUM_VERTICES];
 	boolean requested = platform_spray_take_request();
 	int index;
+	if (local_player_index == 0) halo_spray_images_update();
 	if (!spray_allowed(local_player_index) || !frustum->projection_valid)
-		return;
+	{ spray_pending = FALSE; return; }
+ /* A first press may arrive before preloading finishes. Retain its ray, not
+    a held key, and cancel it across a BSP change or a pause/cinematic. */
+ if (requested) { spray_pending_camera = *camera; spray_pending_bsp = global_structure_bsp_index_get(); spray_pending = TRUE; }
+ if (spray_pending)
+ {
+  struct halo_spray_source source;
+  int status;
+  requested = FALSE;
+  if (spray_pending_bsp != global_structure_bsp_index_get() || game_time_get_paused() || cinematic_in_progress()) spray_pending = FALSE;
+  else
+  {
+   status = halo_spray_source_acquire(&source);
+   if (status >= 0)
+   {
+    spray_pending = FALSE;
+    if (status) { camera = &spray_pending_camera; requested = TRUE; halo_spray_source_release(&source); }
+    else console_printf(FALSE, "Spray Image: put a valid spray.png, spray.jpg or spray.gif in sprays/ beside halo.exe");
+   }
+  }
+ }
 	if (requested && !game_time_get_paused() && !cinematic_in_progress() &&
 		(!spray_cooldown_active ||
 		 (unsigned long)game_time_get() - spray_last_tick >= 4 * TICKS_PER_SECOND))
@@ -138,11 +155,7 @@ void halo_spray_render(short local_player_index, struct render_camera const *cam
 	if (spray_vertex_count)
 		halo_spray_draw(projected, spray_vertex_count);
 	for(index=0;index<SPRAY_SHARE_SLOTS;index++)if(shared_sprays[index].count){
-	 int vertex;float aspect;
-	 if(shared_sprays[index].dirty){
-	  if(!halo_spray_image_load_slot(index,shared_sprays[index].path,&aspect))continue;
-	  shared_sprays[index].dirty=0;
-	 }
+	 int vertex;
 	 for(vertex=0;vertex<shared_sprays[index].count;vertex++)spray_project(frustum,&shared_sprays[index].vertices[vertex],&projected[vertex]);
 	 halo_spray_draw_slot(index,projected,shared_sprays[index].count);
 	}

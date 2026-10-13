@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <pthread.h>
 #include "../../third_party/monocypher/monocypher.h"
 
 #define STBI_ONLY_PNG
@@ -18,17 +19,21 @@
 #define STBI_FAILURE_USERMSG
 /* Bound stb's inflated scanlines and output, including a 4096-square
    16-bit RGBA PNG's working buffers and its final 8-bit pixels. */
+static pthread_mutex_t spray_cache_scan_lock = PTHREAD_MUTEX_INITIALIZER;
 static size_t spray_decode_bytes;
+static pthread_mutex_t spray_decode_lock = PTHREAD_MUTEX_INITIALIZER;
 static void *spray_decode_malloc(size_t size)
 {
 	size_t *allocation;
+	pthread_mutex_lock(&spray_decode_lock);
 	if (size > SPRAY_DECODE_LIMIT || spray_decode_bytes > SPRAY_DECODE_LIMIT - size)
-		return NULL;
+	{ pthread_mutex_unlock(&spray_decode_lock); return NULL; }
 	allocation = malloc(sizeof(*allocation) + size);
 	if (!allocation)
-		return NULL;
+	{ pthread_mutex_unlock(&spray_decode_lock); return NULL; }
 	*allocation = size;
 	spray_decode_bytes += size;
+	pthread_mutex_unlock(&spray_decode_lock);
 	return allocation + 1;
 }
 static void spray_decode_free(void *data)
@@ -36,7 +41,9 @@ static void spray_decode_free(void *data)
 	if (data)
 	{
 		size_t *allocation = (size_t *)data - 1;
+		pthread_mutex_lock(&spray_decode_lock);
 		spray_decode_bytes -= *allocation;
+		pthread_mutex_unlock(&spray_decode_lock);
 		free(allocation);
 	}
 }
@@ -72,14 +79,21 @@ static struct spray_animation
 	Uint64 started, duration;
 } spray_animations[SPRAY_SHARE_SLOTS];
 
+static size_t spray_async_animation_size(int slot);
+static void spray_async_release_slot(int slot);
+static int spray_async_animate(int slot, Uint64 now);
+static int spray_async_visible(int slot);
+static void spray_async_forget(void);
+
 static size_t spray_animation_size(int slot)
 {
 	struct spray_animation *a = &spray_animations[slot];
-	return a->pixels ? (size_t)a->width * a->height * 4 * a->frames : 0;
+	return a->pixels ? (size_t)a->width * a->height * 4 * a->frames : spray_async_animation_size(slot);
 }
 
 static void spray_release_slot(int slot)
 {
+	spray_async_release_slot(slot);
 	if (spray_textures[slot]) glDeleteTextures(1, &spray_textures[slot]);
 	spray_textures[slot] = 0; spray_texture_bytes[slot] = 0;
 	stbi_image_free(spray_animations[slot].pixels);
@@ -153,26 +167,19 @@ void halo_spray_file_free(void *data)
 	free(data);
 }
 
+/* Header inspection must not inflate pixels or composite an animation. Full
+   validation happens on the preparation worker before anything is displayed. */
 int halo_spray_image_aspect(const void *data, size_t size, float *aspect)
 {
-	int width, height, frames;
-	int *delays = NULL;
-	unsigned char *pixels;
-	unsigned char hash[32];
-	int i;
-	if (!data || !size || size > SPRAY_SHARE_LIMIT)
-		return 0;
-	crypto_blake2b(hash, 32, data, size);
-	for (i = 0; i < SPRAY_SHARE_SLOTS; i++)
-		if (spray_texture_aspects[i] > 0.0f && !memcmp(hash, spray_texture_hashes[i], 32))
-		{ *aspect = spray_texture_aspects[i]; return 1; }
-	pixels = spray_decode_image(data, size, &width, &height, &frames, &delays);
-	if (!pixels)
-		return 0;
-	stbi_image_free(pixels);
-	stbi_image_free(delays);
-	*aspect = (float)height / width;
-	return 1;
+ int width, height, channels;
+ const char *extension = spray_image_extension(data, size);
+ if (!extension || !size || size > SPRAY_SHARE_LIMIT) return 0;
+ if (!strcmp(extension, "gif"))
+ { if (!spray_gif_info(data, size, &width, &height)) return 0; }
+ else if (!stbi_info_from_memory(data, (int)size, &width, &height, &channels)) return 0;
+ if (width <= 0 || height <= 0 || width > STBI_MAX_DIMENSIONS || height > STBI_MAX_DIMENSIONS) return 0;
+ *aspect = (float)height / width;
+ return 1;
 }
 
 /* The sidecar index keeps the human-readable download names. Only its digest
@@ -235,8 +242,10 @@ static int spray_legacy_find(const char *directory, const unsigned char hash[32]
 	static int count;
 	struct spray_legacy_lookup lookup = {hash, size, capacity, data, path, 0};
 	int i;
-	for (i = 0; i < count; i++) if (scanned[i] == size) return 0;
+	pthread_mutex_lock(&spray_cache_scan_lock);
+	for (i = 0; i < count; i++) if (scanned[i] == size) { pthread_mutex_unlock(&spray_cache_scan_lock); return 0; }
 	if (count < 64) scanned[count++] = size;
+	pthread_mutex_unlock(&spray_cache_scan_lock);
 	SDL_EnumerateDirectory(directory, spray_legacy_entry, &lookup);
 	return lookup.found;
 }
@@ -285,7 +294,7 @@ static void spray_cache_record(const unsigned char hash[32], const char *path)
 	const char *name = strrchr(path, '/');
 	FILE *file;
 	if (!name || !spray_cache_paths(hash, index, sizeof(index), directory, sizeof(directory)) ||
-		SDL_snprintf(temporary, sizeof(temporary), "%s.part", index) >= (int)sizeof(temporary))
+		SDL_snprintf(temporary, sizeof(temporary), "%s.%llu.part", index, (unsigned long long)SDL_GetCurrentThreadID()) >= (int)sizeof(temporary))
 		return;
 	file = fopen(temporary, "wb");
 	if (file)
@@ -517,6 +526,7 @@ int spray_image_load_bytes(int slot, const void *data, size_t size, float *aspec
 void halo_spray_image_forget(void)
 {
 	int i;
+	spray_async_forget();
 	for (i = 0; i < SPRAY_SHARE_SLOTS; i++) spray_release_slot(i);
 	xgpu_gl_state_invalidate();
 }
@@ -526,6 +536,7 @@ static void spray_animate(int slot, Uint64 now)
 	struct spray_animation *a = &spray_animations[slot];
 	Uint64 elapsed;
 	int frame;
+	if (spray_async_animate(slot, now)) return;
 	if (!a->pixels || !a->duration) return;
 	elapsed = (now - a->started) % a->duration;
 	for (frame = 0; frame + 1 < a->frames && elapsed >= (Uint64)a->delays[frame]; frame++)
@@ -537,6 +548,8 @@ static void spray_animate(int slot, Uint64 now)
 		a->frame = frame;
 	}
 }
+
+#include "spray_async.h"
 
 static int spray_prepare(void)
 {
@@ -590,7 +603,7 @@ void halo_spray_image_draw_slot(int slot, struct halo_spray_clip_vertex const *v
 	GLint program, array, buffer, active, texture, sampler, function;
 	GLint src_rgb, dst_rgb, src_alpha, dst_alpha, equation_rgb, equation_alpha;
 	GLboolean depth, blend, stencil, cull, mask[4], depth_mask;
-	if (slot < 0 || slot >= SPRAY_SHARE_SLOTS || !spray_textures[slot] || count <= 0 ||
+	if (slot < 0 || slot >= SPRAY_SHARE_SLOTS || !spray_async_visible(slot) || !spray_textures[slot] || count <= 0 ||
 		count > HALO_SPRAY_MAXIMUM_VERTICES || !spray_prepare())
 		return;
 	spray_animate(slot, SDL_GetTicks());

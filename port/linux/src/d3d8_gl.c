@@ -3742,7 +3742,12 @@ static unsigned long model_light_register(int light)
 int halo_spray_image_load(float *aspect)
 {
 	draw_flush();
-	return spray_image_load(aspect);
+	return spray_image_enqueue_local(aspect);
+}
+
+void halo_spray_images_update(void)
+{
+ if (device.gl_ready) { draw_flush(); spray_images_update(); }
 }
 
 int halo_spray_image_load_slot(int slot,const char *path,float *aspect)

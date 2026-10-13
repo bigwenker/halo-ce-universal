@@ -189,7 +189,7 @@ static int commit(struct spray_share *s, struct image *image, int slot, int loca
 {
 	int i;
 	if (!s->cb.ready(s->context, slot, image->owner, image->data, image->size, &image->pose,
-					 image->name, local))
+					 image->name, local, image->hash))
 		return 0;
 	for (i = 0; i < SPRAY_SHARE_PEERS; i++)
 	{
@@ -205,8 +205,8 @@ static int commit(struct spray_share *s, struct image *image, int slot, int loca
 		distribute(s, slot);
 	return 1;
 }
-int spray_share_publish(struct spray_share *s, int owner, const void *data, size_t size,
-						struct spray_pose pose, const char *name)
+int spray_share_publish_prehashed(struct spray_share *s, int owner, const void *data, size_t size,
+ struct spray_pose pose, const char *name, const unsigned char hash[32])
 {
 	struct image im;
 	int slot;
@@ -227,7 +227,8 @@ int spray_share_publish(struct spray_share *s, int owner, const void *data, size
 	memcpy(im.data, data, size);
 	im.size = (uint32_t)size;
 	im.id = ++s->serial;
-	crypto_blake2b(im.hash, 32, im.data, size);
+	if (hash) memcpy(im.hash, hash, 32);
+	else crypto_blake2b(im.hash, 32, im.data, size);
 	slot = slot_for(s, owner);
 	if (!commit(s, &im, slot, 1))
 	{
@@ -240,6 +241,11 @@ int spray_share_publish(struct spray_share *s, int owner, const void *data, size
 		s->peers[0].pending |= 1u << slot;
 	}
 	return 1;
+}
+int spray_share_publish(struct spray_share *s, int owner, const void *data, size_t size,
+ struct spray_pose pose, const char *name)
+{
+ return spray_share_publish_prehashed(s, owner, data, size, pose, name, NULL);
 }
 int spray_share_available(const struct spray_share *s)
 {

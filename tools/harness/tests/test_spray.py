@@ -9,14 +9,14 @@ from harness import build, enum_with, function, mutated, read, run, structure
 CASES = ['wall', 'edge', 'aspect', 'floor', 'invisible', 'broken-ring', 'capacity',
          'cooldown', 'failed-cooldown', 'singleplayer', 'network', 'multiplayer', 'split-screen', 'menu', 'pause', 'cinematic',
          'dead', 'blocked', 'missing-image', 'replace', 'reset', 'input', 'shared', 'shared-bsp', 'shared-nan',
-         'shared-local', 'shared-echo', 'shared-identical', 'shared-local-upload-failed', 'shared-remote-cache']
+         'preparing', 'preparing-reset', 'shared-local', 'shared-echo', 'shared-identical', 'shared-local-upload-failed', 'shared-remote-cache']
 CONTROLS = {
     'short-cooldown': ('>= 4 * TICKS_PER_SECOND', '>= 3 * TICKS_PER_SECOND', 'cooldown'),
     'failed-cooldown': ('if (placed)\n\t\t\t{', 'if (TRUE || placed)\n\t\t\t{', 'failed-cooldown'),
     'invisible-allowed': ('FLAG(_collision_surface_invisible_bit) |', '', 'invisible'),
     'stale-checkpoint': ('spray_vertex_count = 0;', ';', 'reset'),
     'repeat-input': ('down && !was_down && gameplay', 'down && was_down && gameplay', 'input'),
-    'own-download': ('if(local||network_spray_is_local(owner))', 'if(0)', 'shared-echo'),
+    'own-download': ('!(local||network_spray_is_local(owner))', '1', 'shared-echo'),
 }
 
 

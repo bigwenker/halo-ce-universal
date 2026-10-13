@@ -49,7 +49,7 @@ boolean network_distributed_server_send_to_machine_reliably(long machine,void *d
 short network_distributed_server_machines(long *indices,short capacity){CHECK(capacity>=1,"capacity");indices[0]=1;return 1;}
 void posix_random_bytes(void *data,unsigned int size){memset(data,42,size);}
 unsigned long system_milliseconds(void){return 1000;}
-int network_spray_ready(int slot,int owner,const void *data,size_t size,const struct spray_pose *pose,const char *name,int local){(void)slot;(void)owner;(void)data;(void)size;(void)pose;(void)name;(void)local;return ready;}
+int network_spray_ready(int slot,int owner,const void *data,size_t size,const struct spray_pose *pose,const char *name,int local,const unsigned char hash[32]){(void)hash;(void)slot;(void)owner;(void)data;(void)size;(void)pose;(void)name;(void)local;return ready;}
 int halo_spray_file_cached(const unsigned char hash[32],size_t size,void *data){(void)hash;(void)size;(void)data;return 0;}
 static char file_path[128];
 static void *file_allocation;

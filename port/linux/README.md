@@ -1219,6 +1219,16 @@ Devices with a smaller hardware texture limit reject images beyond that limit.
 Animated GIFs loop with their frame delays, transparency and disposal. A GIF
 may have at most 256 frames and 64 MiB of decoded frames; aggregate animation
 storage is also capped at 64 MiB, evicting older image slots when necessary.
+Image files are preloaded and refreshed in the background. One worker decodes
+content once and builds mipmaps; matching decals share the prepared pixels.
+Uploads across all sprays are limited to 1 MiB per rendered frame. GIFs use a
+back texture, so a partially uploaded frame is never visible; under load the
+previous complete frame remains visible until the replacement is ready.
+Very large or numerous GIFs can therefore update more slowly than their source
+frame rate. Texture budgets include both animation textures, and prepared
+pixels/mipmaps count toward the 320 MiB allocation limit. The first placement
+may wait for preparation, without blocking rendering. Map resets cancel pending
+placements/preparations without waiting for the worker.
 The four-second cooldown and random plasma-rifle overheat2/overheat3 sound are
 preserved. Sprays use actual level-surface decal clipping and depth testing.
 They are temporary visuals outside checkpoints, cleared on map/BSP changes.

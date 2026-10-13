@@ -117,10 +117,10 @@ static int spray_accept(void *context, int machine, struct spray_pose *pose, cha
 }
 
 static int spray_ready(void *context, int slot, int owner, const void *data, size_t size,
-					   const struct spray_pose *pose, const char *name, int local)
+					   const struct spray_pose *pose, const char *name, int local, const unsigned char hash[32])
 {
 	(void)context;
-	if (!network_spray_ready(slot, owner, data, size, pose, name, local))
+	if (!network_spray_ready(slot, owner, data, size, pose, name, local, hash))
 		return 0;
 	if (host_role && owner >= 0 && owner < SPRAY_SHARE_PEERS)
 	{
@@ -210,12 +210,10 @@ void network_spray_handle_message(long machine, const void *message, unsigned sh
 }
 int network_spray_publish(struct spray_pose pose)
 {
-	void *data;
-	size_t size;
-	int result;
-	if (!spray_share_available(share) || !halo_spray_file_read(&data, &size))
-		return 0;
-	result = spray_share_publish(share, local_machine, data, size, pose, "");
-	halo_spray_file_free(data);
-	return result;
+ struct halo_spray_source source;
+ int result;
+ if (!spray_share_available(share) || halo_spray_source_acquire(&source) != 1) return 0;
+ result = spray_share_publish_prehashed(share, local_machine, source.data, source.size, pose, "", source.hash);
+ halo_spray_source_release(&source);
+ return result;
 }

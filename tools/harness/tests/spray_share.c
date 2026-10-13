@@ -27,8 +27,10 @@ static int accept_spray(void *context,int owner,struct spray_pose *pose,char nam
  (void)context;if(owner<0||owner>=128||pose->bsp!=4||pose->direction[0]!=1.5f)return 0;
  snprintf(name,32,"peer%d",owner);return 1;
 }
-static int ready(void *context,int slot,int owner,const void *data,size_t size,const struct spray_pose *pose,const char *name,int local){
- struct endpoint *e=context;(void)slot;(void)pose;(void)local;CHECK(owner>=0&&owner<128,"bad owner");CHECK(size&&size<=SPRAY_SHARE_LIMIT,"bad size");CHECK(name[31]==0,"unterminated name");e->ready++;
+static int ready(void *context,int slot,int owner,const void *data,size_t size,const struct spray_pose *pose,const char *name,int local,const unsigned char hash[32]){
+ unsigned char actual_hash[32];crypto_blake2b(actual_hash,32,data,size);CHECK(!memcmp(actual_hash,hash,32),"ready callback received an unverified digest");
+
+ struct endpoint *e=context;(void)hash;(void)slot;(void)pose;(void)local;CHECK(owner>=0&&owner<128,"bad owner");CHECK(size&&size<=SPRAY_SHARE_LIMIT,"bad size");CHECK(name[31]==0,"unterminated name");e->ready++;
  free(e->cached);e->cached=malloc(size);CHECK(e->cached,"cache allocation");memcpy(e->cached,data,size);e->cached_size=size;crypto_blake2b(e->cached_hash,32,data,size);
  if(e->path[0]){FILE *f=fopen(e->path,"wb");CHECK(f,"download path unavailable");CHECK(fwrite(data,1,size,f)==size,"short download write");CHECK(!fclose(f),"close failed");}
  return 1;

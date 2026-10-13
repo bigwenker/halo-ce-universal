@@ -7,7 +7,7 @@ import subprocess
 import sys
 import tempfile
 from PIL import Image
-from test_screenshot import PRELUDE
+from test_screenshot import PRELUDE, block
 
 ROOT = Path(__file__).resolve().parents[1]
 PREFIX = PRELUDE.split('struct render_target_entry')[0] + r'''
@@ -24,6 +24,98 @@ static GLuint xgpu_link_program(GLuint v,GLuint f,const char *what){
     glAttachShader(p,v);glAttachShader(p,f);glLinkProgram(p);glGetProgramiv(p,GL_LINK_STATUS,&ok);CHECK(ok);return p;
 }
 '''
+ASYNC_HOOKS = r'''
+static SDL_AtomicInt test_decode_count, test_decode_hold, test_decode_entered, test_decode_active;
+static SDL_ThreadID test_render_thread;
+static size_t test_uploaded;
+static void spray_test_before_decode(void){
+ CHECK(SDL_GetCurrentThreadID()!=test_render_thread);
+ SDL_AddAtomicInt(&test_decode_count,1);SDL_AddAtomicInt(&test_decode_active,1);SDL_SetAtomicInt(&test_decode_entered,1);
+ while(SDL_GetAtomicInt(&test_decode_hold))SDL_Delay(1);
+}
+static void GLAPIENTRY spray_test_sub_image(GLenum target,GLint level,GLint x,GLint y,GLsizei width,GLsizei height,GLenum format,GLenum type,const void *pixels){
+ CHECK(SDL_GetCurrentThreadID()==test_render_thread);test_uploaded+=(size_t)width*height*4;
+ glTexSubImage2D(target,level,x,y,width,height,format,type,pixels);
+}
+'''
+ASYNC_TEST = r'''
+static void gif_texture(int slot,const char *root,int frame);
+static struct halo_spray_clip_vertex quad[6];
+static double worst_update;
+static int upload_updates;
+static void async_update(void){
+ Uint64 before=SDL_GetTicksNS();test_uploaded=0;spray_images_update();
+ double elapsed=(SDL_GetTicksNS()-before)/1e6;if(elapsed>worst_update)worst_update=elapsed;
+ CHECK(test_uploaded<=SPRAY_UPLOAD_BUDGET);if(test_uploaded)upload_updates++;
+}
+static void wait_visible(int slot){
+ Uint64 until=SDL_GetTicks()+10000;
+ while(!spray_visible[slot]&&SDL_GetTicks()<until){async_update();SDL_Delay(1);}
+ CHECK(spray_visible[slot]);
+}
+static void wait_entered(void){
+ Uint64 until=SDL_GetTicks()+2000;
+ while(!SDL_GetAtomicInt(&test_decode_entered)&&SDL_GetTicks()<until)SDL_Delay(1);
+ CHECK(SDL_GetAtomicInt(&test_decode_entered));
+}
+static void run_async(const char *root){
+ char path[4096];size_t size;unsigned char hash[32];float aspect;
+ test_render_thread=SDL_GetCurrentThreadID();
+ SDL_snprintf(path,sizeof(path),"%s/animated.gif",root);void *bytes=SDL_LoadFile(path,&size);CHECK(bytes);crypto_blake2b(hash,32,bytes,size);
+ CHECK(halo_spray_image_aspect(bytes,size,&aspect)&&aspect==1);CHECK(!SDL_GetAtomicInt(&test_decode_count));
+ SDL_SetAtomicInt(&test_decode_hold,1);
+ Uint64 began=SDL_GetTicksNS();CHECK(halo_spray_image_enqueue(0,bytes,size,hash,"",0));
+ double enqueue_ms=(SDL_GetTicksNS()-began)/1e6;
+ wait_entered();
+ for(int i=0;i<100;i++){async_update();CHECK(!spray_visible[0]);halo_spray_image_draw_slot(0,quad,6);}
+ CHECK(SDL_GetAtomicInt(&test_decode_active)==1);SDL_SetAtomicInt(&test_decode_hold,0);wait_visible(0);
+ CHECK(SDL_GetAtomicInt(&test_decode_count)==1);gif_texture(0,root,0);
+ for(int frame=1;frame<3;frame++){
+  spray_animate(0,spray_animations[0].started+(frame==1?100:300));CHECK(spray_animations[0].frame!=frame);
+  Uint64 until=SDL_GetTicks()+3000;while(spray_animations[0].frame!=frame&&SDL_GetTicks()<until){async_update();SDL_Delay(1);}
+  CHECK(spray_animations[0].frame==frame);gif_texture(0,root,frame);
+ }
+ for(int i=0;i<10;i++)CHECK(halo_spray_image_enqueue(0,bytes,size,hash,"",0));
+ CHECK(SDL_GetAtomicInt(&test_decode_count)==1);
+ CHECK(halo_spray_image_enqueue(1,bytes,size,hash,"",0));wait_visible(1);
+ CHECK(spray_slot_images[0]==spray_slot_images[1]&&SDL_GetAtomicInt(&test_decode_count)==1);
+ SDL_free(bytes);
+ SDL_snprintf(path,sizeof(path),"%s/maximum.png",root);bytes=SDL_LoadFile(path,&size);CHECK(bytes);crypto_blake2b(hash,32,bytes,size);
+ int before_uploads=upload_updates;began=SDL_GetTicksNS();CHECK(halo_spray_image_enqueue(2,bytes,size,hash,"",0));
+ double png_enqueue_ms=(SDL_GetTicksNS()-began)/1e6;wait_visible(2);
+ CHECK(upload_updates-before_uploads>=85);CHECK(SDL_GetAtomicInt(&test_decode_count)==2);
+ GLint bound,active;glGetIntegerv(GL_ACTIVE_TEXTURE,&active);glActiveTexture(GL_TEXTURE0);glGetIntegerv(GL_TEXTURE_BINDING_2D,&bound);
+ glBindTexture(GL_TEXTURE_2D,spray_textures[2]);unsigned char mip[4];glGetTexImage(GL_TEXTURE_2D,12,GL_RGBA,GL_UNSIGNED_BYTE,mip);
+ CHECK(mip[0]==255&&!mip[1]&&!mip[2]&&mip[3]==255);glBindTexture(GL_TEXTURE_2D,bound);glActiveTexture(active);
+ // A valid header with corrupt pixel data must never become visible or saved.
+ unsigned char bad_hash[32];crypto_blake2b(bad_hash,32,bytes,64);CHECK(halo_spray_image_enqueue(2,bytes,64,bad_hash,"invalid",1));
+ Uint64 until=SDL_GetTicks()+5000;while(spray_jobs[2].state!=6&&SDL_GetTicks()<until){async_update();SDL_Delay(1);}
+ CHECK(spray_jobs[2].state==6&&!spray_visible[2]);
+ // The GPU cap evicts a slot. Repeating that same digest must reload it.
+ CHECK(halo_spray_image_enqueue(2,bytes,size,hash,"",0));wait_visible(2);
+ CHECK(halo_spray_image_enqueue(4,bytes,size,hash,"",0));wait_visible(4);CHECK(!spray_slot_images[2]);
+ CHECK(halo_spray_image_enqueue(2,bytes,size,hash,"",0));wait_visible(2);CHECK(!spray_slot_images[4]);
+ size_t residency=0;for(int i=0;i<SPRAY_SHARE_SLOTS;i++)residency+=spray_texture_bytes[i];CHECK(residency<=SPRAY_TEXTURE_LIMIT);
+ SDL_free(bytes);
+ // Cancel an in-flight decode. The completed old generation cannot reappear.
+ SDL_snprintf(path,sizeof(path),"%s/photo.jpg",root);bytes=SDL_LoadFile(path,&size);CHECK(bytes);crypto_blake2b(hash,32,bytes,size);
+ SDL_SetAtomicInt(&test_decode_entered,0);SDL_SetAtomicInt(&test_decode_hold,1);
+ CHECK(halo_spray_image_enqueue(3,bytes,size,hash,"",0));wait_entered();halo_spray_image_forget();SDL_SetAtomicInt(&test_decode_hold,0);
+ until=SDL_GetTicks()+5000;while(SDL_GetAtomicInt(&test_decode_active)&&SDL_GetTicks()<until)SDL_Delay(1);
+ CHECK(!SDL_GetAtomicInt(&test_decode_active));for(int i=0;i<10;i++){async_update();SDL_Delay(1);}
+ CHECK(!spray_textures[3]&&!spray_slot_images[3]&&spray_jobs[3].state==0);
+ // Preload the local file. Acquiring a snapshot then requires no file access.
+ char local_path[4096];CHECK(spray_source_path(local_path,sizeof(local_path)));CHECK(SDL_SaveFile(local_path,bytes,size));SDL_free(bytes);
+ spray_source_check_tick=0;async_update();struct halo_spray_source source={0};
+ until=SDL_GetTicks()+5000;int status;while((status=halo_spray_source_acquire(&source))!=1&&SDL_GetTicks()<until){async_update();SDL_Delay(1);}
+ CHECK(status==1&&!memcmp(source.hash,hash,32));halo_spray_source_release(&source);CHECK(SDL_RemovePath(local_path));
+ CHECK(halo_spray_source_acquire(&source)==1&&!memcmp(source.hash,hash,32));halo_spray_source_release(&source);
+ int before=SDL_GetAtomicInt(&test_decode_count);CHECK(spray_image_enqueue_local(&aspect));wait_visible(0);CHECK(SDL_GetAtomicInt(&test_decode_count)==before);
+ halo_spray_image_forget();halo_spray_worker_shutdown();CHECK(!spray_decode_bytes);
+ printf("ASYNC first GIF enqueue %.3f ms; maximum PNG enqueue %.3f ms; worst preparation/upload update %.3f ms; worker barrier, decode reuse, 1 MiB upload cap, GIF pixels/mips, cancellation and source preload passed\n",enqueue_ms,png_enqueue_ms,worst_update);
+}
+'''
+
 TEST = r'''
 static void gif_texture(int slot,const char *root,int frame){
  char path[4096];size_t size;SDL_snprintf(path,sizeof(path),"%s/frame%d.rgba",root,frame);unsigned char *expected=SDL_LoadFile(path,&size);CHECK(expected&&size==1024);
@@ -180,6 +272,11 @@ def main():
     args = parser.parse_args()
     source = (ROOT / 'port/linux/src/spray_image.c').read_text().replace('#include "xgpu.h"', '')
     source = source.replace('void console_printf(BOOL warning, const char *format, ...);', '')
+    async_source = (ROOT / 'port/linux/src/spray_async.h').read_text()
+    async_source = async_source.replace('decoded = spray_decode_image(', 'spray_test_before_decode(); decoded = spray_decode_image(')
+    async_source = async_source.replace('if (!decoded) {', 'SDL_AddAtomicInt(&test_decode_active,-1); if (!decoded) {')
+    async_source = async_source.replace('glTexSubImage2D(', 'spray_test_sub_image(')
+    source = source.replace('#include "spray_async.h"', async_source)
     source = source.replace('"../../third_party/stb/stb_image.h"', '"stb_image.h"')
     source = source.replace('"../../third_party/monocypher/monocypher.h"', '"monocypher.h"')
     command = [args.cc, '-std=gnu11', '-O2', '-fuse-ld=lld', '-I' + str(ROOT / 'port/linux/src'), '-I' + str(ROOT / 'port/third_party/stb')]
@@ -187,7 +284,7 @@ def main():
     env = dict(os.environ)
     if sys.platform == 'win32':
         sdl = next((ROOT / 'build/windows/third_party').glob('SDL3-*/include')).parent
-        command += ['--target=i686-pc-windows-msvc', '-I' + str(sdl / 'include')]
+        command += ['--target=i686-pc-windows-msvc', '-I' + str(sdl / 'include'), '-I' + str(ROOT / 'port/windows/include/posix')]
         libraries = [str(sdl / 'lib/x86/SDL3.lib')]
         env['PATH'] = str(sdl / 'lib/x86') + os.pathsep + env['PATH']
     else:
@@ -224,9 +321,14 @@ def main():
         huge[0].save(path/'animation-large.gif',save_all=True,append_images=huge[1:],duration=100,optimize=False)
         huge[0].save(path/'resident.gif',save_all=True,append_images=huge[1:2],duration=100,optimize=False)
         Image.new('RGB',(4097,1)).save(path/'too-wide.gif')
-        (path / 'spray.c').write_text(PREFIX + source + TEST)
+        if sys.platform == 'win32':
+            threads = (ROOT / 'port/windows/src/win32_posix.c').read_text().split('/* ---------- threads */')[1].split('/* ---------- time */')[0]
+            threads = threads.replace(block(threads, 'int pthread_cond_timedwait('), '')
+            (path / 'threads.c').write_text('#include <windows.h>\n#include <stdlib.h>\n#include <errno.h>\n#include "pthread.h"\n' + threads)
+            command.append(str(path / 'threads.c'))
+        (path / 'spray.c').write_text(PREFIX + ASYNC_HOOKS + source + ASYNC_TEST + TEST.replace('CHECK(glGetError()==GL_NO_ERROR);', 'run_async(argv[1]);CHECK(glGetError()==GL_NO_ERROR);'))
         subprocess.run([*command, str(path / 'spray.c'), *libraries, '-o', str(path / 'spray.exe')], check=True)
-        subprocess.run([str(path / 'spray.exe'), str(path)], cwd=ROOT, env=env, check=True, timeout=30)
+        subprocess.run([str(path / 'spray.exe'), str(path)], cwd=ROOT, env=env, check=True, timeout=60)
 
 
 if __name__ == '__main__':

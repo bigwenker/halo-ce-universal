@@ -19,9 +19,11 @@ struct spray_share_callbacks
 	int (*send)(void *, int, const void *, size_t, int);
 	/* The host checks the sender's unit, wall ray and cooldown, and supplies its name. */
 	int (*accept)(void *, int, struct spray_pose *, char[32]);
-	/* Validate/decode and persist before an image becomes visible or is relayed. */
+	/* Validate placement/header and queue preparation before relaying. The
+       renderer displays only successfully decoded, fully uploaded images. The
+       final argument is the already-verified digest, avoiding another hash. */
 	int (*ready)(void *, int, int, const void *, size_t, const struct spray_pose *, const char *,
-				 int);
+				 int, const unsigned char[32]);
 	/* Optional persistent lookup. Fill exactly size bytes in caller-owned storage. */
 	int (*cached)(void *, const unsigned char[32], size_t, void *);
 };
@@ -33,6 +35,10 @@ void spray_share_update(struct spray_share *, uint32_t milliseconds);
 void spray_share_receive(struct spray_share *, int peer, const void *, size_t);
 int spray_share_publish(struct spray_share *, int owner, const void *, size_t, struct spray_pose,
 						const char *);
+/* Only for immutable local content already hashed by the preparation worker.
+   Received data always follows the verified receive path. Wire format unchanged. */
+int spray_share_publish_prehashed(struct spray_share *, int owner, const void *, size_t,
+ struct spray_pose, const char *, const unsigned char hash[32]);
 int spray_share_available(const struct spray_share *);
 int spray_share_handles(const void *, size_t);
 #endif

@@ -52,6 +52,8 @@ static short local_random_range(short a,short b){CHECK(a==0&&b==2,"wrong random 
 static long unspatialized_impulse_sound_new_named(long index,const char *name){CHECK(index==7 && !strcmp(name,choice?"overheat3":"overheat2"),"wrong sound variant");sounds++;return 8;}
 static int loads,draws,forgotten,rays,presses,saves;
 static boolean upload_failed;
+static boolean source_preparing;
+static int queued[SPRAY_SHARE_SLOTS];
 static struct collision_result hit;
 static boolean game_in_progress(void){return active;}
 static boolean main_menu_is_active(void){return menu;}
@@ -62,8 +64,16 @@ static boolean cinematic_in_progress(void){return cinematic;}
 static long player_control_get_unit_index(short p){(void)p;return unit;}
 int platform_spray_take_request(void){boolean old=request;request=FALSE;return old;}
 void platform_spray_request(void){request=TRUE;presses++;}
+void halo_spray_images_update(void) {}
+int halo_spray_source_acquire(struct halo_spray_source *source){memset(source,0,sizeof(*source));return source_preparing?-1:!missing;}
+void halo_spray_source_release(struct halo_spray_source *source){(void)source;}
+static void console_printf(boolean warning,const char *format,...){(void)warning;(void)format;}
+int halo_spray_image_enqueue(int slot,const void *data,size_t size,const unsigned char hash[32],const char *name,int save){
+ (void)hash;(void)name;CHECK(slot>=0&&slot<SPRAY_SHARE_SLOTS&&data&&size,"invalid queued image");
+ if(upload_failed)return 0;if(!queued[slot]){queued[slot]=1;loads++;saves+=save;}return 1;
+}
 int halo_spray_image_load(float *aspect){loads++;*aspect=1;return !missing;}
-void halo_spray_image_forget(void){forgotten++;}
+void halo_spray_image_forget(void){forgotten++;memset(queued,0,sizeof(queued));}
 static short global_structure_bsp_index_get(void){return 0;}
 void network_spray_reset(void){}
 long network_spray_unit(int owner){(void)owner;return unit;}
@@ -107,13 +117,13 @@ int main(int argc,char **argv)
   int local=!strcmp(case_name,"shared-local");
   int owner=remote||local?1:0;
   upload_failed=!strcmp(case_name,"shared-local-upload-failed");
-  CHECK(network_spray_ready(1,owner,"x",1,&pose,"same_name",local)==!upload_failed,"memory upload result differs");
+  CHECK(network_spray_ready(1,owner,"x",1,&pose,"same_name",local,(const unsigned char[32]){1})==!upload_failed,"memory upload result differs");
   CHECK(saves==remote,"own spray saved as a download");
   CASE("shared-local-upload-failed"){CHECK(!shared_sprays[1].count,"failed upload replaced geometry");return 0;}
-  CHECK(network_spray_ready(1,owner,"x",1,&pose,"same_name",local),"repeat failed");
+  CHECK(network_spray_ready(1,owner,"x",1,&pose,"same_name",local,(const unsigned char[32]){1}),"repeat failed");
   CHECK(saves==remote,"repeat created another download");
   CASE("shared-identical"){
-   CHECK(network_spray_ready(2,1,"x",1,&pose,"same_name",0),"remote identical image failed");
+   CHECK(network_spray_ready(2,1,"x",1,&pose,"same_name",0,(const unsigned char[32]){1}),"remote identical image failed");
    CHECK(saves==1,"another player's identical spray was not saved");
   }
   int before=loads;
@@ -125,9 +135,9 @@ int main(int argc,char **argv)
  if(!strncmp(case_name,"shared",6)){
   blocked=TRUE; /* A moving object arrived while the PNG was in transit. */
   struct spray_pose pose={{0,0,0},{-1.5f,0,0},0};
-  CASE("shared-bsp"){pose.bsp=1;CHECK(!network_spray_ready(1,1,"x",1,&pose,"remote",0),"stale BSP accepted");return 0;}
-  CASE("shared-nan"){pose.direction[0]=NAN;CHECK(!network_spray_ready(1,1,"x",1,&pose,"remote",0),"NaN accepted");return 0;}
-  CHECK(network_spray_ready(1,1,"x",1,&pose,"remote",0)&&network_spray_ready(2,2,"y",1,&pose,"remote2",0),"shared placement failed");
+  CASE("shared-bsp"){pose.bsp=1;CHECK(!network_spray_ready(1,1,"x",1,&pose,"remote",0,(const unsigned char[32]){1}),"stale BSP accepted");return 0;}
+  CASE("shared-nan"){pose.direction[0]=NAN;CHECK(!network_spray_ready(1,1,"x",1,&pose,"remote",0,(const unsigned char[32]){1}),"NaN accepted");return 0;}
+  CHECK(network_spray_ready(1,1,"x",1,&pose,"remote",0,(const unsigned char[32]){1})&&network_spray_ready(2,2,"y",1,&pose,"remote2",0,(const unsigned char[32]){1}),"shared placement failed");
   halo_spray_render(0,&camera,&frustum);CHECK(draws==2&&shared_sprays[1].count==6&&shared_sprays[2].count==6,"player images overwrite each other");
   halo_spray_reset();halo_spray_render(0,&camera,&frustum);CHECK(draws==2&&!shared_sprays[1].count,"shared checkpoint retained");return 0;
  }
@@ -149,6 +159,13 @@ int main(int argc,char **argv)
   blocked=TRUE;request=TRUE;halo_spray_render(0,&camera,&frustum);CHECK(sounds==0,"miss played sound");
   blocked=FALSE;surfaces[0].flags=FLAG(_collision_surface_invisible_bit);request=TRUE;halo_spray_render(0,&camera,&frustum);CHECK(sounds==0,"invalid surface played sound");
   surfaces[0].flags=0;request=TRUE;halo_spray_render(0,&camera,&frustum);CHECK(sounds==1&&spray_vertex_count==6,"failed attempt consumed cooldown");return 0;
+ }
+ CASE("preparing"){
+  source_preparing=TRUE;request=TRUE;halo_spray_render(0,&camera,&frustum);CHECK(spray_pending&&!sounds&&!loads,"preparation blocked or consumed a placement");
+  camera.position.x=5;source_preparing=FALSE;halo_spray_render(0,&camera,&frustum);CHECK(!spray_pending&&sounds==1&&loads==1,"prepared request lost");return 0;
+ }
+ CASE("preparing-reset"){
+  source_preparing=TRUE;request=TRUE;halo_spray_render(0,&camera,&frustum);halo_spray_reset();source_preparing=FALSE;halo_spray_render(0,&camera,&frustum);CHECK(!sounds&&!loads,"reset retained pending placement");return 0;
  }
  CASE("network") connection=_game_connection_network_server;
  CASE("multiplayer") connection=_game_connection_network_server;
