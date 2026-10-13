@@ -1,4 +1,5 @@
 #include "harness.h"
+#include <math.h>
 #include "config.inc"
 struct game_variant_options { short friendly_fire; };
 struct network_game { struct game_variant_options variant_options; };
@@ -35,19 +36,22 @@ static struct { unsigned long flags; } material, *damage_material=&material;
 static void *object_normal;
 static real shield_available, dealt_shield, dealt_body;
 static int depleted;
+static boolean body_allows_instant_kill;
 static real chain_scale=1;
+static real enemy_scale=1;
 static real network_social_chain_damage_scale(struct data *damage,long index){return chain_scale;}
+static real coop_enemy_damage_scale(struct data *damage,long index){return enemy_scale;}
 static void object_deplete_body(long index) { depleted++; }
 static void object_damage_shield(long i, struct resistance *r, void *m, struct definition *d,
  struct data *hit, unsigned long *flags, real *shield, real *total)
 { *shield = *total < shield_available ? *total : shield_available; *total -= *shield; dealt_shield += *shield; }
 static void object_damage_body(long i, long region, long node, void *normal, struct resistance *r,
  void *m, struct definition *d, struct data *hit, unsigned long *flags, real *body, real *multiplier, real total, boolean allow_instant_kill)
-{ *body = total; dealt_body += total; }
+{ *body = total; dealt_body += total; body_allows_instant_kill = allow_instant_kill; }
 static real dispatch(short friendly_damage, real friendly_damage_scale, real total_damage,
  boolean force_kill, boolean distributed_damage_authorized, short damaged_object_count)
 {
- real object_total_damage, shield_damage=0, body_damage=0, body_damage_multiplier=0;
+ real object_total_damage, object_damage_scale, shield_damage=0, body_damage=0, body_damage_multiplier=0;
  long current_object_index=20, region_index=NONE, node_index=NONE;
  unsigned long being_damaged_flags=0;
  boolean parent_takes_body_damage=TRUE;
@@ -94,6 +98,30 @@ static int combined(void)
 int main(int argc,char **argv)
 {
  CHECK(argc==2, "friendly fire regression at line %d", __LINE__);
+ if (!strcmp(argv[1],"enemy-health")) {
+  for(int p=0;p<5;p++) {
+   real multipliers[]={1.f,1.25f,1.5f,2.f,3.f};
+   enemy_scale=1.f/multipliers[p];reset();
+   dispatch(_friendly_damage_all,1,120,FALSE,FALSE,0);
+   CHECK(fabsf(dealt_shield+dealt_body-120.f/multipliers[p])<.00002f,"enemy shield/body double scale");
+   CHECK(dealt_shield==20,"shield absorption changed");
+   reset();data.flags=1u<<_damage_bypasses_shields_bit;
+   dispatch(_friendly_damage_all,1,120,FALSE,FALSE,0);
+   CHECK(dealt_shield==0&&fabsf(dealt_body-120.f/multipliers[p])<.00002f,"shield bypass changed");
+   reset();dispatch(_friendly_damage_all,1,120,TRUE,FALSE,0);
+   CHECK(depleted==1,"enemy instant kill changed");
+   reset();material.flags=1u<<_damage_material_head_bit;definition.flags=1u<<_damage_can_cause_headshots_bit;
+   dispatch(_friendly_damage_all,1,120,FALSE,FALSE,0);
+   CHECK(TEST_FLAG(data.flags,_damage_headshot_bit)&&body_allows_instant_kill,"enemy headshot changed");
+   reset();collision.resistance.flags=1u<<_damage_resistance_takes_shield_damage_for_children_bit;
+   real remaining=dispatch(_friendly_damage_all,1,120,FALSE,FALSE,1);
+   CHECK(fabsf(remaining-(120.f-20*multipliers[p]))<.00002f,"enemy parent units wrong");
+   CHECK(dealt_body==0,"parent body changed");
+   shield_available=0;dispatch(_friendly_damage_all,1,remaining,FALSE,FALSE,0);
+   CHECK(fabsf(dealt_body-(120.f/multipliers[p]-20))<.00002f,"parent damage scaled twice");
+  }
+  return 0;
+ }
  if (!strcmp(argv[1],"combined")) return combined();
  if (!strcmp(argv[1],"policy")) return policy();
  if (!strcmp(argv[1],"damage")) {

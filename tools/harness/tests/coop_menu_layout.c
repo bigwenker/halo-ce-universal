@@ -16,19 +16,19 @@ static struct widget_instance *named(struct widget_instance *w,char const *name,
 }
 static void visible_set(struct widget_instance *w,boolean visible){if(w)w->visible=visible;}
 #include "under_test.inc"
-static char const *rows[]={"op_coop_friendly_fire","op_coop_extra_enemies","op_coop_extra_pickups",
+static char const *rows[]={"op_coop_friendly_fire","op_coop_chain_damage","op_coop_extra_enemies","op_coop_enemy_health","op_coop_extra_pickups",
  "op_coop_extra_vehicles","op_coop_enemies_multiplier","op_coop_enemies_per_player","op_coop_player_collisions"};
-static char const *spinners[]={"coop_friendly_fire_spinner","coop_extra_enemies_spinner","coop_extra_pickups_spinner",
+static char const *spinners[]={"coop_friendly_fire_spinner","coop_chain_damage_spinner","coop_extra_enemies_spinner","coop_enemy_health_spinner","coop_extra_pickups_spinner",
  "coop_extra_vehicles_spinner","coop_enemies_multiplier_spinner","coop_enemies_per_player_spinner","coop_player_collisions_spinner"};
-static short counts[]={4,3,3,3,5,5,2};
-static struct widget_instance list,help,row[7],label[7],spinner[7],clone[7];
+static short counts[]={4,4,3,5,3,3,5,5,2};
+static struct widget_instance list,help,row[9],label[9],spinner[9],clone[9];
 static void setup(void)
 {
  memset(&list,0,sizeof(list));list.name="coop_options_menu";list.vertical_offset=9;list.child=row;
  list.parameters.list.extended_description=&help;
- for(int i=0;i<7;i++){
+ for(int i=0;i<9;i++){
   short y=73+30*i;
-  row[i]=(struct widget_instance){.name=rows[i],.visible=TRUE,.vertical_offset=y,.child=&label[i],.next=i<6?&row[i+1]:NULL};
+  row[i]=(struct widget_instance){.name=rows[i],.visible=TRUE,.vertical_offset=y,.child=&label[i],.next=i<8?&row[i+1]:NULL};
   label[i]=(struct widget_instance){.name="label",.vertical_offset=4,.next=&spinner[i]};
   spinner[i]=(struct widget_instance){.name=spinners[i],.type=2,.vertical_offset=1,.child=&clone[i]};
   spinner[i].parameters.list.number_of_items=counts[i];
@@ -40,34 +40,34 @@ int main(int argc,char **argv)
  const char *case_name=argc>1?argv[1]:"";setup();
  CASE("layout") {
   for(int repeat=0;repeat<100;repeat++)for(int mode=0;mode<3;mode++)for(int pickups=0;pickups<3;pickups++)for(int vehicles=0;vehicles<3;vehicles++){
-   spinner[1].parameters.list.selected_index=mode;spinner[2].parameters.list.selected_index=pickups;spinner[3].parameters.list.selected_index=vehicles;
-   list.focused_child=&row[1];gametype_option_help(&list);short y=73;
-   CHECK(row[5].visible==(mode==0||pickups==0||vehicles==0),"per-player visibility");
-   CHECK(row[4].visible==(mode==1||pickups==1||vehicles==1),"multiplier visibility");
-   CHECK(list.focused_child==&row[1],"focus changed");
-   for(int i=0;i<7;i++){
+   spinner[2].parameters.list.selected_index=mode;spinner[4].parameters.list.selected_index=pickups;spinner[5].parameters.list.selected_index=vehicles;
+   list.focused_child=&row[2];gametype_option_help(&list);short y=73;
+   CHECK(row[7].visible==(mode==0||pickups==0||vehicles==0),"per-player visibility");
+   CHECK(row[6].visible==(mode==1||pickups==1||vehicles==1),"multiplier visibility");
+   CHECK(list.focused_child==&row[2],"focus changed");
+   for(int i=0;i<9;i++){
     if(row[i].visible){CHECK(row[i].vertical_offset==y,"gap or overlap at %s",rows[i]);y+=30;}
     CHECK(label[i].vertical_offset==4&&spinner[i].vertical_offset==1&&clone[i].vertical_offset==2,
      "relative descendant positions %s",rows[i]);
-    CHECK(row[i].next==(i<6?&row[i+1]:NULL),"row order changed");
+    CHECK(row[i].next==(i<8?&row[i+1]:NULL),"row order changed");
    }
   }
  } else CASE("help") {
   for(int mode=0;mode<3;mode++)for(int pickups=0;pickups<3;pickups++)for(int vehicles=0;vehicles<3;vehicles++){
-   spinner[1].parameters.list.selected_index=mode;spinner[2].parameters.list.selected_index=pickups;spinner[3].parameters.list.selected_index=vehicles;
+   spinner[2].parameters.list.selected_index=mode;spinner[4].parameters.list.selected_index=pickups;spinner[5].parameters.list.selected_index=vehicles;
    gametype_option_help(&list);short offset=0;
-   for(int i=0;i<7;i++){
+   for(int i=0;i<9;i++){
     if(row[i].visible)for(int choice=0;choice<counts[i];choice++){
      list.focused_child=&row[i];spinner[i].parameters.list.selected_index=choice;gametype_option_help(&list);
      CHECK(help.parameters.text_box.string_list_index==offset+choice,"wrong help row%d choice%d",i,choice);
-     spinner[1].parameters.list.selected_index=mode;spinner[2].parameters.list.selected_index=pickups;spinner[3].parameters.list.selected_index=vehicles;
+     spinner[2].parameters.list.selected_index=mode;spinner[4].parameters.list.selected_index=pickups;spinner[5].parameters.list.selected_index=vehicles;
     }
     offset+=counts[i];
    }
   }
  } else CASE("unrelated") {
-  spinner[1].name="unrelated";list.name="other_options";gametype_option_help(&list);
-  for(int i=0;i<7;i++)CHECK(row[i].visible&&row[i].vertical_offset==73+30*i,"unrelated menu altered");
+  spinner[2].name="unrelated";list.name="other_options";gametype_option_help(&list);
+  for(int i=0;i<9;i++)CHECK(row[i].visible&&row[i].vertical_offset==73+30*i,"unrelated menu altered");
  } else return 2;
  return 0;
 }

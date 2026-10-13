@@ -42,7 +42,7 @@ def test_menu():
     import port_settings
     rows = port_settings.COOP_SETUP_SCREENS[0][3]
     names = [r[0] for r in rows]
-    assert names[names.index('coop_extra_enemies') + 1] == 'coop_extra_pickups'
+    assert names[names.index('coop_enemy_health') + 1] == 'coop_extra_pickups'
     help_text = lambda text: text.replace('\\n', ' ')
     assert help_text(rows[names.index('coop_extra_pickups')][3][0]) == (
         "Pickups grow with the players: by the value of 'Per Player' for each player past the first.")

@@ -20,19 +20,23 @@ def generated(fault=None):
     if fault == 'instant-kill':
         block = mutated(block, ' && friendly_damage_scale == 1.f', '')
     if fault == 'parent-reduction':
-        block = mutated(block, 'object_total_damage / friendly_damage_scale;', 'object_total_damage;')
+        block = mutated(block, 'object_total_damage / object_damage_scale;', 'object_total_damage;')
+    if fault == 'enemy-double-reduction':
+        block = mutated(block, 'object_total_damage = total_damage * object_damage_scale;',
+                        'object_total_damage = total_damage * object_damage_scale * coop_enemy_damage_scale(damage, current_object_index);')
     return (('config.inc', enum_with(header, '_friendly_fire_on') + enum_with(header, '_friendly_damage_all')),
             ('policy.inc', policy), ('damage.inc', block))
 
 
-@pytest.mark.parametrize('case', ['policy', 'damage', 'parent', 'instant', 'combined'])
+@pytest.mark.parametrize('case', ['policy', 'damage', 'parent', 'instant', 'combined', 'enemy-health'])
 def test_case(case):
     status, output = run(build('friendly_fire', generated()), case)
     assert status == 0, output
 
 
 @pytest.mark.parametrize('fault,case', [('no-reduction','policy'), ('double-reduction','damage'),
-                                       ('instant-kill','instant'), ('parent-reduction','parent')])
+                                       ('instant-kill','instant'), ('parent-reduction','parent'),
+                                       ('enemy-double-reduction','enemy-health')])
 def test_negative(fault, case):
     status, output = run(build('friendly_fire', generated(fault)), case)
     assert status == CHECK_FAILED, output

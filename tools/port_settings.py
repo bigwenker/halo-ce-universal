@@ -1089,6 +1089,8 @@ COOP_SETUP_SCREENS = [
             "Enemy squads use 'Multiplier', however many players\\nthere are.",
             "Enemy squads are as the campaign has them.",
         ]),
+        ("coop_enemy_health", "ENEMY HEALTH:", ["DEFAULT", "1.25X", "1.5X", "2X", "3X"],
+         ["Effective enemy health and shields against player damage.\\nHeadshots and instant kills keep the campaign's rules."] * 5),
         ("coop_extra_pickups", "EXTRA PICKUPS:", ["PER PLAYER", "STATIC MULTIPLIER", "NONE"], [
             "Pickups grow with the players: by the value of\\n'Per Player' for each player past the first.",
             "Pickups use 'Multiplier', up to eight times as many,\\nhowever many players there are.",

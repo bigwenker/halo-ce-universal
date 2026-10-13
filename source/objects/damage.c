@@ -104,6 +104,7 @@ symbols in this file:
 #include "cseries.h"
 #include "damage.h"
 #include "network_social.h"
+#include "coop_damage.h" /* port: port/linux/game/coop_damage.c */
 #include "ai/ai.h"
 #include "cseries/errors.h"
 #include "effects/effects.h"
@@ -1443,6 +1444,7 @@ void object_cause_damage(
 	/* port: the gametype's friendly fire (game_engine_friendly_damage) */
 	short friendly_damage;
 	real friendly_damage_scale;
+	real object_damage_scale; /* port: co-op enemy health, separate from friendly-fire kill rules */
 	real object_total_damage;
 
 	/* the distributed netcode (port/linux/NETCODE.md): the host deals
@@ -1782,7 +1784,9 @@ void object_cause_damage(
 				/* Scale once before shield absorption and health spillover. Keep
 				parent propagation in unscaled units: each object has its own rules. */
 				friendly_damage_scale *= network_social_chain_damage_scale(damage, current_object_index);
-				object_total_damage = total_damage * friendly_damage_scale;
+				/* port: scale player hits on enemies once, preserving headshots and instant kills. */
+				object_damage_scale = friendly_damage_scale * coop_enemy_damage_scale(damage, current_object_index);
+				object_total_damage = total_damage * object_damage_scale;
 
 				/* port: nor does a teammate's hit kill outright (a melee from
 				behind, an instant kill) where the gametype's friendly fire
@@ -1865,7 +1869,7 @@ void object_cause_damage(
 					damaged_object_count = 0;
 				}
 
-				total_damage = object_total_damage / friendly_damage_scale;
+				total_damage = object_total_damage / object_damage_scale; /* port: unscaled parent spillover */
 
 				if (!material_effect_recorded &&
 					(shield_damage > _real_epsilon || body_damage > _real_epsilon))

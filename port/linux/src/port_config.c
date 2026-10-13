@@ -465,6 +465,11 @@ static const struct config_setting config_settings[] =
 		"\"on\", \"half_damage\", \"quarter_damage\" or \"off\" (FRIENDLY FIRE in\n"
 		"co-op's Server Setup > Co-op Options writes its choice here). Their AI\n"
 		"allies they always can, as in the campaign." },
+	{ "network.coop_enemy_health", _config_integer, "100", "HALO_NET_COOP_ENEMY_HEALTH", _environment_value,
+		_platform_all,
+		"Host: effective enemy health and shields against player damage in co-op,\n"
+		"as a percentage: 100 (Default), 125, 150, 200 or 300. Headshots and\n"
+		"instant kills keep the campaign's rules. Other values use Default." },
 	{ "network.coop_chain_reaction_damage", _config_integer, "100", "HALO_NET_COOP_CHAIN_REACTION_DAMAGE", _environment_value,
 		_platform_all, "Host: player damage from chain-triggered loose grenades, as a percentage: 100 (Default), 75, 50 or 25." },
 	{ "network.coop_player_collisions", _config_boolean, "true", "HALO_NET_COOP_PLAYER_COLLISIONS", _environment_value,

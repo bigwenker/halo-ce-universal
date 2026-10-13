@@ -87,6 +87,10 @@ with ideas from VALORANT's netcode articles, keeping the 30 Hz tick:
 - **Host authoritative.** The host alone decides damage, deaths, spawns,
   pickups, scores and the game's objects; clients do not decide them but
   apply what the host sends.
+  ENEMY HEALTH (`network.coop_enemy_health`) divides player damage to hostile
+  AI units on the host before shields and body spillover. The existing
+  damage events and unit states send the result, including to upstream
+  clients. No message, layout or network version changes for this setting.
 - **Corrections.** The host sends each client the authoritative state of
   the players' units and the game's moving objects; a client moves its
   copies toward it, a small error half of the way each tick, a larger one

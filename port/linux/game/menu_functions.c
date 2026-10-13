@@ -4903,6 +4903,8 @@ static struct gametype_option const gametype_options[] =
 		{ "100", "75", "50", "25" } },
 	{ "coop_extra_enemies_spinner", _option_setting, 0, 0, 3, { 0 }, "network.coop_enemies_mode",
 		{ "per_player", "multiplier", "none" } },
+	{ "coop_enemy_health_spinner", _option_setting, 0, 0, 5, { 0 }, "network.coop_enemy_health",
+		{ "100", "125", "150", "200", "300" } },
 	{ "coop_extra_pickups_spinner", _option_setting, 0, 0, 3, { 0 }, "network.coop_pickups",
 		{ "per_player", "multiplier", "none" } },
 	{ "coop_extra_vehicles_spinner", _option_setting, 0, 0, 3, { 0 }, "network.coop_vehicles",
