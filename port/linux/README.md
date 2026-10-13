@@ -1212,7 +1212,9 @@ listed in "Game source changes" in [../web/README.md](../web/README.md).
 Spray Image follows Screenshot in Controls Setup > Actions and defaults to T.
 Put the source PNG at `sprays/spray.png` beside the executable (next to `maps/`).
 The folder is created automatically. PNGs are limited to 5 MiB encoded and
-2048 pixels per dimension; decoder allocations and GPU residency are bounded.
+4096 pixels per dimension; decoder allocations are bounded to 320 MiB while
+decoding (including 16-bit PNG working buffers), and GPU residency to 128 MiB.
+Devices with a smaller hardware texture limit reject images beyond that limit.
 The four-second cooldown and random plasma-rifle overheat2/overheat3 sound are
 preserved. Sprays use actual level-surface decal clipping and depth testing.
 They are temporary visuals outside checkpoints, cleared on map/BSP changes.
@@ -1223,7 +1225,7 @@ relays to other capable clients. Received PNGs are saved as
 `sprays/spray_<profile>_<YYYY-MM-DD_HH.MM.SS>_<sequence>.png`, with sanitized
 profile names. Identical images are cached; new placements need no new download.
 Up to 16 recent player images are retained in memory, with four concurrent
-downloads, a 64 KiB/s aggregate sending budget, and a 64 MiB GPU budget.
+downloads, a 64 KiB/s aggregate sending budget, and a 128 MiB GPU budget.
 Downloads on disk remain until deleted by the user.
 
 The extension leaves the upstream network version and gameplay packets unchanged.

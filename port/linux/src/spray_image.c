@@ -9,14 +9,17 @@
 #define STBI_NO_STDIO
 #define STBI_NO_LINEAR
 #define STBI_NO_HDR
-#define STBI_MAX_DIMENSIONS 2048
+#define STBI_MAX_DIMENSIONS 4096
+#define SPRAY_DECODE_LIMIT (320u * 1024u * 1024u)
+#define SPRAY_TEXTURE_LIMIT (128u * 1024u * 1024u)
 #define STBI_FAILURE_USERMSG
-/* A compressed PNG must not make stb's inflater allocate without a bound. */
+/* Bound stb's inflated scanlines and output, including a 4096-square
+   16-bit RGBA PNG's working buffers and its final 8-bit pixels. */
 static size_t spray_decode_bytes;
 static void *spray_decode_malloc(size_t size)
 {
 	size_t *allocation;
-	if (size > 64u * 1024u * 1024u || spray_decode_bytes > 64u * 1024u * 1024u - size)
+	if (size > SPRAY_DECODE_LIMIT || spray_decode_bytes > SPRAY_DECODE_LIMIT - size)
 		return NULL;
 	allocation = malloc(sizeof(*allocation) + size);
 	if (!allocation)
@@ -227,13 +230,20 @@ int spray_image_load_bytes(int slot, const void *data, size_t size, float *aspec
 	unsigned char *pixels;
 	int width, height, channels;
 	GLuint texture;
-	GLint active, bound, unpack_buffer, alignment, row_length, skip_rows, skip_pixels;
+	GLint active, bound, unpack_buffer, alignment, row_length, skip_rows, skip_pixels, maximum_size;
 	if (slot < 0 || slot >= SPRAY_SHARE_SLOTS || !data || !size || size > SPRAY_SHARE_LIMIT)
 		return 0;
 	pixels = stbi_load_from_memory(data, (int)size, &width, &height, &channels, 4);
 	if (!pixels)
 	{
-		console_printf(FALSE, "Spray Image: invalid PNG (maximum 2048 x 2048)");
+		console_printf(FALSE, "Spray Image: invalid PNG (maximum 4096 x 4096)");
+		return 0;
+	}
+	glGetIntegerv(GL_MAX_TEXTURE_SIZE, &maximum_size);
+	if (width > maximum_size || height > maximum_size)
+	{
+		stbi_image_free(pixels);
+		console_printf(FALSE, "Spray Image: PNG exceeds this device's texture size limit");
 		return 0;
 	}
 	/* Uploads must not inherit a previous draw's pixel-unpack buffer or strides. */
@@ -266,14 +276,15 @@ int spray_image_load_bytes(int slot, const void *data, size_t size, float *aspec
 	glPixelStorei(GL_UNPACK_SKIP_PIXELS, skip_pixels);
 	glActiveTexture(active);
 	stbi_image_free(pixels);
-	/* Bound aggregate GPU residency to 64 MiB, including mipmaps. */
+	/* Bound aggregate GPU residency to 128 MiB, including mipmaps. A single
+	   4096-square RGBA texture with its mipmaps needs about 85 MiB. */
 	{
 		size_t bytes = (size_t)width * height * 4 * 4 / 3, total = 0;
 		int i;
 		for (i = 0; i < SPRAY_SHARE_SLOTS; i++)
 			if (i != slot)
 				total += spray_texture_bytes[i];
-		for (i = 0; i < SPRAY_SHARE_SLOTS && total + bytes > 64u * 1024u * 1024u; i++)
+		for (i = 0; i < SPRAY_SHARE_SLOTS && total + bytes > SPRAY_TEXTURE_LIMIT; i++)
 			if (i != slot && spray_textures[i])
 			{
 				glDeleteTextures(1, &spray_textures[i]);

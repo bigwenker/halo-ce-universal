@@ -101,6 +101,16 @@ int main(int argc,char **argv){
  image(argv[1],"encoded-within-limit.png");CHECK(spray_image_load(&aspect));
  CHECK(halo_spray_file_read(&bytes,&byte_count));CHECK(byte_count>2u*1024u*1024u&&byte_count<=SPRAY_SHARE_LIMIT);
  CHECK(spray_image_load_bytes(3,bytes,byte_count,&aspect));halo_spray_file_free(bytes);
+ image(argv[1],"maximum.png");CHECK(halo_spray_file_read(&bytes,&byte_count));
+ CHECK(halo_spray_png_aspect(bytes,byte_count,&aspect)&&aspect==1);
+ CHECK(spray_image_load_bytes(4,bytes,byte_count,&aspect)&&aspect==1);CHECK(!spray_decode_bytes);
+ CHECK(spray_texture_bytes[4]>64u*1024u*1024u&&spray_texture_bytes[4]<=SPRAY_TEXTURE_LIMIT);
+ glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);halo_spray_image_draw_slot(4,quad,6);
+ glReadPixels(16,16,1,1,GL_RGBA,GL_UNSIGNED_BYTE,p);CHECK(p[0]>245&&p[1]<5&&p[2]<5);
+ CHECK(spray_image_load_bytes(5,bytes,byte_count,&aspect));CHECK(!spray_textures[4]&&spray_textures[5]);
+ size_t resident=0;for(int i=0;i<SPRAY_SHARE_SLOTS;i++)resident+=spray_texture_bytes[i];CHECK(resident<=SPRAY_TEXTURE_LIMIT);
+ halo_spray_file_free(bytes);GLuint maximum_texture=spray_textures[5];
+ image(argv[1],"too-tall.png");CHECK(!spray_image_load(&aspect)&&spray_textures[5]==maximum_texture);CHECK(!spray_decode_bytes);
  const char *formats[]={"rgb.png","palette.png","gray.png","rgba.png"};
  for(int i=0;i<4;i++){image(argv[1],formats[i]);CHECK(spray_image_load(&aspect));CHECK(aspect==1);}
  halo_spray_image_forget();for(int i=0;i<SPRAY_SHARE_SLOTS;i++)CHECK(!spray_textures[i]);halo_spray_image_forget();
@@ -140,7 +150,9 @@ def main():
         (path / 'encoded-large.png').write_bytes(b'x' * (limit_mib * 1024 * 1024 + 1))
         Image.new('RGBA', (1024, 1200), (255, 0, 0, 255)).save(path / 'encoded-within-limit.png', compress_level=0)
         assert 2 * 1024 * 1024 < (path / 'encoded-within-limit.png').stat().st_size <= limit_mib * 1024 * 1024
-        Image.new('RGB', (2049, 1)).save(path / 'large.png')
+        Image.new('RGBA', (4096, 4096), (255, 0, 0, 255)).save(path / 'maximum.png')
+        Image.new('RGB', (4097, 1)).save(path / 'large.png')
+        Image.new('RGB', (1, 4097)).save(path / 'too-tall.png')
         (path / 'spray.c').write_text(PREFIX + source + TEST)
         subprocess.run([*command, str(path / 'spray.c'), *libraries, '-o', str(path / 'spray.exe')], check=True)
         subprocess.run([str(path / 'spray.exe'), str(path)], cwd=ROOT, env=env, check=True, timeout=30)
