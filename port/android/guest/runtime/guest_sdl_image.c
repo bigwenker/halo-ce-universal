@@ -24,7 +24,8 @@ int SDL_snprintf(char *text, size_t size, const char *format, ...)
 }
 const char *SDL_GetBasePath(void)
 {
- static char path[4096];
+ /* The spray worker and game thread may request paths concurrently. */
+ static __thread char path[4096];
  return host_sdl_base_path(path, sizeof(path)) ? path : NULL;
 }
 /* Only SDL_IOFromFile creates streams in this guest runtime. */
