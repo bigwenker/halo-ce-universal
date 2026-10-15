@@ -78,6 +78,8 @@ their handlers open opens.
 #include "interface/virtual_keyboard.h"
 #include "player_profile_rgb.h"
 #include "player_profile_color_menu.h"
+#include "custom_models.h"
+#include "halo_custom_models.h"
 #include "network_profile_rgb.h"
 #include "tag_files/tag_groups.h"
 #include "text/text_group.h"
@@ -2010,6 +2012,39 @@ static void profile_edit_update(struct widget_instance *widget)
 	profile_color_menu_portrait(profile_edit.index);
 	if (named(widget,"qtr_screen_profile_color_pic",0))
 		named(widget,"qtr_screen_profile_color_pic",0)->animation.current_frame_index=(short)PIN(profile_edit.palette,0,COLOR_COUNT-1);
+}
+
+static struct {short first,chosen;boolean initializing;} model_list;
+static void model_row_text(short row,wchar_t *text)
+{
+    struct halo_custom_model_info const *info=halo_custom_model_info(model_list.first+row);
+    halo_menus_utf16(info ? info->name : "",(unsigned short *)text,ROW_TEXT_LENGTH);
+}
+static boolean profile_edit_model_begin(void)
+{
+    char id[32];
+    halo_custom_models_scan();
+    custom_models_profile_read(profile_edit.index,id);
+    model_list.chosen=(short)halo_custom_model_find(id);model_list.initializing=TRUE;
+    model_list.first=(short)MAX(0,model_list.chosen-PROFILE_ROWS/2);
+    custom_models_menu_preview(model_list.chosen);
+    return TRUE;
+}
+static void profile_edit_model_update(struct widget_instance *widget)
+{
+    struct widget_instance *list=named(widget,"model_list",0);
+    short item,rows=(short)MIN(PROFILE_ROWS,halo_custom_models_count());
+    if(!list)return;
+    if(model_list.initializing){focus_row(list,(short)(model_list.chosen-model_list.first));model_list.initializing=FALSE;}
+    item=list_scroll(list,&model_list.first,(short)halo_custom_models_count(),rows);
+    if(item!=NONE)model_list.chosen=item;
+    rows_update(list,rows,model_row_text);
+    custom_models_menu_preview(model_list.chosen);
+}
+static boolean profile_edit_model_choose(void)
+{
+    struct halo_custom_model_info const *info=halo_custom_model_info(model_list.chosen);
+    return info && custom_models_profile_write(profile_edit.index,info->id) ? TRUE : campaign_fail();
 }
 
 static boolean profile_edit_color_begin(void)
@@ -5930,6 +5965,8 @@ boolean pc_menu_event_function_invoke(
 		{
 			return profile_edit_choose(widget,controller,widget_deleted);
 		}
+		else if (!strcmp(name,"port profile model begin")) return profile_edit_model_begin();
+		else if (!strcmp(name,"port profile model choose")) return profile_edit_model_choose();
 		else if (!strcmp(name,"port profile rename")) return profile_edit_rename();
 		else if (!strcmp(name,"port profile color begin")) return profile_edit_color_begin();
 		else if (!strcmp(name,"port profile color save")) return profile_edit_color_save();
@@ -6101,6 +6138,7 @@ void pc_menu_game_data_function_invoke(
 		profile_list_update(widget);
 	else if (!strcmp(name,"port profile edit update")) profile_edit_update(widget);
 	else if (!strcmp(name,"port profile color update")) profile_edit_color_update(widget);
+	else if (!strcmp(name,"port profile model update")) profile_edit_model_update(widget);
 	else if (!strcmp(name, "load game list update"))
 		saved_game_list_update(widget);
 	else if (!strcmp(name, "port gamepad layout preview"))

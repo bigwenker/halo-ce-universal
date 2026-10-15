@@ -137,6 +137,7 @@ BOOL platform_sdl_initialize(void)
 		return FALSE;
 	}
 	platform_sdl_started = TRUE;
+	{ extern void halo_custom_models_scan(void); halo_custom_models_scan(); }
 #ifndef HALO_ANDROID
 	/* found (or offered to the player, platform_offer_game_data) before the
 	game's window opens */

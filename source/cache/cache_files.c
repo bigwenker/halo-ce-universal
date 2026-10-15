@@ -613,6 +613,8 @@ void scenario_tags_unload(
 	{
 		extern void menu_tags_unloaded(void);
 
+		/* port: restore the menus' tag table before they restore the map's. */
+		{ extern void custom_models_unloaded(void); custom_models_unloaded(); }
 		menu_tags_unloaded();
 	}
 	cache_file_close();
@@ -1206,6 +1208,8 @@ long scenario_tags_load(
 				extern void menu_tags_loaded(char const *map_name);
 
 				menu_tags_loaded(cache_file_globals.header.name);
+				/* port: append cosmetic model tags after the menus. */
+				{ extern void custom_models_loaded(void); custom_models_loaded(); }
 			}
 			/* (and the sounds of tag files, as below) */
 			{
@@ -1308,6 +1312,8 @@ long scenario_tags_load(
 				extern void menu_tags_loaded(char const *map_name);
 
 				menu_tags_loaded(cache_file_globals.header.name);
+				/* port: append cosmetic model tags after the menus. */
+				{ extern void custom_models_loaded(void); custom_models_loaded(); }
 			}
 			/* port: the bitmaps the high-res HUD stands for (port/linux/game/hud_hires_tags.c) */
 			{

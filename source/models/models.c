@@ -88,6 +88,7 @@ symbols in this file:
 #include "rasterizer/rasterizer_transparent_geometry.h"
 /* port: optional full detail, with the cinematic cryotube exception. */
 #include "render_lod.h"
+#include "custom_models.h" /* port: per-player cosmetic mesh selection */
 
 /* ---------- constants */
 
@@ -1010,9 +1011,13 @@ void render_model(
 	short forced_shader_permutation_index,
 	unsigned long flags)
 {
-	struct model *model = model_definition_get(model_index);
+	/* port: choose the cosmetic before any part, shadow or effect is drawn. */
+	struct model *model;
+	boolean full_detail;
+	model_index = custom_models_render_model(unique_identifier, model_index);
+	model = model_definition_get(model_index);
 	/* port: retain real projected size for effects and debug bounds. */
-	boolean full_detail = render_lod_model_disabled(model_index);
+	full_detail = render_lod_model_disabled(model_index);
 
 	profile_enter(render_model_section);
 

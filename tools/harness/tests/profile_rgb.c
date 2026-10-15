@@ -26,9 +26,19 @@ static int file_create(struct file_reference*f){(void)f;exists=1;return 1;}
 #include "palette.inc"
 static short player_profile_number_of_available_primary_colors(void){return sizeof(palette)/sizeof(palette[0]);}
 static real_rgb_color player_profile_get_rgb_color(long n){real_rgb_color c={((palette[n]>>16)&255)/255.f,((palette[n]>>8)&255)/255.f,(palette[n]&255)/255.f};return c;}
+static long active_profile=NONE,remembered_profile=5;static int remembered_reads;
+static long player_ui_get_active_player_profile_index(short local){(void)local;return active_profile;}
+static long player_ui_get_player1_last_used_profile_index(void){remembered_reads++;return remembered_profile;}
 #include "under_test.inc"
 int main(int argc,char**argv){CHECK(argc==2,"case");unsigned long rgb=99;char text[8];
- if(!strcmp(argv[1],"parse")){
+ if(!strcmp(argv[1],"local")){
+  CHECK(profile_rgb_local_profile(0)==5,"join-time remembered profile");
+  CHECK(profile_rgb_local_profile(0)==5 && remembered_reads==1,"repeated fallback file lookup");
+  CHECK(profile_rgb_local_profile(1)==NONE,"split-screen guest inherited player 1");
+  active_profile=7;CHECK(profile_rgb_local_profile(0)==7,"active selection ignored");
+  active_profile=NONE;remembered_profile=9;profile_rgb_local_profile_reset();
+  CHECK(profile_rgb_local_profile(0)==9,"new selection not refreshed");
+ }else if(!strcmp(argv[1],"parse")){
   CHECK(profile_rgb_parse("#000000",&rgb)&&rgb==0,"black is a provided color");
   CHECK(profile_rgb_parse("#aE80e8",&rgb)&&rgb==0xAE80E8,"hex");profile_rgb_format(rgb,text);CHECK(!strcmp(text,"#AE80E8"),"canonical hex");
   CHECK(!profile_rgb_parse("#123456junk",&rgb),"trailing garbage");

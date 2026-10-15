@@ -1621,9 +1621,11 @@ def _profile_edit() -> list:
                       ("flags","pass_unhandled_to_focused_child up_down_tabs_children")],
                      [f'<child widget="{base}/rename" x="40" y="150"/>',
                       f'<child widget="{base}/change_color" x="40" y="195"/>',
+                      f'<child widget="{base}/custom_model" x="40" y="240"/>',
                       '<child widget="common_button_back" x="510" y="415"/>'])
     for name, label, handler in [("rename","CHANGE NAME",'run="port profile rename"'),
-                                  ("change_color","CHANGE COLOR",'run="port profile color begin" open="port_profile/color"')]:
+                                  ("change_color","CHANGE COLOR",'run="port profile color begin" open="port_profile/color"'),
+                                  ("custom_model","CUSTOM MODEL",'run="port profile model begin" open="port_profile/model"')]:
         lines += _widget(f"{base}/{name}",[("type","text"),("width",330),("height",30),
                           ("text",label),("font","ui\\large_ui"),("color","#FF2896FF")],
                          [f'<on event="a" {handler}/>', '<on event="left_mouse" run="mouse emit accept event"/>'])
@@ -1655,4 +1657,20 @@ def _profile_edit() -> list:
                       ("color","#FFFFFFFF"),("align","center"),("text_y",2)],
                      ['<on event="a" run="port profile color save" back="true"/>',
                       '<on event="left_mouse" run="mouse emit accept event"/>'])
+    lines += _widget(f"{base}/model",[("width",640),("height",480),
+                      ("flags","pass_unhandled_to_focused_child"),("bitmap","bitmaps/gradient")],
+                     ['<data input="port profile model update"/>',
+                      '<on event="b" back="true"/>','<on event="start" back="true"/>','<on event="back" back="true"/>',
+                      f'<child widget="{base}/model_title" x="35" y="25"/>',
+                      f'<child widget="{base}/model_list"/>',
+                      f'<child widget="{base}/custom_model_preview" x="440" y="110"/>',
+                      '<child widget="common_button_back" x="510" y="415"/>'])
+    lines += _widget(f"{base}/model_title",[("type","text"),("width",580),("height",50),
+                      ("text","CUSTOM MODEL"),("font","ui\\large_ui"),("color","#FF2896FF")],[])
+    lines += _widget(f"{base}/model_list",[("type","column_list"),("width",640),("height",400),
+                      ("flags","pass_unhandled_to_focused_child up_down_tabs_children")],
+                     ['<on event="custom_activation" run="port profile model choose" back="true"/>']+
+                     [f'<child widget="main_menu/new_select/list_item_{i}" x="40" y="{90+i*27}"/>' for i in range(11)])
+    lines += _widget(f"{base}/custom_model_preview",[("width",128),("height",256),
+                      ("bitmap","ui\\shell\\bitmaps\\colors_sm")],[])
     return lines

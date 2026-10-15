@@ -1480,6 +1480,8 @@ static void player_spawn(
 						unit->object.owner_team_index = (short)player2->team_index;
 						unit->unit.player_index = player_index;
 						player2->unit_index = unit_index;
+						/* port: bind the cosmetic when this unit becomes the player's. */
+						{ extern void custom_models_object_created(long); custom_models_object_created(unit_index); }
 						unit_set_actively_controlled(unit_index, TRUE);
 						if (player2->local_player_index != NONE)
 						{
@@ -1547,6 +1549,8 @@ void network_player_attach_unit(
 	unit->object.owner_team_index = (short)player->team_index;
 	unit->unit.player_index = player_index;
 	player->unit_index = unit_index;
+	/* port: the client binds its cosmetic at the same point as player_spawn. */
+	{ extern void custom_models_object_created(long); custom_models_object_created(unit_index); }
 	unit_set_actively_controlled(unit_index, TRUE);
 	if (player->local_player_index != NONE)
 		player_control_new_unit(player->local_player_index, unit_index);

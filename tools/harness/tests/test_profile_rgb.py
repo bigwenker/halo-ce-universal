@@ -13,7 +13,7 @@ def generated(fault=False):
     palette=re.search(r'static long profile_color_table[^=]+=\s*(\{[^}]+\})',read('source/saved games/player_profile.c')).group(1)
     return (('palette.inc',f'static unsigned long palette[]={palette};'),('under_test.inc',code))
 
-@pytest.mark.parametrize('case',['parse','hsv','storage','fallback','nearest'])
+@pytest.mark.parametrize('case',['parse','hsv','storage','fallback','nearest','local'])
 def test_case(case):
     status,out=run(build('profile_rgb',generated()),case)
     assert status==0,out

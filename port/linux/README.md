@@ -1275,3 +1275,45 @@ peers and the host must support 5 MiB to share those images. The 64 KiB/s
 budget is unchanged, so a maximum-size image takes longer to distribute.
 JPEG/GIF sharing requires receiving builds with the new decoders; older PNG-only
 builds still play normally but cannot display those formats.
+
+### Custom profile models (fork)
+
+Profiles -> Edit Profile -> Custom Model selects Master Chief or a local pack
+under `custom_models/<id>/` beside the executable. The directory is created at
+startup. Selection is a per-profile `profile_model.txt` sidecar; profile layouts,
+checkpoints and the stock default are unchanged. Enter saves; Back/Escape leaves
+the selection unchanged. Packs are rescanned when entering the picker and at map
+load. Restart/reload a map after changing a pack's files.
+
+A pack needs `info.toml` with `full_name` (string), `colorable` (boolean) and
+`preview` (a PNG filename in the pack's root). IDs use lowercase ASCII letters,
+numbers, underscores and hyphens, at most 31 characters; `master_chief` is reserved.
+Preview PNGs must have width:height 1:2 and are displayed at 128x256. Put the base
+texture in `textures/armor.png`, and five JMS 8200 files in
+`source/characters/cyborg/models/`, named `__base superlow.jms`, `__base low.jms`,
+`__base medium.jms`, `__base high.jms` and `__base superhigh.jms`. The last also
+accepts `.JMS` for existing Blender exports. Each has one material named `armor`.
+Their 19 bones, names, order, parent hierarchy and rest transforms must match
+Chief's; alternate sibling traversal/checksums and source region labels are
+normalized to the validated stock model. Images may be paletted PNGs and are
+resampled to power-of-two dimensions in memory. Assets are bounded by file,
+vertex, triangle and image limits and a shared 128 MiB residency allowance.
+
+`colorable=false` retains the texture's authored colors. `colorable=true` uses
+Chief's ordinary color-change channel C and the saved profile RGB (or the normal
+palette/team color). An optional grayscale `textures/armor_mask.png` chooses
+recolorable areas (white changes, black stays); without it the entire armor is
+colorable. Use neutral gray/white base colors for vivid RGB tinting. The mask
+is converted to the Xbox shader's blue channel. The preview
+is an authored image, not an automatically recolored rendering of the model.
+
+The unit's cosmetic is bound as it is assigned to its player, before rendering;
+its mesh, shadow, shield and camouflage use the existing renderer. The original
+unit definition, collision, hitboxes, first-person arms, gameplay markers and
+animation graph remain Chief's. No custom gameplay data enters the simulation.
+
+Only model IDs are shared over the optional negotiated model feature. A client
+without that pack, with invalid files, or without model support displays Chief.
+Packs are not downloaded. Core upstream protocol 29 and core packet layouts stay
+unchanged. Older fork peers negotiate their original feature set; upstream peers
+receive no model messages. A stock upstream host does not relay model selections.

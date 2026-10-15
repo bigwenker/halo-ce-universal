@@ -2,6 +2,8 @@
 #ifndef PROFILE_RGB_H
 #define PROFILE_RGB_H
 #include "cseries.h"
+void profile_rgb_local_profile_reset(void);
+long profile_rgb_local_profile(short local_player);
 boolean profile_rgb_parse(char const *text, unsigned long *rgb);
 void profile_rgb_format(unsigned long rgb, char text[8]);
 boolean profile_rgb_read(long profile, unsigned long *rgb);

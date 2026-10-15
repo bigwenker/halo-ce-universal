@@ -1,8 +1,26 @@
 #include "player_profile_rgb.h"
 #include "saved games/player_profile.h"
+#include "interface/player_ui.h"
 #include "tag_files/files.h"
 #include <stdio.h>
 #include <string.h>
+
+/* Joining can release the menu's active profile before the unit is made.
+   The remembered profile is the same one campaign/Settings use then. */
+static boolean last_profile_valid;
+static long last_profile=NONE;
+void profile_rgb_local_profile_reset(void) {last_profile_valid=FALSE;last_profile=NONE;}
+long profile_rgb_local_profile(short local_player)
+{
+    long profile=player_ui_get_active_player_profile_index(local_player);
+    if(profile==NONE && local_player==0)
+    {
+        if(!last_profile_valid)
+        {last_profile=player_ui_get_player1_last_used_profile_index();last_profile_valid=TRUE;}
+        profile=last_profile;
+    }
+    return profile;
+}
 
 boolean profile_rgb_parse(char const *text, unsigned long *rgb)
 {

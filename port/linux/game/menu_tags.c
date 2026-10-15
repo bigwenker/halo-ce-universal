@@ -394,6 +394,7 @@ static char const *const port_function_names[] =
 	"port coop leave game",
 	"port profile rename", "port profile color begin", "port profile color save", "port profile color cancel",
 	"port profile color left", "port profile color right",
+	"port profile model begin", "port profile model choose",
 };
 
 /* the PC version's game data functions that the Xbox's have not, from
@@ -415,7 +416,7 @@ static char const *const port_game_data_input_names[] =
 	/* (the profile settings' picture: the Xbox's of the button settings,
 	on Gamepad Setup's row) */
 	"port gamepad layout preview",
-	"port profile edit update", "port profile color update",
+	"port profile edit update", "port profile color update", "port profile model update",
 };
 
 static struct

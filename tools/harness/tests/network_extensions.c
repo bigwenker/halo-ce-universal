@@ -47,6 +47,14 @@ int main(int argc,char **argv){CHECK(argc==2,"case");char const *case_name=argv[
   CHECK(!network_extensions_allows(NONE,250),"enabled before ack");role=2;network_extensions_handle(1,(word*)wire[0],sizes[0],TRUE);
   CHECK(sends==2&&policies==1&&network_extensions_allows(1,250),"host negotiation");CHECK(!network_extensions_allows(2,250),"enabled upstream peer");
   role=1;network_extensions_handle(NONE,(word*)wire[1],sizes[1],TRUE);CHECK(network_extensions_allows(NONE,250),"client ack");network_extensions_update();CHECK(sends==2,"hello spam");
+ } else CASE("model_capability") {
+  role=1;network_extensions_select_host(TRUE);network_extensions_update();
+  CHECK(((struct extension_message *)wire[0])->features==63,"new model feature not advertised");
+  now+=2001;network_extensions_update();now+=2001;network_extensions_update();
+  CHECK(((struct extension_message *)wire[2])->features==31,"old fork fallback missing");
+  CHECK(!network_extensions_allows(NONE,252),"model feature enabled without acknowledgement");
+  role=2;negotiate(31);CHECK(!network_extensions_allows(1,252),"model sent to old fork");
+  network_extensions_reset();negotiate(63);CHECK(network_extensions_allows(1,252),"model feature not enabled");
  } else CASE("partial") {
   negotiate(EXT_SUICIDE);CHECK(network_extensions_allows(1,_distributed_message_suicide_request),"missing selected feature");CHECK(!network_extensions_allows(1,_distributed_message_aim_assist_policy)&&!policies,"unselected feature enabled");
   CHECK(!network_extensions_allows(2,_distributed_message_suicide_request),"other machine enabled");
@@ -56,7 +64,7 @@ int main(int argc,char **argv){CHECK(argc==2,"case");char const *case_name=argv[
   network_extensions_handle(1,(word*)&m,17,TRUE);network_extensions_handle(1,(word*)&m,16,FALSE);
   network_extensions_handle(NONE,(word*)&m,16,TRUE);network_extensions_handle(3,(word*)&m,16,TRUE);
   m.magic++;network_extensions_handle(1,(word*)&m,16,TRUE);m=hello();m.revision++;network_extensions_handle(1,(word*)&m,16,TRUE);
-  m=hello();m.features=32;network_extensions_handle(1,(word*)&m,16,TRUE);m=hello();m.header.count=2;network_extensions_handle(1,(word*)&m,16,TRUE);
+  m=hello();m.features=64;network_extensions_handle(1,(word*)&m,16,TRUE);m=hello();m.header.count=2;network_extensions_handle(1,(word*)&m,16,TRUE);
   CHECK(!sends&&!network_extensions_allows(1,250),"malformed negotiation accepted");
   role=1;m=hello();network_extensions_select_host(TRUE);network_extensions_handle(NONE,(word*)&m,16,TRUE);CHECK(!network_extensions_allows(NONE,250),"unsolicited ack");
  } else CASE("reset") {

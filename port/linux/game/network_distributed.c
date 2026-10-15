@@ -54,6 +54,7 @@ machine (their datum identifiers need not be).
 
 #include "network_social.h"
 #include "network_profile_rgb.h"
+#include "custom_models.h"
 #include "cseries.h"
 #include "cseries/errors.h"
 #include "cache/cache_files.h"
@@ -3427,6 +3428,7 @@ void network_distributed_new_game(
 	network_killfeed_reset();
 	network_social_reset();
 	network_profile_rgb_reset();
+	custom_models_network_reset();
 	network_votekick_new_game();
 }
 
@@ -4052,6 +4054,11 @@ void network_distributed_handle_message(
 		}
 		if (!network_extensions_allows(machine_index, header.type))
 			return;
+		if (header.type == 252)
+		{
+			custom_models_network_handle(machine_index, message, size, reliable && !distributed_handling_batch);
+			return;
+		}
 		if (header.type == 251)
 		{
 			network_profile_rgb_handle(machine_index, message, size, reliable && !distributed_handling_batch);

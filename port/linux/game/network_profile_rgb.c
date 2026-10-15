@@ -34,7 +34,7 @@ static unsigned long rgb_identity(struct player_datum const *p)
 	return (hash ^ (byte)p->network_player_data.machine_index)*16777619UL ^ (byte)p->network_player_data.controller_index;
 }
 
-void network_profile_rgb_changed(void) { refresh_needed=TRUE; sent = 0; }
+void network_profile_rgb_changed(void) { profile_rgb_local_profile_reset(); refresh_needed=TRUE; sent = 0; }
 void network_profile_rgb_machine_joined(long machine)
 {
 	if (machine>=0 && machine<NUMBEROF(machine_ready)) machine_ready[machine]=FALSE;
@@ -55,7 +55,7 @@ static void rgb_refresh(void)
 	short i;
 	for(i=0;i<MAXIMUM_LOCAL_PLAYERS;i++)
 	{
-		long profile=player_ui_get_active_player_profile_index(i);
+		long profile=profile_rgb_local_profile(i);
 		if (!refresh_needed && local_colors[i].profile==profile) continue;
 		local_colors[i].profile = profile;
 		local_colors[i].present = profile_rgb_read(local_colors[i].profile,&local_colors[i].rgb);

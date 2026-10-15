@@ -27,6 +27,7 @@ static boolean distributed_handling_stream_message, distributed_handling_batch;
 static boolean network_connection_last_read_was_unreliable(void){return FALSE;}
 static boolean network_extensions_allows(long i,byte t){return TRUE;}
 static void network_extensions_handle(long i,word const *m,word n,boolean r){}
+static void custom_models_network_handle(long machine, word const *data, word size, boolean reliable) { (void)machine; (void)data; (void)size; (void)reliable; }
 static void network_profile_rgb_handle(long i,word const *m,word n,boolean r){}
 static boolean map_share_handles_message(word const *m,word n){return FALSE;}
 static void map_share_handle_message(long i,word const *m,word n,boolean r){}

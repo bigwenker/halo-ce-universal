@@ -3533,6 +3533,7 @@ static boolean main_loop_iteration(
 			network_aim_assist_update();
 			network_social_update();
 			network_profile_rgb_update(); /* port: optional cosmetic colors */
+			{ extern void custom_models_network_update(void); custom_models_network_update(); } /* port: optional model selections */
 			network_spray_update();
 			/* port: map sharing, in the lobby and in game (port/linux/game/map_share.c) */
 			map_share_update();

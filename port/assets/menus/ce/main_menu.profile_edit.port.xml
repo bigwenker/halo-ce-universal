@@ -33,6 +33,7 @@
 	<widget name="port_profile/edit_list" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_children">
 		<child widget="port_profile/rename" x="40" y="150"/>
 		<child widget="port_profile/change_color" x="40" y="195"/>
+		<child widget="port_profile/custom_model" x="40" y="240"/>
 		<child widget="common_button_back" x="510" y="415"/>
 	</widget>
 	<widget name="port_profile/rename" type="text" width="330" height="30" text="CHANGE NAME" font="ui\large_ui" color="#FF2896FF">
@@ -41,6 +42,10 @@
 	</widget>
 	<widget name="port_profile/change_color" type="text" width="330" height="30" text="CHANGE COLOR" font="ui\large_ui" color="#FF2896FF">
 		<on event="a" run="port profile color begin" open="port_profile/color"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="port_profile/custom_model" type="text" width="330" height="30" text="CUSTOM MODEL" font="ui\large_ui" color="#FF2896FF">
+		<on event="a" run="port profile model begin" open="port_profile/model"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
 	<widget name="port_profile/color_list" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_children">
@@ -88,5 +93,33 @@
 	<widget name="port_profile/color_ok" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" text="OK" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2">
 		<on event="a" run="port profile color save" back="true"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="port_profile/model" width="640" height="480" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/gradient">
+		<data input="port profile model update"/>
+		<on event="b" back="true"/>
+		<on event="start" back="true"/>
+		<on event="back" back="true"/>
+		<child widget="port_profile/model_title" x="35" y="25"/>
+		<child widget="port_profile/model_list"/>
+		<child widget="port_profile/custom_model_preview" x="440" y="110"/>
+		<child widget="common_button_back" x="510" y="415"/>
+	</widget>
+	<widget name="port_profile/model_title" type="text" width="580" height="50" text="CUSTOM MODEL" font="ui\large_ui" color="#FF2896FF">
+	</widget>
+	<widget name="port_profile/model_list" type="column_list" width="640" height="400" flags="pass_unhandled_to_focused_child up_down_tabs_children">
+		<on event="custom_activation" run="port profile model choose" back="true"/>
+		<child widget="main_menu/new_select/list_item_0" x="40" y="90"/>
+		<child widget="main_menu/new_select/list_item_1" x="40" y="117"/>
+		<child widget="main_menu/new_select/list_item_2" x="40" y="144"/>
+		<child widget="main_menu/new_select/list_item_3" x="40" y="171"/>
+		<child widget="main_menu/new_select/list_item_4" x="40" y="198"/>
+		<child widget="main_menu/new_select/list_item_5" x="40" y="225"/>
+		<child widget="main_menu/new_select/list_item_6" x="40" y="252"/>
+		<child widget="main_menu/new_select/list_item_7" x="40" y="279"/>
+		<child widget="main_menu/new_select/list_item_8" x="40" y="306"/>
+		<child widget="main_menu/new_select/list_item_9" x="40" y="333"/>
+		<child widget="main_menu/new_select/list_item_10" x="40" y="360"/>
+	</widget>
+	<widget name="port_profile/custom_model_preview" width="128" height="256" bitmap="ui\shell\bitmaps\colors_sm">
 	</widget>
 </menus>

@@ -15,7 +15,7 @@ short network_distributed_server_machines(long *, short);
 enum
 {
     EXT_AIM = 1, EXT_SUICIDE = 2, EXT_DEATH = 4, EXT_SOCIAL = 8,
-    EXT_SPRAY = 16, EXT_ALL = 31, EXT_REVISION = 1
+    EXT_SPRAY = 16, EXT_MODELS = 32, EXT_ALL = 63, EXT_REVISION = 1
 };
 #define EXT_MAGIC 0x45544C45UL /* ELTE */
 struct extension_message
@@ -27,6 +27,7 @@ struct extension_message
 static boolean host_available, hello_sent;
 static word host_features, machine_features[HALO_PORT_MAXIMUM_NETWORK_MACHINES];
 static unsigned long last_hello;
+static short hello_attempts;
 
 void network_extensions_select_host(boolean available)
 {
@@ -39,6 +40,7 @@ void network_extensions_reset(void)
     host_features = 0;
     hello_sent = FALSE;
     last_hello = 0;
+    hello_attempts = 0;
     memset(machine_features, 0, sizeof(machine_features));
 }
 
@@ -60,6 +62,7 @@ word network_extensions_feature(byte type)
     case _distributed_message_social_line:
     case _distributed_message_social_scores:
     case 251: return EXT_SOCIAL; /* optional profile RGB; older forks ignore it */
+    case 252: return EXT_MODELS; /* optional model selection IDs */
     case 250: return EXT_SPRAY; /* spray_share.h's private extension */
     default: return 0;
     }
@@ -88,11 +91,13 @@ void network_extensions_update(void)
     message.header.game_time = game_time_get();
     message.magic = EXT_MAGIC;
     message.revision = EXT_REVISION;
-    message.features = EXT_ALL;
+    /* Older forks reject unknown bits: retry their original feature set. */
+    message.features = hello_attempts < 2 ? EXT_ALL : 31;
     build_message_header(&message.header.header, sizeof(message), 2, 0);
     if (network_distributed_client_send_reliably(&message, sizeof(message)))
     {
         hello_sent = TRUE;
+        if (hello_attempts < 2) hello_attempts++;
         last_hello = now;
     }
 }

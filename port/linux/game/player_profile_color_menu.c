@@ -3,6 +3,7 @@
 #include "cseries.h"
 #include "player_profile_rgb.h"
 #include "player_profile_color_menu.h"
+#include "custom_models.h"
 #include "bitmaps/bitmap_group.h"
 #include "bitmaps/bitmaps.h"
 #include "bitmaps/bitmaps_sampling.h"
@@ -24,7 +25,7 @@ static struct
 	real h,s,v;
 	short drag;
 	rectangle2d square_bounds, hue_bounds;
-	struct bitmap_data *square, *hue, *preview, *portrait;
+	struct bitmap_data *square, *hue, *preview, *portrait, *stock;
 	unsigned long preview_rgb, shown_rgb;
 	real square_h, square_s, square_v, hue_h;
 	pixel32 white[PORTRAIT_W*PORTRAIT_H], black[PORTRAIT_W*PORTRAIT_H];
@@ -148,6 +149,11 @@ static struct bitmap_data *portrait_make(struct bitmap_data *bitmap, unsigned lo
 struct bitmap_data *profile_color_menu_bitmap(char const *name, struct bitmap_data *original)
 {
 	short x,y;
+    if (!strcmp(name,"custom_model_preview"))
+    {
+        if(!picker.stock && portrait_sources()) picker.stock=portrait_make(NULL,0xFFFFFFUL);
+        return custom_models_preview_bitmap(name,picker.stock ? picker.stock : original);
+    }
 	if (!strcmp(name,"qtr_screen_profile_color_pic") && picker.portrait_valid)
 	{
 		if (!picker.portrait || picker.shown_rgb!=picker.portrait_rgb)
@@ -203,7 +209,7 @@ boolean profile_color_menu_bounds(char const *name, rectangle2d *bounds)
 {
 	if (!strcmp(name,"rgb_square")) { picker.square_bounds=*bounds; return TRUE; }
 	if (!strcmp(name,"rgb_hue_strip")) { picker.hue_bounds=*bounds; return TRUE; }
-	if (!strcmp(name,"rgb_preview")) return TRUE;
+	if (!strcmp(name,"rgb_preview") || !strcmp(name,"custom_model_preview")) return TRUE;
 	if (!strcmp(name,"qtr_screen_profile_color_pic") && picker.portrait_valid)
 	{
 		bounds->x1=bounds->x0+65; bounds->y1=bounds->y0+136; return TRUE;
@@ -213,6 +219,8 @@ boolean profile_color_menu_bounds(char const *name, rectangle2d *bounds)
 
 void profile_color_menu_forget(void)
 {
+	custom_models_preview_forget();
+	if (picker.stock) bitmap_delete(picker.stock);
 	if (picker.square) bitmap_delete(picker.square);
 	if (picker.hue) bitmap_delete(picker.hue);
 	if (picker.preview) bitmap_delete(picker.preview);
