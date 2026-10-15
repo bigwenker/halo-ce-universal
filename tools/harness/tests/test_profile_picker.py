@@ -1,0 +1,23 @@
+"""Mouse/touch HSV drags use the production pointer handler."""
+import sys
+from pathlib import Path
+import pytest
+sys.path.insert(0,str(Path(__file__).resolve().parents[2]))
+from harness import build,read,function,run,mutated,CHECK_FAILED
+def generated(fault=False):
+    source=read('port/linux/game/player_profile_color_menu.c')
+    code=function(source,'inside')+'\n'+function(source,'profile_color_menu_pointer')
+    code+='\n'+function(read('port/linux/game/menu_functions.c'),'profile_edit_choose')
+    if fault=='history':code=mutated(code,'while (from->focused_child) from=from->focused_child;','/* lose the focused row */')
+    elif fault:code=mutated(code,'!pointer->held','TRUE')
+    return (('pointer.inc',read('port/linux/include/halo_ui_pointer.h')),('under_test.inc',code))
+@pytest.mark.parametrize('case',['drag','touch','hue','inactive','navigation'])
+def test_case(case):
+    status,out=run(build('profile_picker',generated()),case)
+    assert status==0,out
+def test_negative_release():
+    status,out=run(build('profile_picker',generated(True)),'drag')
+    assert status==CHECK_FAILED,out
+def test_negative_history():
+    status,out=run(build('profile_picker',generated('history')),'navigation')
+    assert status==CHECK_FAILED,out

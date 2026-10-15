@@ -167,6 +167,8 @@ void touch_input_menu_read(struct platform_ui_pointer *pointer)
 	pointer->down_x = output.down_x;
 	pointer->down_y = output.down_y;
 	pointer->touch = TRUE;
+	pointer->held = menu.finger_down != 0;
+	if (menu.finger_down) { pointer->x=menu.last_x; pointer->y=menu.last_y; }
 }
 
 void touch_input_gamepad(XINPUT_GAMEPAD *pad)

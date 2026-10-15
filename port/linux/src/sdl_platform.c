@@ -1490,6 +1490,8 @@ void platform_pump_events(void)
 			/* in the menus the mouse moves the pointer, not the view */
 			if (input_state.ui_pointer)
 			{
+				if (event.button.button == SDL_BUTTON_LEFT)
+					ui_pointer.held = event.button.down;
 				ui_pointer.x = event.motion.x;
 				ui_pointer.y = event.motion.y;
 				ui_pointer.moved = TRUE;

@@ -7,6 +7,7 @@
 #include "network_distributed.h"
 #include "network_extensions.h"
 #include "network_aim_assist.h"
+#include "network_profile_rgb.h"
 #include <string.h>
 
 boolean network_distributed_client_send_reliably(void *, word);
@@ -43,6 +44,7 @@ void network_extensions_reset(void)
 
 void network_extensions_machine_joined(long machine)
 {
+	network_profile_rgb_machine_joined(machine);
     if (machine >= 0 && machine < HALO_PORT_MAXIMUM_NETWORK_MACHINES)
         machine_features[machine] = 0;
 }
@@ -56,7 +58,8 @@ word network_extensions_feature(byte type)
     case _distributed_message_coop_death: return EXT_DEATH;
     case _distributed_message_social_request:
     case _distributed_message_social_line:
-    case _distributed_message_social_scores: return EXT_SOCIAL;
+    case _distributed_message_social_scores:
+    case 251: return EXT_SOCIAL; /* optional profile RGB; older forks ignore it */
     case 250: return EXT_SPRAY; /* spray_share.h's private extension */
     default: return 0;
     }

@@ -81,7 +81,7 @@
 		<data input="3wide player profile list update"/>
 		<on event="created" run="player profile list initialize"/>
 		<on event="deleted" run="player profile list dispose"/>
-		<on event="custom_activation" run="profile manager select" back="true" branch="true"/>
+		<on event="custom_activation" run="profile manager select"/>
 		<conditional widget="main_menu/profile_manager/pm_empty_selected" if_failed="true"/>
 		<child widget="main_menu/new_select/list_item_0" x="20" y="73"/>
 		<child widget="main_menu/new_select/list_item_1" x="20" y="103"/>

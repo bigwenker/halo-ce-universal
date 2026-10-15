@@ -628,6 +628,7 @@ symbols in this file:
 struct widget_instance;
 
 #include "cseries.h"
+#include "player_profile_color_menu.h" /* port: profile RGB picker and portrait */
 #include "errors.h"
 #include "bitmaps/bitmap_group.h"
 #include "bitmaps/bitmaps.h"
@@ -6803,6 +6804,13 @@ static void ui_widgets_process_mouse(
 	/* the virtual keyboard takes the pointer's clicks itself; a click that
 	closes it (Done) is not also a click on the menu behind */
 	keyboard_active = virtual_keyboard_active();
+	/* port: the HSV controls consume their own pointer drags and taps. */
+	if (pointer_active && !keyboard_active && profile_color_menu_pointer(&pointer))
+	{
+		pointer.left_clicks = 0;
+		pointer.downs = 0;
+		pointer.wheel_steps = 0;
+	}
 	if (pointer_active && keyboard_active && pointer.left_clicks)
 	{
 		long hit;
@@ -7036,6 +7044,8 @@ static void widget_instance_render_recursive(
 		definition->background_bitmap.index,
 		0,
 		frame_index);
+	/* port: generated picker images, or a profile's optional RGB portrait. */
+	bitmap = profile_color_menu_bitmap(widget->name, bitmap);
 	if (bitmap)
 	{
 		real alpha = alpha_modifier;
@@ -7121,6 +7131,8 @@ static void widget_instance_render_recursive(
 			boolean shown = TRUE;
 			boolean stretched = custom_edition_picture &&
 				custom_edition_maps_campaign_level(widget->animation.current_frame_index) == NONE;
+			/* port: picker images fill their widget, independent of texel size. */
+			if (profile_color_menu_bounds(widget->name, &bounds)) stretched = TRUE;
 
 			if (pc_menu_frame_placement(bitmap, &frame_x, &frame_y, &frame_width, &frame_height))
 			{

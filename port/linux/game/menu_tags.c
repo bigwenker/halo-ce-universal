@@ -34,6 +34,7 @@ pause it as its pause menu does.
 */
 
 #include "cseries.h"
+#include "player_profile_color_menu.h"
 #include "bitmaps/bitmap_group.h"
 #include "game/game.h"
 #include "tag_files/tag_groups.h"
@@ -391,6 +392,8 @@ static char const *const port_function_names[] =
 	Xbox's leaves to its own screens) */
 	"new campaign decision",
 	"port coop leave game",
+	"port profile rename", "port profile color begin", "port profile color save", "port profile color cancel",
+	"port profile color left", "port profile color right",
 };
 
 /* the PC version's game data functions that the Xbox's have not, from
@@ -412,6 +415,7 @@ static char const *const port_game_data_input_names[] =
 	/* (the profile settings' picture: the Xbox's of the button settings,
 	on Gamepad Setup's row) */
 	"port gamepad layout preview",
+	"port profile edit update", "port profile color update",
 };
 
 static struct
@@ -1441,6 +1445,7 @@ static void instance_set(struct cache_file_tag_instance *instances, long group_t
 static void menu_tags_release(void)
 {
 	long index;
+	profile_color_menu_forget();
 
 	for (index = 0; index < menu_tags.bitmap_count; index++)
 	{

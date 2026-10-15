@@ -332,6 +332,7 @@ symbols in this file:
 /* ---------- headers */
 
 #include "network_social.h"
+#include "network_profile_rgb.h" /* port: optional profile RGB colors */
 #include "cseries.h"
 #include "errors.h"
 #include "cseries/profile.h"
@@ -3531,6 +3532,7 @@ static boolean main_loop_iteration(
 			network_extensions_update();
 			network_aim_assist_update();
 			network_social_update();
+			network_profile_rgb_update(); /* port: optional cosmetic colors */
 			network_spray_update();
 			/* port: map sharing, in the lobby and in game (port/linux/game/map_share.c) */
 			map_share_update();

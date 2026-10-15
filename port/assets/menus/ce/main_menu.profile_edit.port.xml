@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The port's multiplayer screens, in the PC version's style (tools/port_settings.py) -->
+<menus>
+	<widget name="port_profile/edit" width="640" height="480" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/gradient">
+		<data input="port profile edit update"/>
+		<on event="b" run="port profile color cancel" back="true"/>
+		<on event="start" run="port profile color cancel" back="true"/>
+		<on event="back" run="port profile color cancel" back="true"/>
+		<child widget="port_profile/edit_title" x="35" y="25"/>
+		<child widget="port_profile/edit_list"/>
+		<child widget="port_profile/rgb_profile_name" x="40" y="85"/>
+		<child widget="main_menu/multiplayer_type_select/connected/4way_profile_select/qtr_screen_profile_color_pic" x="438" y="100"/>
+	</widget>
+	<widget name="port_profile/edit_title" type="text" width="580" height="50" text="EDIT PROFILE" font="ui\large_ui" color="#FF2896FF">
+	</widget>
+	<widget name="port_profile/color" width="640" height="480" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/gradient">
+		<data input="port profile color update"/>
+		<on event="b" run="port profile color cancel" back="true"/>
+		<on event="start" run="port profile color cancel" back="true"/>
+		<on event="back" run="port profile color cancel" back="true"/>
+		<child widget="port_profile/color_title" x="35" y="25"/>
+		<child widget="port_profile/color_list"/>
+		<on event="deleted" run="port profile color cancel"/>
+		<child widget="port_profile/rgb_square" x="40" y="95"/>
+		<child widget="port_profile/rgb_hue_strip" x="280" y="95"/>
+		<child widget="port_profile/rgb_preview" x="410" y="95"/>
+		<child widget="port_profile/rgb_hex" x="410" y="380"/>
+	</widget>
+	<widget name="port_profile/color_title" type="text" width="580" height="50" text="CHANGE COLOR" font="ui\large_ui" color="#FF2896FF">
+	</widget>
+	<widget name="port_profile/rgb_profile_name" type="text" width="350" height="30" font="ui\large_ui" color="#FFFFFFFF">
+	</widget>
+	<widget name="port_profile/edit_list" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_children">
+		<child widget="port_profile/rename" x="40" y="150"/>
+		<child widget="port_profile/change_color" x="40" y="195"/>
+		<child widget="common_button_back" x="510" y="415"/>
+	</widget>
+	<widget name="port_profile/rename" type="text" width="330" height="30" text="CHANGE NAME" font="ui\large_ui" color="#FF2896FF">
+		<on event="a" run="port profile rename"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="port_profile/change_color" type="text" width="330" height="30" text="CHANGE COLOR" font="ui\large_ui" color="#FF2896FF">
+		<on event="a" run="port profile color begin" open="port_profile/color"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="port_profile/color_list" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_children">
+		<child widget="port_profile/rgb_hue_value" x="40" y="310"/>
+		<child widget="port_profile/rgb_saturation_value" x="40" y="340"/>
+		<child widget="port_profile/rgb_brightness_value" x="40" y="370"/>
+		<child widget="port_profile/color_buttons" y="415"/>
+	</widget>
+	<widget name="port_profile/rgb_hue_label" type="text" width="170" height="24" text="HUE:" font="ui\small_ui" color="#FF2896FF">
+	</widget>
+	<widget name="port_profile/rgb_hue_value" type="text" width="260" height="25" text_x="180" font="ui\small_ui" color="#FF2896FF">
+		<on event="left" run="port profile color left"/>
+		<on event="right" run="port profile color right"/>
+		<on event="left_mouse" run="port profile color right"/>
+		<child widget="port_profile/rgb_hue_label"/>
+	</widget>
+	<widget name="port_profile/rgb_saturation_label" type="text" width="170" height="24" text="SATURATION:" font="ui\small_ui" color="#FF2896FF">
+	</widget>
+	<widget name="port_profile/rgb_saturation_value" type="text" width="260" height="25" text_x="180" font="ui\small_ui" color="#FF2896FF">
+		<on event="left" run="port profile color left"/>
+		<on event="right" run="port profile color right"/>
+		<on event="left_mouse" run="port profile color right"/>
+		<child widget="port_profile/rgb_saturation_label"/>
+	</widget>
+	<widget name="port_profile/rgb_brightness_label" type="text" width="170" height="24" text="BRIGHTNESS:" font="ui\small_ui" color="#FF2896FF">
+	</widget>
+	<widget name="port_profile/rgb_brightness_value" type="text" width="260" height="25" text_x="180" font="ui\small_ui" color="#FF2896FF">
+		<on event="left" run="port profile color left"/>
+		<on event="right" run="port profile color right"/>
+		<on event="left_mouse" run="port profile color right"/>
+		<child widget="port_profile/rgb_brightness_label"/>
+	</widget>
+	<widget name="port_profile/rgb_square" width="220" height="200" bitmap="ui\shell\bitmaps\white">
+	</widget>
+	<widget name="port_profile/rgb_hue_strip" width="24" height="200" bitmap="ui\shell\bitmaps\white">
+	</widget>
+	<widget name="port_profile/rgb_preview" width="134" height="272" bitmap="ui\shell\bitmaps\colors_sm">
+	</widget>
+	<widget name="port_profile/rgb_hex" type="text" width="160" height="25" font="ui\large_ui" color="#FFFFFFFF" align="center">
+	</widget>
+	<widget name="port_profile/color_buttons" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<child widget="port_profile/color_ok" x="380"/>
+		<child widget="common_button_cancel" x="510"/>
+	</widget>
+	<widget name="port_profile/color_ok" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" text="OK" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2">
+		<on event="a" run="port profile color save" back="true"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+</menus>

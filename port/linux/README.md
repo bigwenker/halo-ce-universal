@@ -242,6 +242,19 @@ you push it again.
 
 ## Menus
 
+Profiles opens Edit Profile when a profile is selected. Change Name uses the
+same name-entry prompt as creating a profile, and keeps the existing profile
+folder, checkpoints and settings. Change Color offers a hue strip and a
+saturation/brightness square, a live Chief portrait, and keyboard/controller
+Hue, Saturation and Brightness rows. OK saves; Cancel and Escape discard edits.
+
+An optional `profile_color.txt` beside that profile's `blam.sav` holds its
+`#RRGGBB` color. Without a valid value, the original palette and portrait are
+used. RGB colors apply to free-for-all and co-op armor; team colors still take
+precedence in team games. Compatible forks exchange colors on an optional,
+authenticated stream; upstream protocol 29 and its existing messages are
+unchanged. Unsupported hosts retain the nearest original palette color.
+
 The menus are the PC version's (Halo Custom Edition's): its main menu and
 every screen it leads to (campaign, profiles, multiplayer with its server
 browser, direct IP and server setup, the gametype editor, and the profile's

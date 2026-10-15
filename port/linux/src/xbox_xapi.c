@@ -75,13 +75,43 @@ static unsigned long long save_name_hash(LPCWSTR name)
 	return hash;
 }
 
+static BOOL save_read_name(const char *directory, WCHAR *name, unsigned long name_count);
+
 static void save_directory_for(LPCSTR root, LPCWSTR name, char *directory, unsigned long size)
 {
 	unsigned long long hash = save_name_hash(name);
 	unsigned long length = (unsigned long)strlen(root);
 	const char *separator = (length && (root[length - 1] == '\\' || root[length - 1] == '/')) ? "" : "\\";
+	char pattern[MAX_PATH+4], candidate[MAX_PATH];
+	WCHAR found[MAX_GAMENAME];
+	WIN32_FIND_DATAA entry;
+	HANDLE find;
+	unsigned int collision;
+
+	/* Renaming a profile updates its metadata, without moving its saves.
+	   Resolve existing names through that metadata, including after restart. */
+	snprintf(pattern,sizeof(pattern),"%s%s" SAVE_DATA_DIRECTORY "\\*",root,separator);
+	find=FindFirstFileA(pattern,&entry);
+	if (find!=INVALID_HANDLE_VALUE)
+	{
+		do
+		{
+			if (!(entry.dwFileAttributes&FILE_ATTRIBUTE_DIRECTORY) || entry.cFileName[0]=='.') continue;
+			snprintf(candidate,sizeof(candidate),"%s%s" SAVE_DATA_DIRECTORY "\\%s\\",root,separator,entry.cFileName);
+			if (save_read_name(candidate,found,sizeof(found)/sizeof(found[0])) && !wcscmp(found,name))
+			{
+				snprintf(directory,size,"%s",candidate);
+				CloseHandle(find);
+				return;
+			}
+		} while(FindNextFileA(find,&entry));
+		CloseHandle(find);
+	}
 
 	snprintf(directory, size, "%s%s" SAVE_DATA_DIRECTORY "\\%012llX\\", root, separator, hash & 0xffffffffffffULL);
+	/* A renamed container may still occupy the old name's hash. */
+	for(collision=1;GetFileAttributesA(directory)!=(DWORD)-1 && collision<65536;collision++)
+		snprintf(directory,size,"%s%s" SAVE_DATA_DIRECTORY "\\%012llX\\",root,separator,(hash+collision)&0xffffffffffffULL);
 }
 
 static BOOL save_read_name(const char *directory, WCHAR *name, unsigned long name_count)

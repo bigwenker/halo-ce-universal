@@ -1076,6 +1076,29 @@ boolean synchronize_metadata_display_name_with_profile_name(
 			{
 				char root_path[MEMORY_UNIT_ROOT_PATH_SIZE] = {0};
 				char save_game_directory[MAXIMUM_FILENAME_LENGTH+1] = {0};
+				/* port: keep player profiles in their existing container. The
+				Xbox routine copies only blam.sav and one checkpoint before
+				deleting the old container, losing other profile-owned files. */
+				if (file.type == _saved_game_file_type_player_profile)
+				{
+					char path[MAXIMUM_FILENAME_LENGTH+1];
+					char *filename;
+					struct file_reference metadata;
+					unsigned long bytes = ustrlen(game_display_name)*sizeof(wchar_t);
+					csstrncpy(path,file.path,MAXIMUM_FILENAME_LENGTH);
+					path[MAXIMUM_FILENAME_LENGTH]=0;
+					filename=strstr(path,"blam.sav");
+					if (!filename || filename-path+sizeof("SaveMeta.xbx")>sizeof(path)) return FALSE;
+					strcpy(filename,"SaveMeta.xbx");
+					if (!file_reference_create_from_path(&metadata,path,FALSE) ||
+						!file_open(&metadata,FLAG(_permission_write_bit))) return FALSE;
+					success=file_write(&metadata,bytes,game_display_name) && file_set_eof(&metadata,bytes);
+					if (!file_close(&metadata)) success=FALSE;
+					if (!success) return FALSE;
+					ustrncpy(file.display_name,game_display_name,MAXIMUM_SAVED_GAME_NAME_LENGTH-1);
+					file.display_name[MAXIMUM_SAVED_GAME_NAME_LENGTH-1]=0;
+					return set_nth_entry_in_mapfile(memory_unit,n,&file);
+				}
 
 				if (!XCreateSaveGame(
 						wide_to_ascii(memory_unit_root_path[memory_unit], root_path, sizeof(root_path)),

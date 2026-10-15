@@ -1,5 +1,6 @@
 #include "harness.h"
 #include <string.h>
+static void network_profile_rgb_machine_joined(long machine) { (void)machine; }
 typedef unsigned short word;
 #define HALO_PORT_MAXIMUM_NETWORK_MACHINES 128
 #define NUMBEROF(a) (sizeof(a)/sizeof((a)[0]))

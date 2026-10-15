@@ -663,6 +663,11 @@ MAP_KIND_CHOOSER = "main_menu/new_select/list_item_0_map_kind"
 # changes to the PC version's widgets (by our names): attributes set, all
 # their handlers replaced, children added, game data inputs added
 WIDGET_PATCHES = {
+    "main_menu/profile_manager/profile_manager_select_list_2": {"handlers": [
+        '<on event="created" run="player profile list initialize"/>',
+        '<on event="deleted" run="player profile list dispose"/>',
+        '<on event="custom_activation" run="profile manager select"/>',
+    ]},
     f"{PLAYER_EDIT}/player_options_menu": {"insert_before": {
         f"{PLAYER_EDIT}/player_button_bar": [
             f'<child widget="{PLAYER_EDIT}/op_aim_assist" x="54" y="313"/>']}},
@@ -1570,6 +1575,7 @@ def multiplayer_files() -> dict:
     head = ['<?xml version="1.0" encoding="UTF-8"?>',
             "<!-- The port's multiplayer screens, in the PC version's style (tools/port_settings.py) -->", "<menus>"]
     return {
+        "main_menu.profile_edit.port.xml": head + _profile_edit() + ["</menus>", ""],
         "pause.coop.xml": head + _coop_pause() + ["</menus>", ""],
         f"{MT}/join_game".replace("/", ".") + ".port.xml": head + _join_game_extras() + ["</menus>", ""],
         f"{MT}/server_settings".replace("/", ".") + ".xml": head + _server_settings() + ["</menus>", ""],
@@ -1583,3 +1589,70 @@ def multiplayer_files() -> dict:
 
 
 REPLACED_FOLDERS = [f"{MT}/server_settings"]
+
+
+def _profile_edit() -> list:
+    """Profile identity edits use the existing name prompt and a direct HSV picker."""
+    base = "port_profile"
+    lines = []
+    for screen, title in [("edit", "EDIT PROFILE"), ("color", "CHANGE COLOR")]:
+        body = [f'<data input="port profile {"edit" if screen == "edit" else "color"} update"/>',
+                '<on event="b" run="port profile color cancel" back="true"/>',
+                '<on event="start" run="port profile color cancel" back="true"/>',
+                '<on event="back" run="port profile color cancel" back="true"/>',
+                f'<child widget="{base}/{screen}_title" x="35" y="25"/>',
+                f'<child widget="{base}/{screen}_list"/>']
+        if screen == "color":
+            body += ['<on event="deleted" run="port profile color cancel"/>',
+                     f'<child widget="{base}/rgb_square" x="40" y="95"/>',
+                     f'<child widget="{base}/rgb_hue_strip" x="280" y="95"/>',
+                     f'<child widget="{base}/rgb_preview" x="410" y="95"/>',
+                     f'<child widget="{base}/rgb_hex" x="410" y="380"/>']
+        else:
+            body += [f'<child widget="{base}/rgb_profile_name" x="40" y="85"/>',
+                     '<child widget="main_menu/multiplayer_type_select/connected/4way_profile_select/qtr_screen_profile_color_pic" x="438" y="100"/>']
+        lines += _widget(f"{base}/{screen}", [("width",640),("height",480),
+                          ("flags","pass_unhandled_to_focused_child"),("bitmap","bitmaps/gradient")], body)
+        lines += _widget(f"{base}/{screen}_title", [("type","text"),("width",580),("height",50),
+                          ("text",title),("font","ui\\large_ui"),("color","#FF2896FF")], [])
+    lines += _widget(f"{base}/rgb_profile_name", [("type","text"),("width",350),("height",30),
+                      ("font","ui\\large_ui"),("color","#FFFFFFFF")], [])
+    lines += _widget(f"{base}/edit_list", [("type","column_list"),("width",640),("height",480),
+                      ("flags","pass_unhandled_to_focused_child up_down_tabs_children")],
+                     [f'<child widget="{base}/rename" x="40" y="150"/>',
+                      f'<child widget="{base}/change_color" x="40" y="195"/>',
+                      '<child widget="common_button_back" x="510" y="415"/>'])
+    for name, label, handler in [("rename","CHANGE NAME",'run="port profile rename"'),
+                                  ("change_color","CHANGE COLOR",'run="port profile color begin" open="port_profile/color"')]:
+        lines += _widget(f"{base}/{name}",[("type","text"),("width",330),("height",30),
+                          ("text",label),("font","ui\\large_ui"),("color","#FF2896FF")],
+                         [f'<on event="a" {handler}/>', '<on event="left_mouse" run="mouse emit accept event"/>'])
+    rows = [("hue","HUE:"),("saturation","SATURATION:"),("brightness","BRIGHTNESS:")]
+    lines += _widget(f"{base}/color_list",[("type","column_list"),("width",640),("height",480),
+                      ("flags","pass_unhandled_to_focused_child up_down_tabs_children")],
+                     [f'<child widget="{base}/rgb_{key}_value" x="40" y="{310+30*i}"/>' for i,(key,_) in enumerate(rows)] +
+                     [f'<child widget="{base}/color_buttons" y="415"/>'])
+    for i,(key,label) in enumerate(rows):
+        lines += _widget(f"{base}/rgb_{key}_label",[("type","text"),("width",170),("height",24),
+                          ("text",label),("font","ui\\small_ui"),("color","#FF2896FF")],[])
+        lines += _widget(f"{base}/rgb_{key}_value",[("type","text"),("width",260),("height",25),
+                          ("text_x",180),("font","ui\\small_ui"),("color","#FF2896FF")],
+                         ['<on event="left" run="port profile color left"/>',
+                          '<on event="right" run="port profile color right"/>',
+                          '<on event="left_mouse" run="port profile color right"/>',
+                          f'<child widget="{base}/rgb_{key}_label"/>'])
+    for name,width,height,bitmap in [("rgb_square",220,200,"ui\\shell\\bitmaps\\white"),
+                                    ("rgb_hue_strip",24,200,"ui\\shell\\bitmaps\\white"),
+                                    ("rgb_preview",134,272,"ui\\shell\\bitmaps\\colors_sm")]:
+        lines += _widget(f"{base}/{name}",[("width",width),("height",height),("bitmap",bitmap)],[])
+    lines += _widget(f"{base}/rgb_hex",[("type","text"),("width",160),("height",25),
+                      ("font","ui\\large_ui"),("color","#FFFFFFFF"),("align","center")],[])
+    lines += _widget(f"{base}/color_buttons",[("type","column_list"),("width",640),("height",28),
+                      ("flags","pass_unhandled_to_focused_child left_right_tabs_items")],
+                     [f'<child widget="{base}/color_ok" x="380"/>','<child widget="common_button_cancel" x="510"/>'])
+    lines += _widget(f"{base}/color_ok",[("type","text"),("width",128),("height",24),
+                      ("bitmap","bitmaps/text_button_background"),("text","OK"),("font","ui\\small_ui"),
+                      ("color","#FFFFFFFF"),("align","center"),("text_y",2)],
+                     ['<on event="a" run="port profile color save" back="true"/>',
+                      '<on event="left_mouse" run="mouse emit accept event"/>'])
+    return lines

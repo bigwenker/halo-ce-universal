@@ -75,6 +75,10 @@ their handlers open opens.
 #include "networking/network_game_manager.h"
 #include "networking/network_game_globals.h" /* port: typed local-player quit for co-op */
 #include "saved games/player_profile.h"
+#include "interface/virtual_keyboard.h"
+#include "player_profile_rgb.h"
+#include "player_profile_color_menu.h"
+#include "network_profile_rgb.h"
 #include "tag_files/tag_groups.h"
 #include "text/text_group.h"
 #include "text/unicode.h"
@@ -119,6 +123,7 @@ boolean ui_widget_port_saved_game(char const **map_name, short *level, short *di
 char const *ui_widget_event_handler_function_name(long function_index);
 short main_get_solo_level_from_name(char const *name);
 boolean player_name_clean(wchar_t *name, long count);
+boolean ui_widget_port_open(struct widget_instance *widget, char const *name, boolean *widget_deleted);
 short players_port_local_player_count(void);
 
 boolean pc_menu_event_function_invoke(struct widget_instance *widget, struct event_record *event,
@@ -1790,6 +1795,15 @@ static struct
 	long to_delete;
 } profile_list;
 
+static struct
+{
+	long index;
+	boolean renaming;
+	wchar_t name[MAXIMUM_PLAYER_PROFILE_NAME_LENGTH];
+	wchar_t saved_name[MAXIMUM_PLAYER_PROFILE_NAME_LENGTH];
+	short palette;
+} profile_edit;
+
 /* the profiles, read again when they are not those read last */
 static void profile_list_read(boolean always)
 {
@@ -1829,6 +1843,7 @@ static boolean profile_list_initialize(struct widget_instance *list)
 	short index;
 
 	profile_list_read(TRUE);
+	profile_color_menu_invalidate();
 	if (active == NONE)
 		active = player_ui_get_player1_last_used_profile_index();
 	profile_list.chosen = 0;
@@ -1879,6 +1894,7 @@ static void profile_list_update(struct widget_instance *list)
 		profile_list.chosen = item;
 	rows_update(list, profile_list_rows(), profile_row_text);
 	profile = profile_list.chosen < profile_list.count;
+	profile_color_menu_portrait(profile ? profile_list.indices[profile_list.chosen] : NONE);
 	text_set(named(description, "player_profile_right_name", 0),
 		profile ? profile_list.profiles[profile_list.chosen].player_name : L"");
 	visible_set(named(description, "empty_profile_slot_text", 0), !profile);
@@ -1928,7 +1944,102 @@ static boolean profile_choose(short controller)
 	player_ui_set_active_player_profile(0, profile_list.indices[profile_list.chosen], &profile);
 	player_ui_set_single_player_local_player_controller(0, controller);
 	player_ui_remember_player1_profile(TRUE);
+	profile_edit.index = profile_list.indices[profile_list.chosen];
+	profile_edit.renaming = FALSE;
+	memcpy(profile_edit.saved_name,profile.player_name,sizeof(profile_edit.saved_name));
+	profile_edit.palette=profile.primary_color_index;
+	network_profile_rgb_changed();
 	return TRUE;
+}
+
+/* Read the selected profile again before changing one field, and save it in
+   its existing container. Campaign saves and controller settings stay there. */
+static boolean profile_edit_choose(struct widget_instance *list, short controller, boolean *deleted)
+{
+	char const *target;
+	struct widget_instance *from=list;
+	if (profile_list.chosen == profile_list.count)
+		target="pc\\main_menu\\profile_manager\\pm_empty_selected";
+	else if (profile_choose(controller)) target="pc\\port_profile\\edit";
+	else return campaign_fail();
+	/* Preserve the selected row, or the OK button inside its button bar. */
+	while (from->focused_child) from=from->focused_child;
+	return ui_widget_port_open(from,target,deleted);
+}
+
+static boolean profile_edit_save(struct player_profile *profile)
+{
+	struct player_profile saved;
+	short local;
+	player_profile_save(profile_edit.index, profile);
+	if (!player_profile_get(profile_edit.index, &saved) || memcmp(&saved,profile,sizeof(saved))) return campaign_fail();
+	for(local=0;local<MAXIMUM_LOCAL_PLAYERS;local++)
+		if (player_ui_get_active_player_profile_index(local)==profile_edit.index)
+			player_ui_set_active_player_profile(local,profile_edit.index,&saved);
+	profile_list_read(TRUE);
+	memcpy(profile_edit.saved_name,saved.player_name,sizeof(profile_edit.saved_name));
+	profile_edit.palette=saved.primary_color_index;
+	profile_color_menu_invalidate();
+	network_profile_rgb_changed();
+	return TRUE;
+}
+
+static boolean profile_edit_rename(void)
+{
+	struct player_profile profile;
+	if (!player_profile_get(profile_edit.index,&profile)) return campaign_fail();
+	memcpy(profile_edit.name,profile.player_name,sizeof(profile_edit.name));
+	profile_edit.renaming=virtual_keyboard_launch(profile_edit.name,sizeof(profile_edit.name),8);
+	return profile_edit.renaming;
+}
+
+static void profile_edit_update(struct widget_instance *widget)
+{
+	struct player_profile profile;
+	if (profile_edit.renaming && !virtual_keyboard_active())
+	{
+		profile_edit.renaming=FALSE;
+		if (virtual_keyboard_last_exit_saved_text() && player_name_clean(profile_edit.name,MAXIMUM_PLAYER_PROFILE_NAME_LENGTH) &&
+			profile_edit.name[0] && player_profile_get(profile_edit.index,&profile))
+		{
+			memcpy(profile.player_name,profile_edit.name,sizeof(profile.player_name));
+			profile_edit_save(&profile);
+		}
+	}
+	text_set(named(widget,"rgb_profile_name",0),profile_edit.saved_name);
+	profile_color_menu_portrait(profile_edit.index);
+	if (named(widget,"qtr_screen_profile_color_pic",0))
+		named(widget,"qtr_screen_profile_color_pic",0)->animation.current_frame_index=(short)PIN(profile_edit.palette,0,COLOR_COUNT-1);
+}
+
+static boolean profile_edit_color_begin(void)
+{
+	struct player_profile profile;
+	if (!player_profile_get(profile_edit.index,&profile)) return campaign_fail();
+	profile_color_menu_begin(profile_edit.index,profile.primary_color_index);
+	return TRUE;
+}
+
+static boolean profile_edit_color_save(void)
+{
+	struct player_profile profile;
+	unsigned long rgb=profile_color_menu_rgb();
+	if (!player_profile_get(profile_edit.index,&profile) || !profile_rgb_write(profile_edit.index,rgb)) return campaign_fail();
+	profile.primary_color_index=profile_rgb_nearest(rgb);
+	return profile_edit_save(&profile);
+}
+
+static void profile_edit_color_update(struct widget_instance *widget)
+{
+	real h,s,v;
+	wchar_t text[32];
+	char hex[8];
+	profile_color_menu_values(&h,&s,&v);
+	usprintf(text,L"%d",(int)(h+.5f)); text_set(named(widget,"rgb_hue_value",0),text);
+	usprintf(text,L"%d%%",(int)(s*100.f+.5f)); text_set(named(widget,"rgb_saturation_value",0),text);
+	usprintf(text,L"%d%%",(int)(v*100.f+.5f)); text_set(named(widget,"rgb_brightness_value",0),text);
+	profile_rgb_format(profile_color_menu_rgb(),hex);
+	ascii_to_wide(hex,text,sizeof(text)); text_set(named(widget,"rgb_hex",0),text);
 }
 
 /* "request del player profile" (before its question) */
@@ -5817,8 +5928,14 @@ boolean pc_menu_event_function_invoke(
 		}
 		else if (!strcmp(name, "profile manager select"))
 		{
-			return profile_choose(controller);
+			return profile_edit_choose(widget,controller,widget_deleted);
 		}
+		else if (!strcmp(name,"port profile rename")) return profile_edit_rename();
+		else if (!strcmp(name,"port profile color begin")) return profile_edit_color_begin();
+		else if (!strcmp(name,"port profile color save")) return profile_edit_color_save();
+		else if (!strcmp(name,"port profile color cancel")) profile_color_menu_cancel();
+		else if (!strcmp(name,"port profile color left")) profile_color_menu_adjust(widget->name,-1);
+		else if (!strcmp(name,"port profile color right")) profile_color_menu_adjust(widget->name,1);
 		else if (!strcmp(name, "port lobby open"))
 		{
 			return lobby_join_reset();
@@ -5982,6 +6099,8 @@ void pc_menu_game_data_function_invoke(
 		color_list_update(widget);
 	else if (!strcmp(name, "3wide player profile list update"))
 		profile_list_update(widget);
+	else if (!strcmp(name,"port profile edit update")) profile_edit_update(widget);
+	else if (!strcmp(name,"port profile color update")) profile_edit_color_update(widget);
 	else if (!strcmp(name, "load game list update"))
 		saved_game_list_update(widget);
 	else if (!strcmp(name, "port gamepad layout preview"))

@@ -118,6 +118,7 @@ struct platform_ui_pointer
 	float down_x, down_y;
 	/* the pointer is the touchscreen (touch_input.c), not a mouse */
 	BOOL touch;
+	BOOL held;
 };
 /* says whether a menu is up; the mouse is released for the menus (desktop),
 or the touchscreen goes to them (Android); a change of mode drops the gesture

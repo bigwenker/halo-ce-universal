@@ -538,6 +538,7 @@ symbols in this file:
 
 #include "network_social.h"
 #include "cseries.h"
+#include "network_profile_rgb.h" /* port: optional profile RGB colors */
 #include "cseries_windows.h"
 #include "errors.h"
 #include "aim_assist.h"
@@ -7173,6 +7174,9 @@ real_rgb_color *game_engine_player_get_change_color(
 			color_index = debug_player_color;
 
 		result = player_profile_get_rgb_color(color_index);
+		/* port: preserve team colors and the debug palette override. */
+		if (debug_player_color == NONE)
+			network_profile_rgb_color(player_index, &result);
 	}
 
 	*change_color = result;
