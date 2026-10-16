@@ -86,8 +86,8 @@ symbols in this file:
 /* port: model tags and static enclosure recognition at map initialization. */
 #include "cache/cache_files.h"
 #include "rasterizer/rasterizer_transparent_geometry.h"
-/* port: optional full detail, with the cinematic cryotube exception. */
-#include "render_lod.h"
+/* port: optional full detail, preserving authored interior-only geometry. */
+#include "render_lod.h" /* port: port/linux/game/render_lod.c */
 #include "custom_models.h" /* port: per-player cosmetic mesh selection */
 
 /* ---------- constants */
@@ -243,6 +243,7 @@ static void render_model_parts(
 	long object_index,
 	short geometry_detail_level_index,
 	boolean full_detail,
+	boolean inside_model,
 	short forced_shader_permutation_index,
 	long flags);
 static void model_geometry_part_build_tangent_matrices(
@@ -278,6 +279,7 @@ static void render_model_parts(
 	long object_index,
 	short geometry_detail_level_index,
 	boolean full_detail,
+	boolean inside_model,
 	short forced_shader_permutation_index,
 	long flags)
 {
@@ -321,8 +323,10 @@ static void render_model_parts(
 					permutation_index,
 					struct model_region_permutation);
 				/* port: full detail uses each permutation's highest present LOD. */
-				permutation_detail_level = render_lod_permutation_level(permutation,
-					geometry_detail_level_index, full_detail);
+				permutation_detail_level = render_lod_permutation_level(model, permutation,
+					geometry_detail_level_index, full_detail, inside_model);
+				if (permutation_detail_level == NONE)
+					continue;
 				geometry_index = permutation->geometry_indices[permutation_detail_level];
 				if (geometry_index!=NONE && !VALID_INDEX(geometry_index, model->geometries.count))
 				{
@@ -1023,7 +1027,7 @@ void render_model(
 	model_index = custom_models_render_model(unique_identifier, model_index);
 	model = model_definition_get(model_index);
 	/* port: retain real projected size for effects and debug bounds. */
-	full_detail = render_lod_model_disabled(model_index) &&
+	full_detail = render_lod_disabled() &&
 		rasterizer_debug_options.debug_model_lod == NONE;
 
 	profile_enter(render_model_section);
@@ -1057,6 +1061,8 @@ void render_model(
 			MAXIMUM_REGIONS_PER_MODEL;
 		/* port: no more nodes than relative_node_matrices holds (a map's count) */
 		short node_count = (short)MIN(model->nodes.count, MAXIMUM_NODES_PER_MODEL);
+		/* port: the viewer and the object's world-space bounds, also for shadows. */
+		boolean inside_model;
 
 		if (!region_permutation_indices)
 		{
@@ -1078,6 +1084,8 @@ void render_model(
 		{
 			centroid = &node_matrices->position;
 		}
+		inside_model = full_detail && render_lod_inside_model(model,
+			&render.camera.position, centroid, radius);
 
 		if (node_matrices)
 		{
@@ -1186,8 +1194,10 @@ void render_model(
 						short actual_detail_level_index;
 						short geometry_index;
 						/* port: count the same geometry that the draw path selects. */
-						short permutation_detail_level = render_lod_permutation_level(permutation,
-							geometry_detail_level_index, full_detail);
+						short permutation_detail_level = render_lod_permutation_level(model, permutation,
+							geometry_detail_level_index, full_detail, inside_model);
+						if (permutation_detail_level == NONE)
+							continue;
 
 						for (actual_detail_level_index = permutation_detail_level+1;
 							actual_detail_level_index<NUMBER_OF_DETAIL_LEVELS_PER_MODEL;
@@ -1318,6 +1328,7 @@ void render_model(
 			unique_identifier,
 			geometry_detail_level_index,
 			full_detail,
+			inside_model,
 			forced_shader_permutation_index,
 			flags);
 		if (TEST_FLAG(flags, _render_model_shadow_bit))
