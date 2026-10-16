@@ -109,7 +109,11 @@ int halo_custom_mesh_parse(char const *data, unsigned int size, struct halo_cust
     for(i=0;i<m->triangle_count;i++)
     {
         integer(&r,0,regions-1);integer(&r,0,0);
-        for(j=0;j<3;j++)m->triangles[i*3+j]=(unsigned short)integer(&r,0,m->vertex_count-1);
+        /* port: JMS faces wind opposite native model buffers. Reverse the
+           face, preserving its authored normals and per-vertex attributes. */
+        m->triangles[i*3]=(unsigned short)integer(&r,0,m->vertex_count-1);
+        m->triangles[i*3+2]=(unsigned short)integer(&r,0,m->vertex_count-1);
+        m->triangles[i*3+1]=(unsigned short)integer(&r,0,m->vertex_count-1);
     }
     space(&r);
     if(r.failed || r.at!=r.end)goto fail;

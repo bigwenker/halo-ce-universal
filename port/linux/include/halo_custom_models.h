@@ -10,7 +10,7 @@ struct halo_custom_mesh
     struct halo_custom_node nodes[19];
     int vertex_count, triangle_count;
     struct halo_custom_vertex *vertices;
-    unsigned short *triangles;
+    unsigned short *triangles; /* native model winding, converted from JMS */
 };
 struct halo_custom_image { int width, height; unsigned int *pixels; };
 int halo_custom_model_id_valid(char const *id);
