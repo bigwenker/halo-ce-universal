@@ -47,6 +47,9 @@ update.h's: posix_update.c on Linux, win32_update.c on Windows.
 #endif
 
 #define UPDATE_REPOSITORY "OpenCommunityEdition/OpenCE"
+/* Fork: upstream packages would replace our additional features. This
+   policy also applies to numbered builds and previously enabled configs. */
+#define FORK_AUTOMATIC_UPDATES 0
 #ifdef _WIN32
 #define UPDATE_PLATFORM "windows"
 #define PATH_SEPARATOR "\\"
@@ -550,6 +553,11 @@ void updater_start(void)
 {
 	char *slash;
 
+	if (!FORK_AUTOMATIC_UPDATES)
+	{
+		platform_log("update: automatic updates are disabled in this fork");
+		return;
+	}
 	if (!update_executable_path(updater_executable, sizeof(updater_executable)))
 		return;
 	snprintf(updater_directory, sizeof(updater_directory), "%s", updater_executable);

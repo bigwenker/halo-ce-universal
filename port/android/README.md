@@ -256,6 +256,10 @@ drop it, and when it hosts, its players leave.
 
 ## Updates
 
+This fork disables automatic updates, including with an existing enabled
+config or a numbered build. Install fork APK updates manually. The behavior
+below describes the retained upstream updater.
+
 The app from GitHub Actions can update itself, as on Linux (refer to
 "Updates" in [port/linux/README.md](../linux/README.md#updates)). When you
 select "Yes":

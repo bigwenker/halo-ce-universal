@@ -438,7 +438,7 @@ clients and in `init.txt`, without becoming map-script functions.
 | `network.brokers_file` | `"brokers.txt"` | `HALO_NET_BROKERS_FILE` | The file of the public MQTT brokers that let the machines of an invite find each other, and that carry the listings of the server browser: next to `config.toml`, unless a full path. One `host:port` on each line, up to 4; `#` starts a comment. |
 | `network.stun_servers` | Google and Cloudflare | `HALO_NET_STUN` | The public STUN servers (`host:port`, with commas between them) that give the internet address of a machine. |
 | `discord.application_id` | the application of the project | `HALO_DISCORD_APPLICATION` | The Discord application for invites. Empty: no Discord. |
-| `update.auto` | `true` | `HALO_UPDATE_AUTO` | `true`: at start-up, the game looks for a new version. Refer to "Updates". `false`: the game does not look. |
+| `update.auto` | `false` | `HALO_UPDATE_AUTO` | Automatic updates are disabled in this fork, including numbered builds and existing configs that set this to `true`. Retained for compatibility. Update the fork manually. |
 | `crash_reports.upload` | `"ask"` | `HALO_CRASH_REPORTS` | Windows only. `"yes"`: the game sends a report of each crash to the developers. `"no"`: the game sends no reports. `"ask"`: the game asks at the next crash and writes the answer here. Refer to "Crash reports" in [port/windows/README.md](../windows/README.md#crash-reports). |
 | `debug.update_answer` | `""` | `HALO_UPDATE_ANSWER` | The answer to the update question, for automatic tests: `yes`, `no` or `never`. Empty: the game asks. |
 | `debug.exit_after` | `0.0` | `HALO_EXIT_AFTER` | The game stops after this number of seconds. `0`: never. |
@@ -459,6 +459,11 @@ With Mesa drivers, the game sends its GL calls through the GL thread of
 Mesa. To stop this, set the environment variable `mesa_glthread=false`.
 
 ## Updates
+
+Automatic updates are disabled in this fork on desktop and Android, so an
+upstream package cannot replace the fork's features. Existing settings and
+environment overrides cannot enable them. Install fork updates manually.
+The upstream updater described below remains in the sources for reference.
 
 The builds from GitHub Actions (refer to the main [README](../../README.md#download))
 can update themselves. At start-up, the game asks GitHub for the latest

@@ -48,6 +48,9 @@ import java.util.zip.ZipInputStream;
  */
 final class Updater {
     private static final String REPOSITORY = "OpenCommunityEdition/OpenCE";
+    // Fork: upstream APKs would replace our additional features, even when
+    // an existing config enables updates or this is a numbered build.
+    private static final boolean AUTOMATIC_UPDATES_ENABLED = false;
     private static final String USER_AGENT = "halo-ce-universal-updater";
     private static final int TIMEOUT_MILLISECONDS = 20000;
     /** the most a download (a release's zip, about 35 MB) or the app in it may be */
@@ -60,7 +63,7 @@ final class Updater {
     static void start(Activity activity) {
         File config = configFile(activity);
 
-        if (BuildConfig.HALO_BUILD_NUMBER <= 0 || config == null || !autoUpdate(config))
+        if (!AUTOMATIC_UPDATES_ENABLED || BuildConfig.HALO_BUILD_NUMBER <= 0 || config == null || !autoUpdate(config))
             return;
         new Thread(() -> {
             int latest = latestRelease();
@@ -90,7 +93,7 @@ final class Updater {
                 return !trimmed.substring(trimmed.indexOf('=') + 1).trim().startsWith("false");
             }
         }
-        return true;
+        return false;
     }
 
     /** update.auto = false written into config.toml (only its line changed) */

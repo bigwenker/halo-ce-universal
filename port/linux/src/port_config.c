@@ -519,9 +519,9 @@ static const struct config_setting config_settings[] =
 		"The Discord application internet play invites go through while the\n"
 		"Discord desktop client runs; empty for none." },
 
-	{ "update.auto", _config_boolean, "true", "HALO_UPDATE_AUTO", _environment_value, _platform_all,
-		"Look for a new version when the game starts, and offer to update to it;\n"
-		"false never looks (the game's \"Do not ask again\" writes false here)." },
+	{ "update.auto", _config_boolean, "false", "HALO_UPDATE_AUTO", _environment_value, _platform_all,
+		"Automatic updates are disabled in this fork. This setting is retained\n"
+		"for compatibility; enabling it does not start an update check." },
 	{ "crash_reports.upload", _config_string, "\"ask\"", "HALO_CRASH_REPORTS", _environment_value, _platform_windows,
 		"Send a report of each crash (a minidump and halo.log) to the developers'\n"
 		"Sentry project (port/windows/src/win32_crash.c): \"yes\" sends them, \"no\"\n"
