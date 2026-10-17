@@ -7,11 +7,13 @@ from harness import build,read,function,run,mutated,CHECK_FAILED
 def generated(fault=False):
     source=read('port/linux/game/player_profile_color_menu.c')
     code=function(source,'inside')+'\n'+function(source,'profile_color_menu_pointer')
+    code+='\n'+'\n'.join(function(source,name) for name in ('profile_color_menu_reset','profile_color_menu_is_reset','profile_color_menu_adjust'))
     code+='\n'+function(read('port/linux/game/menu_functions.c'),'profile_edit_choose')
+    code+='\n'+'\n'.join(function(read('port/linux/game/menu_functions.c'),name) for name in ('profile_edit_color_save','profile_edit_color_reset'))
     if fault=='history':code=mutated(code,'while (from->focused_child) from=from->focused_child;','/* lose the focused row */')
     elif fault:code=mutated(code,'!pointer->held','TRUE')
     return (('pointer.inc',read('port/linux/include/halo_ui_pointer.h')),('under_test.inc',code))
-@pytest.mark.parametrize('case',['drag','touch','hue','inactive','navigation'])
+@pytest.mark.parametrize('case',['drag','touch','hue','inactive','reset','save-reset','navigation'])
 def test_case(case):
     status,out=run(build('profile_picker',generated()),case)
     assert status==0,out

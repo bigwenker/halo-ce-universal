@@ -19,7 +19,8 @@
 enum { PORTRAIT_W=128, PORTRAIT_H=256 };
 static struct
 {
-	boolean active, portrait_valid, sources_ready;
+	boolean active, portrait_valid, sources_ready, reset;
+	short portrait_palette, stock_palette;
 	long portrait_profile;
 	unsigned long portrait_rgb;
 	real h,s,v;
@@ -34,9 +35,11 @@ static struct
 void profile_color_menu_invalidate(void) { picker.portrait_profile=NONE; }
 void profile_color_menu_portrait(long profile)
 {
+	struct player_profile saved;
 	if (profile == picker.portrait_profile) return;
 	picker.portrait_profile=profile;
 	picker.portrait_valid=profile_rgb_read(profile,&picker.portrait_rgb);
+	picker.portrait_palette=player_profile_get(profile,&saved) ? saved.primary_color_index : 0;
 }
 
 void profile_color_menu_begin(long profile, short palette)
@@ -49,9 +52,15 @@ void profile_color_menu_begin(long profile, short palette)
 		rgb=((unsigned long)(color.red*255.f+.5f)<<16)|((unsigned long)(color.green*255.f+.5f)<<8)|(unsigned long)(color.blue*255.f+.5f);
 	}
 	profile_rgb_to_hsv(rgb,&picker.h,&picker.s,&picker.v);
-	picker.active=TRUE; picker.drag=0;
+	picker.active=TRUE; picker.drag=0; picker.reset=FALSE;
 }
 void profile_color_menu_cancel(void) { picker.active=FALSE; picker.drag=0; }
+void profile_color_menu_reset(long profile, short palette)
+{
+	profile_color_menu_begin(profile,palette);
+	picker.reset=TRUE;
+}
+boolean profile_color_menu_is_reset(void) { return picker.reset; }
 unsigned long profile_color_menu_rgb(void) { return profile_rgb_from_hsv(picker.h,picker.s,picker.v); }
 void profile_color_menu_values(real *h, real *s, real *v) { *h=picker.h; *s=picker.s; *v=picker.v; }
 void profile_color_menu_adjust(char const *name, short direction)
@@ -60,6 +69,8 @@ void profile_color_menu_adjust(char const *name, short direction)
 	if (!strcmp(name,"rgb_hue_value")) picker.h=PIN(picker.h+direction,0.f,359.f);
 	else if (!strcmp(name,"rgb_saturation_value")) picker.s=PIN(picker.s+direction*.01f,0.f,1.f);
 	else if (!strcmp(name,"rgb_brightness_value")) picker.v=PIN(picker.v+direction*.01f,0.f,1.f);
+	else return;
+	picker.reset=FALSE;
 }
 
 static boolean inside(rectangle2d const *r, short x, short y)
@@ -85,10 +96,11 @@ boolean profile_color_menu_pointer(struct halo_ui_pointer const *pointer)
 	}
 	else if (picker.drag==2)
 		picker.h=359.f*PIN((real)(y-picker.hue_bounds.y0)/MAX(1,picker.hue_bounds.y1-picker.hue_bounds.y0-1),0.f,1.f);
+	if (picker.drag) picker.reset=FALSE;
 	return picker.drag!=0;
 }
 
-static boolean portrait_read(struct bitmap_data *bitmap, pixel32 *pixels)
+static boolean portrait_read(struct bitmap_data *bitmap, pixel32 *pixels, boolean cropped)
 {
 	IDirect3DTexture8 *texture;
 	D3DLOCKED_RECT lock;
@@ -101,7 +113,8 @@ static boolean portrait_read(struct bitmap_data *bitmap, pixel32 *pixels)
 	copy=*bitmap; copy.base_address=lock.pBits; copy.mipmap_count=0;
 	for(y=0;y<PORTRAIT_H;y++) for(x=0;x<PORTRAIT_W;x++)
 	{
-		point.x=(x+.5f)/PORTRAIT_W; point.y=(y+.5f)/PORTRAIT_H;
+		point.x=((cropped ? 1+x*65/PORTRAIT_W : x)+.5f)/PORTRAIT_W;
+		point.y=((cropped ? 1+y*136/PORTRAIT_H : y)+.5f)/PORTRAIT_H;
 		pixels[y*PORTRAIT_W+x]=bitmap_2d_get_pixel(&copy,&point,1.f);
 	}
 	IDirect3DTexture8_UnlockRect(texture,0);
@@ -113,8 +126,8 @@ static boolean portrait_sources(void)
 	long tag;
 	if (picker.sources_ready) return TRUE;
 	tag=tag_loaded('bitm',"ui\\shell\\bitmaps\\colors_sm");
-	if (tag==NONE || !portrait_read(bitmap_group_get_bitmap_from_sequence(tag,0,0),picker.white) ||
-		!portrait_read(bitmap_group_get_bitmap_from_sequence(tag,0,1),picker.black)) return FALSE;
+	if (tag==NONE || !portrait_read(bitmap_group_get_bitmap_from_sequence(tag,0,0),picker.white,FALSE) ||
+		!portrait_read(bitmap_group_get_bitmap_from_sequence(tag,0,1),picker.black,FALSE)) return FALSE;
 	picker.sources_ready=TRUE;
 	return TRUE;
 }
@@ -146,21 +159,49 @@ static struct bitmap_data *portrait_make(struct bitmap_data *bitmap, unsigned lo
 	return bitmap;
 }
 
+static struct bitmap_data *profile_portrait(void)
+{
+	if (!picker.portrait_valid) return NULL;
+	if (!picker.portrait || picker.shown_rgb!=picker.portrait_rgb)
+	{
+		picker.portrait=portrait_make(picker.portrait,picker.portrait_rgb);
+		picker.shown_rgb=picker.portrait_rgb;
+	}
+	return picker.portrait;
+}
+
+static struct bitmap_data *profile_stock_portrait(void)
+{
+	long tag;
+	struct bitmap_data *source;
+	if (picker.stock && picker.stock_palette==picker.portrait_palette) return picker.stock;
+	tag=tag_loaded('bitm',"ui\\shell\\bitmaps\\colors_sm");
+	if (tag==NONE) return NULL;
+	source=bitmap_group_get_bitmap_from_sequence(tag,0,picker.portrait_palette);
+	if (!picker.stock) picker.stock=bitmap_2d_new(PORTRAIT_W,PORTRAIT_H,0,11);
+	if (!picker.stock) return NULL;
+	if (!picker.stock->base_address || !portrait_read(source,(pixel32 *)picker.stock->base_address,TRUE))
+	{
+		bitmap_delete(picker.stock); picker.stock=NULL;
+		return NULL;
+	}
+	bitmap_rebuild(picker.stock); picker.stock_palette=picker.portrait_palette;
+	return picker.stock;
+}
+
 struct bitmap_data *profile_color_menu_bitmap(char const *name, struct bitmap_data *original)
 {
 	short x,y;
     if (!strcmp(name,"custom_model_preview"))
     {
-        if(!picker.stock && portrait_sources()) picker.stock=portrait_make(NULL,0xFFFFFFUL);
-        return custom_models_preview_bitmap(name,picker.stock ? picker.stock : original);
+        struct bitmap_data *portrait=profile_portrait();
+        if (!portrait) portrait=profile_stock_portrait();
+        return custom_models_preview_bitmap(name,portrait ? portrait : original);
     }
 	if (!strcmp(name,"qtr_screen_profile_color_pic") && picker.portrait_valid)
 	{
-		if (!picker.portrait || picker.shown_rgb!=picker.portrait_rgb)
-		{
-			picker.portrait=portrait_make(picker.portrait,picker.portrait_rgb); picker.shown_rgb=picker.portrait_rgb;
-		}
-		return picker.portrait ? picker.portrait : original;
+		struct bitmap_data *portrait=profile_portrait();
+		return portrait ? portrait : original;
 	}
 	if (!picker.active) return original;
 	if (!strcmp(name,"rgb_preview"))

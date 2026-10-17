@@ -22,6 +22,7 @@ static int file_read(struct file_reference*f,unsigned n,void*out){(void)f;if(n>s
 static int file_write(struct file_reference*f,unsigned n,void const*data){(void)f;if(failed)return 0;memcpy(content,data,n);return 1;}
 static int file_set_eof(struct file_reference*f,unsigned n){(void)f;size=n;return 1;}
 static int file_exists(struct file_reference*f){(void)f;return exists;}
+static int file_delete(struct file_reference*f){CHECK(strstr(f->path,"profile_color.txt"),"reset must only remove the color sidecar");if(failed)return 0;exists=0;size=0;return 1;}
 static int file_create(struct file_reference*f){(void)f;exists=1;return 1;}
 #include "palette.inc"
 static short player_profile_number_of_available_primary_colors(void){return sizeof(palette)/sizeof(palette[0]);}
@@ -51,6 +52,12 @@ int main(int argc,char**argv){CHECK(argc==2,"case");unsigned long rgb=99;char te
   CHECK(profile_rgb_write(5,0)&&size==7&&!memcmp(content,"#000000",7),"stored hex");CHECK(profile_rgb_read(5,&rgb)&&rgb==0,"black loaded");
   CHECK(profile_rgb_write(5,0x12abef)&&profile_rgb_read(5,&rgb)&&rgb==0x12abef,"roundtrip");
   failed=1;CHECK(!profile_rgb_write(5,1)&&!memcmp(content,"#12ABEF",7),"failed write");
+ }else if(!strcmp(argv[1],"reset")){
+  CHECK(profile_rgb_write(5,0x123456)&&profile_rgb_clear(5),"clear selected color");
+  CHECK(!profile_rgb_read(5,&rgb)&&profile_rgb_clear(5),"unset color and repeated reset");
+  CHECK(!profile_rgb_clear(NONE),"invalid profile rejected");
+  CHECK(profile_rgb_write(5,0),"explicit black");failed=1;
+  CHECK(!profile_rgb_clear(5)&&profile_rgb_read(5,&rgb)&&rgb==0,"failed delete preserves color");
  }else if(!strcmp(argv[1],"fallback")){
   CHECK(!profile_rgb_read(5,&rgb),"missing sidecar uses palette");exists=1;strcpy(content,"#abcdef");size=6;CHECK(!profile_rgb_read(5,&rgb),"truncated");size=8;CHECK(!profile_rgb_read(5,&rgb),"extra data");size=7;content[6]='z';CHECK(!profile_rgb_read(5,&rgb),"malformed");CHECK(!profile_rgb_write(NONE,1),"no profile");
  }else if(!strcmp(argv[1],"nearest")){

@@ -81,6 +81,13 @@ boolean profile_rgb_write(long profile, unsigned long rgb)
 	return ok;
 }
 
+boolean profile_rgb_clear(long profile)
+{
+	struct file_reference file;
+	if (!profile_rgb_file(profile, &file)) return FALSE;
+	return !file_exists(&file) || file_delete(&file);
+}
+
 short profile_rgb_nearest(unsigned long rgb)
 {
 	real_rgb_color color;

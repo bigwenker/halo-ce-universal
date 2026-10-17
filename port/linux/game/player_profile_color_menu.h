@@ -5,6 +5,8 @@ struct widget_instance;
 struct halo_ui_pointer;
 void profile_color_menu_begin(long profile, short palette);
 void profile_color_menu_cancel(void);
+void profile_color_menu_reset(long profile, short palette);
+boolean profile_color_menu_is_reset(void);
 unsigned long profile_color_menu_rgb(void);
 void profile_color_menu_adjust(char const *name, short direction);
 void profile_color_menu_values(real *h, real *s, real *v);

@@ -88,10 +88,14 @@
 	</widget>
 	<widget name="port_profile/color_buttons" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items">
 		<child widget="port_profile/color_ok" x="380"/>
-		<child widget="common_button_cancel" x="510"/>
+		<child widget="port_profile/color_reset" x="510"/>
 	</widget>
-	<widget name="port_profile/color_ok" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" text="OK" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2">
+	<widget name="port_profile/color_ok" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" text="DONE" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2">
 		<on event="a" run="port profile color save" back="true"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="port_profile/color_reset" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" text="RESET" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2">
+		<on event="a" run="port profile color reset"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
 	<widget name="port_profile/model" width="640" height="480" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/gradient">

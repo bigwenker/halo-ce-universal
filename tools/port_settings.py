@@ -1722,11 +1722,16 @@ def _profile_edit() -> list:
                       ("font","ui\\large_ui"),("color","#FFFFFFFF"),("align","center")],[])
     lines += _widget(f"{base}/color_buttons",[("type","column_list"),("width",640),("height",28),
                       ("flags","pass_unhandled_to_focused_child left_right_tabs_items")],
-                     [f'<child widget="{base}/color_ok" x="380"/>','<child widget="common_button_cancel" x="510"/>'])
+                     [f'<child widget="{base}/color_ok" x="380"/>',f'<child widget="{base}/color_reset" x="510"/>'])
     lines += _widget(f"{base}/color_ok",[("type","text"),("width",128),("height",24),
-                      ("bitmap","bitmaps/text_button_background"),("text","OK"),("font","ui\\small_ui"),
+                      ("bitmap","bitmaps/text_button_background"),("text","DONE"),("font","ui\\small_ui"),
                       ("color","#FFFFFFFF"),("align","center"),("text_y",2)],
                      ['<on event="a" run="port profile color save" back="true"/>',
+                      '<on event="left_mouse" run="mouse emit accept event"/>'])
+    lines += _widget(f"{base}/color_reset",[("type","text"),("width",128),("height",24),
+                      ("bitmap","bitmaps/text_button_background"),("text","RESET"),("font","ui\\small_ui"),
+                      ("color","#FFFFFFFF"),("align","center"),("text_y",2)],
+                     ['<on event="a" run="port profile color reset"/>',
                       '<on event="left_mouse" run="mouse emit accept event"/>'])
     lines += _widget(f"{base}/model",[("width",640),("height",480),
                       ("flags","pass_unhandled_to_focused_child"),("bitmap","bitmaps/gradient")],

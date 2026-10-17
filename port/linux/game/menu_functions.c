@@ -2036,6 +2036,7 @@ static void model_row_text(short row,wchar_t *text)
 static boolean profile_edit_model_begin(void)
 {
     char id[32];
+    profile_color_menu_portrait(profile_edit.index);
     halo_custom_models_scan();
     custom_models_profile_read(profile_edit.index,id);
     model_list.chosen=(short)halo_custom_model_find(id);model_list.initializing=TRUE;
@@ -2072,9 +2073,22 @@ static boolean profile_edit_color_save(void)
 {
 	struct player_profile profile;
 	unsigned long rgb=profile_color_menu_rgb();
+	/* Reset already removed the override; Done must not save its fallback. */
+	if (profile_color_menu_is_reset()) return TRUE;
 	if (!player_profile_get(profile_edit.index,&profile) || !profile_rgb_write(profile_edit.index,rgb)) return campaign_fail();
 	profile.primary_color_index=profile_rgb_nearest(rgb);
 	return profile_edit_save(&profile);
+}
+
+static boolean profile_edit_color_reset(void)
+{
+	struct player_profile profile;
+	if (!player_profile_get(profile_edit.index,&profile) || !profile_rgb_clear(profile_edit.index)) return campaign_fail();
+	profile_color_menu_invalidate();
+	profile_color_menu_portrait(profile_edit.index);
+	profile_color_menu_reset(profile_edit.index,profile.primary_color_index);
+	network_profile_rgb_changed();
+	return TRUE;
 }
 
 static void profile_edit_color_update(struct widget_instance *widget)
@@ -6467,6 +6481,7 @@ boolean pc_menu_event_function_invoke(
 		else if (!strcmp(name,"port profile rename")) return profile_edit_rename();
 		else if (!strcmp(name,"port profile color begin")) return profile_edit_color_begin();
 		else if (!strcmp(name,"port profile color save")) return profile_edit_color_save();
+		else if (!strcmp(name,"port profile color reset")) return profile_edit_color_reset();
 		else if (!strcmp(name,"port profile color cancel")) profile_color_menu_cancel();
 		else if (!strcmp(name,"port profile color left")) profile_color_menu_adjust(widget->name,-1);
 		else if (!strcmp(name,"port profile color right")) profile_color_menu_adjust(widget->name,1);

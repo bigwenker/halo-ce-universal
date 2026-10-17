@@ -393,6 +393,7 @@ static char const *const port_function_names[] =
 	"new campaign decision",
 	"port coop leave game",
 	"port profile rename", "port profile color begin", "port profile color save", "port profile color cancel",
+	"port profile color reset",
 	"port profile color left", "port profile color right",
 	"port profile model begin", "port profile model choose",
 	/* (the main menu's Mods: menu_functions.c) */
