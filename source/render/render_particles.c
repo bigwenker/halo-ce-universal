@@ -18,7 +18,7 @@ symbols in this file:
 
 #include "camera/director.h"
 #include "cseries/cseries.h"
-/* port: full detail retains small particles except negligible projections. */
+/* port: full detail retains small particles except small projections. */
 #include "render_lod.h"
 #include "cseries/profile.h"
 #include "effects/particles.h"
