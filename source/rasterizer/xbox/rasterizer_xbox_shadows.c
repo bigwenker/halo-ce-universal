@@ -427,6 +427,10 @@ void _rasterizer_environment_shadow_model_draw(
 				vertex_buffer->type,
 				0);
 
+			/* port: opaque casters have no sampled alpha. Test coverage only
+			for cutout materials, and set it per part so mixed models work. */
+			IDirect3DDevice8_SetRenderState(global_d3d_device, D3DRS_ALPHATESTENABLE,
+				!TEST_FLAG(model->flags, _shader_model_not_alpha_tested_bit));
 			if (TEST_FLAG(model->flags, _shader_model_not_alpha_tested_bit))
 			{
 				IDirect3DDevice8_SetRenderState(global_d3d_device, D3DRS_PSTEXTUREMODES, 0);
