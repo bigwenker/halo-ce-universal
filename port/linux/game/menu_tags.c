@@ -395,6 +395,9 @@ static char const *const port_function_names[] =
 	"port profile rename", "port profile color begin", "port profile color save", "port profile color cancel",
 	"port profile color left", "port profile color right",
 	"port profile model begin", "port profile model choose",
+	/* (the main menu's Mods: menu_functions.c) */
+	"port mods init", "port mods close", "port mods toggle", "port mods move up", "port mods move down",
+	"port mods save",
 };
 
 /* the PC version's game data functions that the Xbox's have not, from
@@ -417,6 +420,8 @@ static char const *const port_game_data_input_names[] =
 	on Gamepad Setup's row) */
 	"port gamepad layout preview",
 	"port profile edit update", "port profile color update", "port profile model update",
+	/* (the main menu's Mods) */
+	"port mods update",
 };
 
 static struct
@@ -1799,15 +1804,19 @@ frame is the stock 159 grown by the 36 that five rows at this pitch add
 /* the port box piece for one of the map's pause box pieces, else NULL */
 static char const *pause_campaign_box_bitmap(long tag_index)
 {
-	if (tag_name_ends(tag_index, "\\pausebox2_left_center") || tag_name_ends(tag_index, "\\pausebox_right_center") ||
-		tag_name_ends(tag_index, "\\pausebox_center"))
-	{
+	if (tag_name_ends(tag_index, "\\pausebox2_left_center"))
 		return "pause/pausebox_center";
-	}
-	if (tag_name_ends(tag_index, "\\pausebox2_left") || tag_name_ends(tag_index, "\\pausebox_left"))
+	if (tag_name_ends(tag_index, "\\pausebox2_left"))
 		return "pause/pausebox_left";
-	if (tag_name_ends(tag_index, "\\pausebox2_right") || tag_name_ends(tag_index, "\\pausebox_right"))
+	if (tag_name_ends(tag_index, "\\pausebox2_right"))
 		return "pause/pausebox_right";
+	/* The objectives' pieces carry a header, not the button-key footer. */
+	if (tag_name_ends(tag_index, "\\pausebox_right_center") || tag_name_ends(tag_index, "\\pausebox_center"))
+		return "pause/objectives_center";
+	if (tag_name_ends(tag_index, "\\pausebox_left"))
+		return "pause/objectives_left";
+	if (tag_name_ends(tag_index, "\\pausebox_right"))
+		return "pause/objectives_right";
 	return NULL;
 }
 
@@ -1909,15 +1918,16 @@ static void pause_campaign_grow_box(struct ui_widget_definition *widget, short s
 			/* (bitmap_name is the lookup, not piece_bitmap: find calls it) */
 			long bitmap = find(piece_bitmap, build.menus->bitmap_count, bitmap_name);
 			short height = (short)(child_widget->bounds.y1 - child_widget->bounds.y0);
+			short frame = strstr(piece_bitmap, "objectives_") ? 0 : PAUSE_CAMPAIGN_BOX_FRAME;
 
 			if (bitmap != NONE && (short)(height + shift) == PAUSE_CAMPAIGN_BOX_HEIGHT)
 			{
 				struct bitmap_group *group = bitmap_group_get(build.bitmap_tags[bitmap]);
 				struct bitmap_group_sequence *sequence = group ? group->sequences.address : NULL;
 
-				if (sequence && PAUSE_CAMPAIGN_BOX_FRAME < group->bitmaps.count)
+				if (sequence && frame < group->bitmaps.count)
 				{
-					sequence->first_bitmap_index = PAUSE_CAMPAIGN_BOX_FRAME;
+					sequence->first_bitmap_index = frame;
 					sequence->bitmap_count = 1;
 					reference_set(&child_widget->background_bitmap, BITMAP_GROUP_TAG, build.bitmap_tags[bitmap]);
 					child_widget->bounds.y1 = (short)(child_widget->bounds.y0 + PAUSE_CAMPAIGN_BOX_HEIGHT);
@@ -2077,13 +2087,13 @@ static void pause_campaign_patch(struct cache_file_tag_instance *instances)
 	}
 }
 
-/* the campaign played here by one player: not network co-op, nor split
-screen */
-static boolean single_player_campaign_map(void)
+/* The full-screen campaign pause menu also serves network co-op. Local
+split-screen keeps its separate layout. */
+static boolean full_screen_campaign_map(void)
 {
 	return tag_loaded('Soul', MULTIPLAYER_COLLECTION) == NONE &&
 		tag_loaded(UI_WIDGET_DEFINITION_TAG, CAMPAIGN_PAUSE_SCREEN) != NONE &&
-		game_connection() == _game_connection_local && !network_game_is_active() && !game_is_cooperative();
+		(game_connection() != _game_connection_local || network_game_is_active() || !game_is_cooperative());
 }
 
 /* whether display.menus asks for the PC version's menus: "pc" in any case
@@ -2111,9 +2121,8 @@ void menu_tags_loaded(
 	long widget_count, own_lists = 0, total, index;
 
 	boolean game_map = strcmp(map_name, "ui") != 0;
-	boolean campaign = game_map && single_player_campaign_map();
-	/* Tags load before the new scenario is initialized. Its campaign pause
-	screen tells us which footer is available, not what session is running. */
+	boolean campaign = game_map && full_screen_campaign_map();
+	/* The fork also builds a separate network campaign pause box. */
 	boolean campaign_pause = game_map && tag_loaded(UI_WIDGET_DEFINITION_TAG, CAMPAIGN_PAUSE_SCREEN) != NONE;
 
 	/* (ui.map, and a multiplayer map: its pause menu's SETTINGS; a
@@ -2129,7 +2138,9 @@ void menu_tags_loaded(
 	memset(&build, 0, sizeof(build));
 	build.menus = menus;
 	build.game_map = game_map;
-	build.campaign = campaign;
+	/* Settings must not pause the simulation in a network campaign. */
+	build.campaign = campaign && game_connection() == _game_connection_local &&
+		!network_game_is_active() && !game_is_cooperative();
 	widget_count = menus->widget_count;
 	build.widget_tags = malloc((widget_count + 1) * sizeof(long));
 	build.text_tags = malloc((widget_count + 1) * sizeof(long));

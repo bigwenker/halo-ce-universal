@@ -140,7 +140,29 @@ static void variants(void){
  CHECK(a.pager.parameters.text_box.string_list_index==1&&b.pager.parameters.text_box.string_list_index==0);
  release(&a);release(&b);
 }
-int main(void){long counts[]={0,1,11,12,13,22,23,33,34,121,1025};for(unsigned i=0;i<sizeof(counts)/sizeof(*counts);i++)sweep(counts[i]);variants();printf("PASS: %lu production paging probes, 0-1025 settings, 94 pages, wrap/focus/refresh, pending edits, all-page OK/defaults, platform/alternate rows and independent screens\n",probes);}
+static void hud_style(void){
+ static const char *values[]={"false","true"};
+ struct menu m=make(9,0);link(&m);
+ m.spinners[0].name="high_res_hud_spinner";settings[0].values=values;
+ m.rows[1].name="op_hud_button_style";
+ settings_paginate(&m.list,FALSE);
+ CHECK(!m.rows[1].visible&&m.rows[2].vertical_offset==103);
+ m.spinners[0].parameters.list.selected_index=1;settings_paginate(&m.list,FALSE);
+ CHECK(m.rows[1].visible&&m.rows[2].vertical_offset==133);
+ m.list.focused_child=&m.rows[1];m.spinners[0].parameters.list.selected_index=0;
+ settings_paginate(&m.list,FALSE);CHECK(m.list.focused_child==&m.rows[0]);release(&m);
+ m=make(13,1);link(&m);m.spinners[0].name="high_res_hud_spinner";settings[0].values=values;
+ m.rows[1].name="op_hud_button_style";settings_paginate(&m.list,FALSE);
+ CHECK(!m.pager.visible&&!m.rows[1].visible);
+ m.spinners[0].parameters.list.selected_index=1;settings_paginate(&m.list,FALSE);
+ CHECK(m.pager.visible&&m.rows[1].visible);settings_next_page(&m.pager);
+ CHECK(m.pager.parameters.text_box.string_list_index==1&&!m.rows[1].visible);
+ settings_paginate(&m.list,FALSE);CHECK(m.pager.parameters.text_box.string_list_index==1);
+ m.spinners[0].parameters.list.selected_index=0;settings_paginate(&m.list,FALSE);
+ CHECK(!m.pager.visible&&!m.rows[1].visible&&m.pager.parameters.text_box.string_list_index==0);
+ release(&m);
+}
+int main(void){long counts[]={0,1,11,12,13,22,23,33,34,121,1025};for(unsigned i=0;i<sizeof(counts)/sizeof(*counts);i++)sweep(counts[i]);variants();hud_style();printf("PASS: %lu production paging probes, 0-1025 settings, 94 pages, wrap/focus/refresh, pending edits, all-page OK/defaults, platform/alternate rows, conditional HUD style and independent screens\n",probes);}
 '''
 
 
