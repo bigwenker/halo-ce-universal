@@ -43,7 +43,7 @@ void profile_color_menu_begin(long profile, short palette)
 {
 	unsigned long rgb;
 	real_rgb_color color;
-	if (!profile_rgb_read(profile,&rgb))
+    if (!profile_rgb_read(profile,&rgb) && !custom_models_profile_default_rgb(profile,&rgb))
 	{
 		color=player_profile_get_rgb_color(palette);
 		rgb=((unsigned long)(color.red*255.f+.5f)<<16)|((unsigned long)(color.green*255.f+.5f)<<8)|(unsigned long)(color.blue*255.f+.5f);

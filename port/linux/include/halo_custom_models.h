@@ -2,7 +2,7 @@
 #ifndef HALO_CUSTOM_MODELS_H
 #define HALO_CUSTOM_MODELS_H
 enum { HALO_CUSTOM_MODELS = 64, HALO_CUSTOM_MODEL_ID = 32, HALO_CUSTOM_MODEL_NODES = 19 };
-struct halo_custom_model_info { char id[32], name[96], preview[128]; int colorable; };
+struct halo_custom_model_info { char id[32], name[96], preview[128]; int colorable; char default_rgb[8]; };
 struct halo_custom_node { char name[32]; int child, sibling, parent; float rotation[4], translation[3]; };
 struct halo_custom_vertex { float position[3], normal[3], uv[2], weight; int node[2]; };
 struct halo_custom_mesh

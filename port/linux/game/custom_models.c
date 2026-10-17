@@ -4,6 +4,7 @@
 #include "cseries.h"
 #include "custom_models.h"
 #include "halo_custom_models.h"
+#include "player_profile_rgb.h"
 #include "models/model_definitions.h"
 #include "rasterizer/rasterizer_geometry.h"
 #include "rasterizer/rasterizer_model_types.h"
@@ -84,6 +85,16 @@ static boolean profile_file(long profile,struct file_reference *file)
     if(profile==NONE || !player_profile_get_enclosing_directory_path(profile,directory))return FALSE;
     if(snprintf(path,sizeof(path),"%sprofile_model.txt",directory)>=sizeof(path))return FALSE;
     return file_reference_create_from_path(file,path,FALSE)!=NULL;
+}
+boolean custom_models_default_rgb(char const *id,unsigned long *rgb)
+{
+    struct halo_custom_model_info const *info=halo_custom_model_info(halo_custom_model_find(id));
+    return info && info->colorable && profile_rgb_parse(info->default_rgb,rgb);
+}
+boolean custom_models_profile_default_rgb(long profile,unsigned long *rgb)
+{
+    char id[32];
+    return custom_models_profile_read(profile,id) && custom_models_default_rgb(id,rgb);
 }
 boolean custom_models_profile_read(long profile,char id[32])
 {

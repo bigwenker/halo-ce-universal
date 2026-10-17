@@ -14,6 +14,7 @@
 #include "network_extensions.h"
 #include "network_profile_rgb.h"
 #include "player_profile_rgb.h"
+#include "custom_models.h"
 #include <string.h>
 
 enum { RGB_MESSAGE = 251, RGB_CHUNK = HALO_PORT_MAXIMUM_NETWORK_PLAYERS };
@@ -72,14 +73,15 @@ boolean network_profile_rgb_color(long index, real_rgb_color *color)
 	if (p->local_player_index >= 0 && p->local_player_index < MAXIMUM_LOCAL_PLAYERS)
 	{
 		rgb_refresh();
-		if (!local_colors[p->local_player_index].present) return FALSE;
-		rgb = local_colors[p->local_player_index].rgb;
+        if (local_colors[p->local_player_index].present) rgb = local_colors[p->local_player_index].rgb;
+        else if (!custom_models_default_rgb(custom_models_player_id(index),&rgb)) return FALSE;
 	}
 	else
 	{
 		slot = DATUM_INDEX_TO_ABSOLUTE_INDEX(index);
-		if (slot >= NUMBEROF(rgb_players) || rgb_players[slot].handle != index || !rgb_players[slot].present) return FALSE;
-		rgb = rgb_players[slot].rgb;
+        if (slot >= NUMBEROF(rgb_players)) return FALSE;
+        if (rgb_players[slot].handle == index && rgb_players[slot].present) rgb = rgb_players[slot].rgb;
+        else if (!custom_models_default_rgb(custom_models_player_id(index),&rgb)) return FALSE;
 	}
 	color->red = ((rgb>>16)&255)/255.f;
 	color->green = ((rgb>>8)&255)/255.f;

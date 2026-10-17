@@ -51,7 +51,7 @@ static SDL_EnumerationResult SDLCALL discover(void *unused, char const *director
     char *data;
     SDL_PathInfo stat;
     toml_result_t result;
-    toml_datum_t full, color, preview;
+    toml_datum_t full, color, preview, default_rgb;
     struct halo_custom_model_info *info;
     (void)unused;
     if (!*name || !strcmp(name,"master_chief") || !halo_custom_model_id_valid(name) || model_count == HALO_CUSTOM_MODELS) return SDL_ENUM_CONTINUE;
@@ -69,6 +69,12 @@ static SDL_EnumerationResult SDLCALL discover(void *unused, char const *director
         SDL_snprintf(info->name,sizeof(info->name),"%s",full.u.s);
         SDL_snprintf(info->preview,sizeof(info->preview),"%s",preview.u.s);
         info->colorable=color.u.boolean;
+        if (info->colorable)
+        {
+            default_rgb=toml_seek(result.toptab,"default_rgb");
+            if (default_rgb.type==TOML_STRING && strlen(default_rgb.u.s)==7)
+                memcpy(info->default_rgb,default_rgb.u.s,sizeof(info->default_rgb));
+        }
     }
     else platform_log("custom models: %s: expected full_name, colorable and a local PNG preview filename",name);
     toml_free(result);

@@ -1325,7 +1325,13 @@ vertex, triangle and image limits and a shared 128 MiB residency allowance.
 
 `colorable=false` retains the texture's authored colors. `colorable=true` uses
 Chief's ordinary color-change channel C and the saved profile RGB (or the normal
-palette/team color). An optional grayscale `textures/armor_mask.png` chooses
+palette/team color). An optional `default_rgb = "#6A0001"` in `info.toml` supplies
+the model's color when the profile has no saved RGB; an explicit profile RGB,
+including black, takes priority. The default is ignored when `colorable=false`
+or the value is not a six-digit RGB hex string. Team colors still take priority
+in team multiplayer. Defaults are resolved from each client's local pack;
+the existing optional model/RGB messages and upstream protocol are unchanged.
+An optional grayscale `textures/armor_mask.png` chooses
 recolorable areas (white changes, black stays); without it the entire armor is
 colorable. Use neutral gray/white base colors for vivid RGB tinting. The mask
 is converted to the Xbox shader's blue channel. The preview

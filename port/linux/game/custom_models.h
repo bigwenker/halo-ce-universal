@@ -9,6 +9,8 @@ void custom_models_player_changed(long player);
 void custom_models_selection_changed(void);
 boolean custom_models_profile_read(long profile, char id[32]);
 boolean custom_models_profile_write(long profile, char const *id);
+boolean custom_models_default_rgb(char const *id, unsigned long *rgb);
+boolean custom_models_profile_default_rgb(long profile, unsigned long *rgb);
 void custom_models_menu_preview(short model);
 struct bitmap_data *custom_models_preview_bitmap(char const *name, struct bitmap_data *original);
 void custom_models_preview_forget(void);
