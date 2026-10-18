@@ -256,36 +256,31 @@ SCREENS["audio_settings/sound_processing"] = {
 }
 _audio["rows"] = [row for row in _audio["rows"] if row[1] not in _processing]
 
-# Audio Setup's voice chat (port/linux/game/network_voice.c) with the text
-# chat's colours and streamer mode (network_chat.c, chat_filter.c), a screen
-# of their own (a category, as
-# Video Setup's): Audio Setup has no room for another row, and Network Setup,
-# which has none either, is not offered in a game (menu_tags.c)
-_chat = {"audio.voice_chat", "audio.voice_volume"}
-SCREENS["audio_settings/chat"] = {
-    "screen": "chat_settings_screen", "header": _audio["header"], "spacing": 30,
-    "rows": [row for row in _audio["rows"] if row[1] in _chat] + [
-        ("CHAT TEXT:", "display.chat_style", [("DEFAULT", "default"), ("WHITE", "white")],
-         "The text chat's colors: DEFAULT, names in their\nteam's color; WHITE, all white, as Custom Edition.", None),
-        ("STREAMER MODE:", "game.streamer_mode", ON_OFF,
-         "Show slurs and swearing in the text chat as\nharmless words, for streaming.", None),
-    ],
-}
-_audio["rows"] = [row for row in _audio["rows"] if row[1] not in _chat]
+# (voice chat stays on Audio Setup; the text chat's rows are the multiplayer
+# HUD's, on Network Setup)
 _audio["categories"] = [
     ("SOUND PROCESSING:", "audio_settings/sound_processing",
      "The reverb, and how sounds are converted to the\noutput's rate."),
-    ("VOICE AND TEXT CHAT:", "audio_settings/chat", "Voice chat, and the text chat's streamer\nmode."),
 ]
 
 # Network Setup's map sharing (port/linux/game/map_share.c): this machine's
 # part in another's game, a screen of its own (a category, as Video Setup's)
-SEED_UPLOADS = (64, 128, 256, 512, 1024, 2048)
+SEED_UPLOADS = (64, 128, 256, 512, 1024, 2048, 4096, 8192, 10240)
 _network = SCREENS["network_setup"]
+# (and the multiplayer HUD's rows, and streamer mode, screens of their own:
+# Network Setup has room for nine places)
+_hud_settings = ("display.player_names", "display.player_name_scale", "display.scoreboard_team_layout",
+                 "display.scoreboard_background")
+_hud_rows = [row for row in _network["rows"] if row[1] in _hud_settings]
+_network["rows"] = [row for row in _network["rows"] if row[1] not in _hud_settings]
 _network["categories"] = [
     ("MAP SHARING:", "network_setup/map_sharing",
      "Downloading Custom Edition maps you do not have,\nand helping send them to other players.",
      "desktop android"),
+    ("MULTIPLAYER HUD:", "network_setup/multiplayer_hud",
+     "Players' names above their heads, the\nscoreboard, and the text chat."),
+    ("STREAMER MODE:", "network_setup/streamer_mode",
+     "Hide offensive words in names and text from\nother players, maps and mods, as stars."),
 ]
 SCREENS["network_setup/map_sharing"] = {
     "screen": "map_sharing_settings_screen", "header": _network["header"], "spacing": 30,
@@ -301,13 +296,53 @@ SCREENS["network_setup/map_sharing"] = {
     ],
 }
 
+# Network Setup's multiplayer HUD: its rows, moved from Network Setup, and the
+# text chat's (port/linux/game/network_chat.c)
+SCREENS["network_setup/multiplayer_hud"] = {
+    "screen": "multiplayer_hud_settings_screen", "header": _network["header"], "spacing": 30,
+    "rows": _hud_rows + [
+        ("TEXT CHAT:", "display.text_chat", [("SHOW", "true"), ("HIDE", "false")],
+         "SHOW the text chat, or HIDE it: no lines, and\nits keys and D-pad Up open nothing.", None),
+        ("CHAT TEXT:", "display.chat_style", [("COLORS", "colors"), ("WHITE", "white")],
+         "The text chat's colors: COLORS, names in their\nteam's color; WHITE, as Custom Edition.", None),
+    ],
+}
+
+# Network Setup's streamer mode (port/linux/game/text_filter.c): words hidden
+# in what other players, maps and mods show, each group from a severity of
+# Surge AI's on (port/assets/text_filter)
+STREAMER_LEVELS = [("OFF", "off"), ("SEVERE", "severe"), ("STRONG AND WORSE", "strong"), ("MILD AND WORSE", "mild")]
+SCREENS["network_setup/streamer_mode"] = {
+    "screen": "streamer_mode_settings_screen", "header": _network["header"], "spacing": 30,
+    "rows": [
+        ("STREAMER MODE:", "streamer.enabled", ON_OFF,
+         "Hide offensive words in names and text from\nother players, maps and mods, as stars.", None),
+        ("CENSOR SLURS:", "streamer.slurs", STREAMER_LEVELS,
+         "Slurs about race, sexuality, gender and\ndisability.", None),
+        ("CENSOR SWEARING:", "streamer.swearing", STREAMER_LEVELS,
+         "Swearing and sexual words (STRONG AND WORSE\nleaves the mildest showing).", None),
+        ("CENSOR INSULTS:", "streamer.insults", STREAMER_LEVELS,
+         "Name-calling and insults that are not slurs.", None),
+    ],
+}
+
+# Network Setup in a game (the pause menu's SETTINGS: port/linux/game/
+# menu_tags.c's pause_network_patch): its pages alone, without the rows that
+# would drop the game (internet play) or are for the main menu (the router,
+# the clipboard, the updates)
+SCREENS["network_setup/in_game"] = {
+    "screen": "in_game_network_settings_screen", "header": _network["header"], "spacing": 30,
+    "platform_places": True, "rows": [], "categories": _network["categories"],
+}
+
 # Controls Setup: the keyboard and mouse's actions, in groups (the order of
 # port/linux/game/menu_functions.c's table of them)
 CONTROL_GROUPS = ["MOVEMENT", "WEAPONS", "ACTIONS", "COMMUNICATION", "CAMERA"]
 CONTROL_ROWS = 8
 
 # the settings whose rows have the wider spinner (a device's name)
-WIDE_SETTINGS = {"audio.output_device", "audio.input_device"}
+WIDE_SETTINGS = {"audio.output_device", "audio.input_device", "streamer.slurs", "streamer.swearing",
+                 "streamer.insults"}
 
 # the host's voice chat and vote kicks, on Teamplay Options
 # (_teamplay_options_extras): each row's key, its label, its choices' words
@@ -336,6 +371,13 @@ TEAMPLAY_ROWS = [
     ("votekick", "VOTE KICK:", ["ON", "OFF"], [
         "Players can vote to kick a player, from the\\nscoreboard.",
         "Players cannot vote to kick anyone.",
+    ]),
+    # (network_chat.c: one row for the chat and its links, as Teamplay
+    # Options has room for one more)
+    ("text_chat", "TEXT CHAT:", ["ON", "WITH LINKS", "OFF"], [
+        "Players can type to each other; lines with links\\nare refused. Off in a public internet game.",
+        "Players can type to each other, links too. Off\\nin a public internet game.",
+        "No text chat in the game.",
     ]),
 ]
 
@@ -1205,12 +1247,13 @@ COOP_SETUP_SCREENS = [
             "Players walk through each other, so that no one\\nblocks a doorway. The AI's characters still block.",
         ]),
     ]),
-    ("voice_options", "VOICE AND VOTING", "Voice chat and votes to kick a player, for this\\ngame.", TEAMPLAY_ROWS),
+    ("voice_options", "VOICE AND VOTING", "Voice chat, text chat and votes to kick a player,\\nfor this game.",
+     TEAMPLAY_ROWS),
 ]
 # Server Setup's map sharing (port/linux/game/map_share.c), for any game,
 # laid out as co-op's options are (its key, its title, its row's help and
 # its rows: menu_functions.c's gametype_options give their settings' values)
-MAP_SHARE_UPLOADS = (256, 512, 1024, 2048, 4096, 8192)
+MAP_SHARE_UPLOADS = (256, 512, 1024, 2048, 4096, 8192, 16384, 20480)
 MAP_SHARE_SETUP = ("map_share_options", "MAP SHARING",
                    "Sending players who join without the game's\\nCustom Edition map the map, and how fast.", [
     ("map_share", "SHARE MAPS:", ["ON", "OFF"], [

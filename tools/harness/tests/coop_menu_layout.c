@@ -15,6 +15,7 @@ static struct widget_instance *named(struct widget_instance *w,char const *name,
  return NULL;
 }
 static void visible_set(struct widget_instance *w,boolean visible){if(w)w->visible=visible;}
+static int p2p_hosting_listed(void){return FALSE;}
 #include "under_test.inc"
 static char const *rows[]={"op_coop_friendly_fire","op_coop_chain_damage","op_coop_extra_enemies","op_coop_enemy_health","op_coop_extra_pickups",
  "op_coop_extra_vehicles","op_coop_enemies_multiplier","op_coop_enemies_per_player","op_coop_player_collisions"};

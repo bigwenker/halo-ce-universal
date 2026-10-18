@@ -130,6 +130,9 @@ enum
 	the line the host sends on to each machine that hears it, reliably */
 	_distributed_message_chat_up = 87,
 	_distributed_message_chat_down = 88,
+	/* the host's text chat settings (network_chat.c): whether its players
+	may chat and send links, to every client, reliably */
+	_distributed_message_chat_config = 89,
 
 	/* Fork-only messages: sent only after network_extensions.c negotiation. */
 	_distributed_message_fork_capabilities = 240,
@@ -318,9 +321,13 @@ word network_votekick_status_entry_size(void);
 /* (the host) a client's line; from_stream: it came over the machine's own
 stream (anything else is refused) */
 void network_chat_handle_up(long machine_index, void const *entries, boolean from_stream);
-/* (a client) a line the host sent on */
-void network_chat_handle_down(void const *entries);
+/* (a client) a line the host sent on; from_stream: it came over the host's
+connection's stream (anything else is refused) */
+void network_chat_handle_down(void const *entries, boolean from_stream);
 word network_chat_line_entry_size(void);
+/* (a client) the host's chat settings; from_stream: as above */
+void network_chat_handle_config(void const *entries, boolean from_stream);
+word network_chat_config_entry_size(void);
 
 /* ---------- prototypes/NETWORK_ACTORS.C */
 

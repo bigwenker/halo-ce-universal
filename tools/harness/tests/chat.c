@@ -28,13 +28,30 @@ static boolean game_time_get_paused(void){return paused;}
 static boolean console_is_active(void){return console;}
 static short chat_speaker(void){return speaker;}
 static unsigned long halo_keyboard_actions(int n){return actions;}
-static void chat_send(short channel,char const *text){sent++;sent_channel=channel;snprintf(sent_text,sizeof(sent_text),"%s",text);}
+static void chat_send(short channel,char const *text,boolean checked){CHECK(checked,"editor bypassed host policy");sent++;sent_channel=channel;snprintf(sent_text,sizeof(sent_text),"%s",text);}
 static void hs_compile_and_evaluate(char const *text){commands++;snprintf(command,sizeof(command),"%s",text);}
 static short hs_tokens_enumerate(char const *prefix,long type,char const **matches,short count){
  static char const *words[]={"kill","suicide","viewmodel_fov","viewmodel_vis","fov_desired"};
  for(int i=0;i<5;i++)matches[i]=words[i];return 5;
 }
 static int platform_clipboard_get(char *out,int size){snprintf(out,size,"%s",clipboard);return clipboard[0]!=0;}
+enum {HALO_CHAT_PAD_UP, _chat_config_allowed_bit, _error_log};
+static struct {boolean open,drawn,shift,symbols;short row,column;unsigned long held,repeat_at;} chat_keyboard;
+static struct {boolean known;} chat_config;
+static boolean chat_in_game,chat_off_noticed,allowed=TRUE;
+static unsigned long chat_off_noticed_at;
+static short chat_line_count,chat_rates[4];
+static unsigned long system_milliseconds(void){return 1000;}
+static unsigned long halo_chat_pad_buttons(void){return 0;}
+static boolean chat_host(void){return FALSE;}
+static void chat_host_update_config(void){}
+static void chat_host_update_rates(void){}
+static boolean chat_shown(void){return TRUE;}
+static boolean chat_hidden(void){return menu||paused;}
+static unsigned long chat_config_flags(void){return allowed?FLAG(_chat_config_allowed_bit):0;}
+static void chat_add_notice(char const *text){}
+static void chat_keyboard_update(unsigned long pressed,unsigned long held){}
+#define error(...) ((void)0)
 #include "under_test.inc"
 static void open_chat(void){actions=0;network_chat_update();actions=FLAG(HALO_KEYBOARD_CHAT);network_chat_update();actions=0;}
 static void key(short code,byte mods){queued.key_code=code;queued.modifier_flags=mods;queued.ascii_code=0;has_key=TRUE;network_chat_update();}
@@ -91,6 +108,7 @@ int main(int argc,char **argv){CHECK(argc==2,"case");char const *case_name=argv[
  else CASE("mute"){
   open_chat();text("/mute Quixote 5",15);key(_key_return,0);CHECK(sent==1&&commands==0&&!strcmp(sent_text,"/mute Quixote 5"),"mute bypassed native policy");
   open_chat();text("/unmute Quixote",15);key(_key_return,0);CHECK(sent==2&&commands==0,"unmute executed locally");
+  key(_key_escape,0);allowed=FALSE;open_chat();CHECK(!network_chat_typing(),"host chat-off policy bypassed");
  }
  else return 2;return 0;
 }

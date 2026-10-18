@@ -1,4 +1,5 @@
 """Conditional co-op rows, relative child positions and help indices."""
+import re
 import sys
 from pathlib import Path
 
@@ -13,7 +14,9 @@ def generated(fault=None):
     code = function(source, 'gametype_option_help')
     if fault:
         code = mutated(code, *fault)
-    return (('under_test.inc', code),)
+    config = '\n'.join(re.search(r'^#define ' + name + r' .*$', source, re.M).group()
+                       for name in ('TEXT_CHAT_SPINNER', 'TEXT_CHAT_OFF'))
+    return (('under_test.inc', config + '\n' + code),)
 
 
 @pytest.mark.parametrize('case', ['layout', 'help', 'unrelated'])

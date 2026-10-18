@@ -63,6 +63,8 @@ Called from the main loop every frame (main.c).
 
 #include "../src/p2p.h" /* port: port/linux/src/p2p.c, p2p_lobby.c */
 #include "network_chat.h"
+#include "network_voice.h"
+#include "halo_keyboard.h"
 
 #include <math.h>
 #include <stdarg.h>
@@ -74,6 +76,7 @@ const char *config_string(char const *name);
 int config_boolean(char const *name);
 double config_real(char const *name);
 long config_integer(char const *name);
+int config_write(char const *name, char const *value);
 void platform_log(char const *format, ...);
 /* damage.c's */
 void damage_kill_object_for_player(long object_index, long player_index);
@@ -83,6 +86,7 @@ void network_distributed_item_statistics(long *creates, long *deletes, long *fai
 void network_damage_statistics(long *sent_reports, long *dealt_reports, long *rejected_reports, long *replayed_events);
 /* xinput_sdl.c's */
 void test_input_hold_action(int hold);
+void test_input_press(unsigned long buttons);
 
 enum
 {
@@ -678,6 +682,93 @@ static void network_test_seat_together(
 		object_get(units[1])->object.parent_object_index == best_index ? "in" : "out");
 }
 
+/* debug.network_test_chat: a line typed on the text chat's on-screen
+keyboard with the controller's buttons, ticks since it began: each held
+for two frames and let go for two, whatever the frame rate (a press of two
+ticks falls between two frames of a machine drawing slowly) (the keyboard
+opens on the first key, 'q': "gg ez", then D-pad Down to the team, then
+Start) */
+static void network_test_keyboard_line(
+	long ticks)
+{
+	enum { STEP_FRAMES = 4 };
+	static long frames;
+	static long last_ticks = -1;
+	static unsigned long const steps[] =
+	{
+		1UL << HALO_CHAT_PAD_UP,
+		1UL << HALO_CHAT_PAD_STICK_DOWN,
+		1UL << HALO_CHAT_PAD_STICK_RIGHT, 1UL << HALO_CHAT_PAD_STICK_RIGHT, 1UL << HALO_CHAT_PAD_STICK_RIGHT,
+		1UL << HALO_CHAT_PAD_STICK_RIGHT,
+		1UL << HALO_CHAT_PAD_A, 1UL << HALO_CHAT_PAD_A,
+		1UL << HALO_CHAT_PAD_STICK_DOWN, 1UL << HALO_CHAT_PAD_STICK_DOWN,
+		1UL << HALO_CHAT_PAD_A,
+		1UL << HALO_CHAT_PAD_STICK_UP, 1UL << HALO_CHAT_PAD_STICK_UP, 1UL << HALO_CHAT_PAD_STICK_UP,
+		1UL << HALO_CHAT_PAD_STICK_LEFT, 1UL << HALO_CHAT_PAD_STICK_LEFT,
+		1UL << HALO_CHAT_PAD_A,
+		1UL << HALO_CHAT_PAD_STICK_DOWN, 1UL << HALO_CHAT_PAD_STICK_DOWN,
+		1UL << HALO_CHAT_PAD_STICK_LEFT, 1UL << HALO_CHAT_PAD_STICK_LEFT,
+		1UL << HALO_CHAT_PAD_A,
+		1UL << HALO_CHAT_PAD_DOWN,
+		1UL << HALO_CHAT_PAD_START,
+	};
+	long step;
+
+	/* (frames since it began: again for the next game's line) */
+	if (ticks < last_ticks)
+		frames = 0;
+	last_ticks = ticks;
+	step = frames / STEP_FRAMES;
+	frames++;
+	if (step >= (long)NUMBEROF(steps))
+	{
+		/* (after the line, let go: a held key would move nothing more) */
+		if (step == (long)NUMBEROF(steps))
+			test_input_press(0);
+		return;
+	}
+	test_input_press((frames - 1) % STEP_FRAMES < STEP_FRAMES / 2 ? steps[step] : 0);
+}
+
+/* debug.network_test_chat: the last player (absolute index; NONE), whom the
+host mutes; whether it is this machine's; and the first player's machine
+(the network's index: the host's), which the last player's mutes */
+static short network_test_last_player_index(
+	void)
+{
+	struct data_iterator iterator;
+	short last = NONE;
+
+	data_iterator_new(&iterator, player_data);
+	while (data_iterator_next(&iterator) != NULL)
+		last = (short)DATUM_INDEX_TO_ABSOLUTE_INDEX(iterator.datum_index);
+	return last;
+}
+
+static boolean network_test_last_player_local(
+	void)
+{
+	struct data_iterator iterator;
+	struct player_datum *player;
+	struct player_datum *last = NULL;
+
+	data_iterator_new(&iterator, player_data);
+	while ((player = (struct player_datum *)data_iterator_next(&iterator)) != NULL)
+		last = player;
+	return last && last->local_player_index != NONE;
+}
+
+static long network_test_first_player_machine(
+	void)
+{
+	struct data_iterator iterator;
+	struct player_datum *player;
+
+	data_iterator_new(&iterator, player_data);
+	player = (struct player_datum *)data_iterator_next(&iterator);
+	return player ? player->network_player_data.machine_index : NONE;
+}
+
 /* debug.network_test_chat: the last player's name, in ASCII (the host
 mutes it) */
 static void network_test_last_player_name(
@@ -855,6 +946,16 @@ void network_test_update(
 	if (network_test.mode == _network_test_off)
 		return;
 
+	/* debug.network_test_chat: each client's player types "gg ez" on the
+	text chat's on-screen keyboard 32 seconds on, as a controller does, and
+	sends it to the team (each frame, not each second, as the rest) */
+	if (network_test.chat_time > 0.0f && network_test.mode != _network_test_host && game_in_progress() &&
+		!main_menu_loaded &&
+		game_time_get() >= (long)(network_test.chat_time * TICKS_PER_SECOND) + 32 * TICKS_PER_SECOND)
+	{
+		network_test_keyboard_line(game_time_get() - (long)(network_test.chat_time * TICKS_PER_SECOND) -
+			32 * TICKS_PER_SECOND);
+	}
 	/* the game running: report (from the start of each game: the next
 	game's time starts over) */
 	if (game_in_progress() && game_time_get() < network_test.logged_time)
@@ -910,7 +1011,12 @@ void network_test_update(
 		then the host mutes the last player for a minute (a client's /mute
 		of the host refused), each says a line to everyone (the last
 		player's going no further than the host), the host unmutes it, and
-		each says another */
+		each says another; then each says a line with a link (refused, as
+		network.text_chat "on" refuses links), the host turns the text chat
+		off (network.text_chat "off"), and each says a line (refused); then
+		the host mutes the last player for everyone, as its scoreboard does,
+		and each says a line, and the last player's machine mutes the host's
+		for itself, as a client's scoreboard does, and each says another */
 		if (network_test.chat_time > 0.0f)
 		{
 			long chat_time = (long)(network_test.chat_time * TICKS_PER_SECOND);
@@ -927,7 +1033,8 @@ void network_test_update(
 			}
 			if (network_test.chat_lines_said <= 0 && game_time_get() >= chat_time)
 			{
-				snprintf(text, sizeof(text), "hello everyone from %s", machine);
+				/* (long enough to wrap in the chat's column) */
+				snprintf(text, sizeof(text), "hello everyone from %s, long enough to wrap the column", machine);
 				network_chat_say(_chat_channel_everyone, text);
 				network_test.chat_lines_said = 1;
 			}
@@ -976,6 +1083,68 @@ void network_test_update(
 			if (network_test.chat_lines_said == 6 && game_time_get() >= chat_time + 12 * TICKS_PER_SECOND)
 			{
 				snprintf(text, sizeof(text), "after unmute from %s", machine);
+				network_chat_say(_chat_channel_everyone, text);
+				network_test.chat_lines_said++;
+			}
+			if (network_test.chat_lines_said == 7 && game_time_get() >= chat_time + 14 * TICKS_PER_SECOND)
+			{
+				/* (a client's sent past its own check, for the host to refuse) */
+				snprintf(text, sizeof(text), "join us at discord(dot)gg/halo from %s", machine);
+				if (network_test.mode == _network_test_host)
+					network_chat_say(_chat_channel_everyone, text);
+				else
+					network_chat_say_unchecked(_chat_channel_everyone, text);
+				network_test.chat_lines_said++;
+			}
+			if (network_test.chat_lines_said == 8 && game_time_get() >= chat_time + 16 * TICKS_PER_SECOND)
+			{
+				if (network_test.mode == _network_test_host && !config_write("network.text_chat", "off"))
+					platform_log("network test: could not turn the text chat off");
+				network_test.chat_lines_said++;
+			}
+			if (network_test.chat_lines_said == 9 && game_time_get() >= chat_time + 18 * TICKS_PER_SECOND)
+			{
+				snprintf(text, sizeof(text), "with the chat off from %s", machine);
+				if (network_test.mode == _network_test_host)
+					network_chat_say(_chat_channel_everyone, text);
+				else
+					network_chat_say_unchecked(_chat_channel_everyone, text);
+				network_test.chat_lines_said++;
+			}
+			/* (and on again: config.toml is the executable's folder's, which
+			every test of it shares) */
+			if (network_test.chat_lines_said == 10 && game_time_get() >= chat_time + 20 * TICKS_PER_SECOND)
+			{
+				if (network_test.mode == _network_test_host && !config_write("network.text_chat", "on"))
+					platform_log("network test: could not turn the text chat on");
+				network_test.chat_lines_said++;
+			}
+			/* (the scoreboard's mutes: the host's of the last player for
+			everyone, their lines and voice, then the last player's machine's
+			own mute of the host's machine, here alone) */
+			if (network_test.chat_lines_said == 11 && game_time_get() >= chat_time + 22 * TICKS_PER_SECOND)
+			{
+				if (network_test.mode == _network_test_host)
+					network_chat_host_mute(network_test_last_player_index(), TRUE);
+				network_test.chat_lines_said++;
+			}
+			if (network_test.chat_lines_said == 12 && game_time_get() >= chat_time + 24 * TICKS_PER_SECOND)
+			{
+				snprintf(text, sizeof(text), "after the scoreboard mute from %s", machine);
+				network_chat_say(_chat_channel_everyone, text);
+				network_test.chat_lines_said++;
+			}
+			if (network_test.chat_lines_said == 13 && game_time_get() >= chat_time + 28 * TICKS_PER_SECOND)
+			{
+				if (network_test.mode == _network_test_host)
+					network_chat_host_mute(network_test_last_player_index(), FALSE);
+				else if (network_test_last_player_local())
+					network_voice_mute_machine(network_test_first_player_machine(), TRUE);
+				network_test.chat_lines_said++;
+			}
+			if (network_test.chat_lines_said == 14 && game_time_get() >= chat_time + 30 * TICKS_PER_SECOND)
+			{
+				snprintf(text, sizeof(text), "after the local mute from %s", machine);
 				network_chat_say(_chat_channel_everyone, text);
 				network_test.chat_lines_said++;
 			}
@@ -1155,7 +1324,7 @@ void network_test_update(
 					listed[index].invite[0] ? "" : ", locked");
 			}
 		}
-		if (count > 0 && p2p_join_invite(games[0].invite))
+		if (count > 0 && p2p_join_listing(&games[0]))
 		{
 			p2p_lobby_browse(FALSE);
 			platform_log("network test: joining %s's game (%s) from the server browser", games[0].name, games[0].map);

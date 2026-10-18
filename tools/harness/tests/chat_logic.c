@@ -5,12 +5,16 @@ The rules of port/linux/game/network_chat.c's text chat: what a line's text
 may hold (another machine's is untrusted), how many lines the host takes
 from a machine, who hears a team's line, how long a line shows, and the
 host's /mute (what it reads from a line, the player a name means, how long a
-mute lasts). test_chat_logic.py takes the constants and structures
-(config.inc) and the code (under_test.inc).
+mute lasts), the links it can refuse and which lines its settings refuse.
+test_chat_logic.py takes the constants and structures (config.inc) and the
+code (under_test.inc).
 */
 
 #include "harness.h"
 
+#ifndef NUMBEROF
+#define NUMBEROF(array) (sizeof(array) / sizeof((array)[0]))
+#endif
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define csstrlen strlen
 #define csstrcmp strcmp
@@ -47,6 +51,18 @@ int main(int argc, char **argv)
 	{
 		CHECK(clean(text, "a\tb\x1b" "c\x7f" "d\xe9", 64) == 8, "length %d", (int)strlen(text));
 		CHECK(!strcmp(text, "a?b?c?d?"), "'%s'", text);
+	}
+
+	/* "|", which the game's text drawing takes for the start of a code (one
+	at a line's end reads past it), never reaches the screen, sent or typed */
+	CASE("text-pipe")
+	{
+		char line[CHAT_TEXT_SIZE] = "a";
+
+		CHECK(clean(text, "gg|", 64) == 3 && !strcmp(text, "gg?"), "'%s'", text);
+		CHECK(clean(text, "a|nb", 64) == 4 && !strcmp(text, "a?nb"), "'%s'", text);
+		chat_text_append(line, "|b|");
+		CHECK(!strcmp(line, "ab"), "'%s'", line);
 	}
 
 	/* a message cut at CHAT_TEXT_SIZE - 1 characters, and never read past
@@ -280,7 +296,11 @@ int main(int argc, char **argv)
 		memset(mutes, 0, sizeof(mutes));
 		CHECK(chat_mute_set(mutes, 2, "Milenko", 5, now), "not muted");
 		CHECK(chat_mute_find(mutes, 2, "Milenko", now) != NULL, "not found");
-		CHECK(chat_mute_find(mutes, 2, "milenko", now) == NULL, "found by another name");
+		/* (in either case, as the host keeps names apart) */
+		CHECK(chat_mute_find(mutes, 2, "milenko", now) != NULL, "not found in another case");
+		CHECK(chat_mute_find(mutes, 2, "MILENKO", now) != NULL, "not found in capitals");
+		CHECK(chat_mute_find(mutes, 2, "Milenk", now) == NULL, "found by another name");
+		CHECK(chat_mute_find(mutes, 2, "Milenkos", now) == NULL, "found by a longer name");
 		CHECK(chat_mute_minutes_left(&mutes[0], now) == 5, "%d", chat_mute_minutes_left(&mutes[0], now));
 		CHECK(chat_mute_minutes_left(&mutes[0], now + 1) == 5, "%d", chat_mute_minutes_left(&mutes[0], now + 1));
 		CHECK(chat_mute_minutes_left(&mutes[0], now + CHAT_MILLISECONDS_PER_MINUTE) == 4, "%d",
@@ -335,6 +355,150 @@ int main(int argc, char **argv)
 		CHECK(chat_mute_set(mutes, 2, "c", 5, now + CHAT_MILLISECONDS_PER_MINUTE), "the run out mute not taken");
 		CHECK(chat_mute_find(mutes, 2, "a", now + CHAT_MILLISECONDS_PER_MINUTE) &&
 			chat_mute_find(mutes, 2, "c", now + CHAT_MILLISECONDS_PER_MINUTE), "the wrong mute taken");
+	}
+
+	/* links: a scheme, www., a name and a domain (with a path, at the end,
+	before punctuation), an address of four numbers, in either case */
+	CASE("link-found")
+	{
+		static char const *const links[] =
+		{
+			"join https://example.org/x", "ftp://files", "go to WWW.SITE.NET now", "www.halo",
+			"discord.gg/abc", "my clan is at Example.COM", "check yt.tv, it's good", "halo.lol/x!",
+			"ip 192.168.1.20 port 2302", "10.0.0.1",
+		};
+		int index;
+
+		for (index = 0; index < (int)NUMBEROF(links); index++)
+			CHECK(chat_text_has_link(links[index]), "not a link: '%s'", links[index]);
+	}
+
+	/* the dots written out, as a link is dressed to get past a filter */
+	CASE("link-written-out")
+	{
+		static char const *const links[] = { "discord(dot)gg/abc", "example[dot]com", "site(.)net", "evil[.]io",
+			"EXAMPLE(DOT)COM" };
+		int index;
+
+		for (index = 0; index < (int)NUMBEROF(links); index++)
+			CHECK(chat_text_has_link(links[index]), "not a link: '%s'", links[index]);
+	}
+
+	/* the dots written out with spaces about them, or a dot with spaces both
+	sides */
+	CASE("link-spaced")
+	{
+		static char const *const links[] = { "example [dot] com", "discord (dot) gg/abc", "site [.] net",
+			"example . com", "1 . 2 . 3 . 4", "join discord dot gg/x", "EXAMPLE DOT COM", "evil {dot} io" };
+		static char const *const lines[] = { "polka dot me", "the dot is red", "dot dot dot", "the end . then",
+			"wait . . . ok" };
+		int index;
+
+		for (index = 0; index < (int)NUMBEROF(links); index++)
+			CHECK(chat_text_has_link(links[index]), "not a link: '%s'", links[index]);
+		for (index = 0; index < (int)NUMBEROF(lines); index++)
+			CHECK(!chat_text_has_link(lines[index]), "a link: '%s'", lines[index]);
+	}
+
+	/* a domain that is a word as well counts only with a path, a port or
+	another domain after it: "go.to" is a slip of typing */
+	CASE("link-word-domains")
+	{
+		static char const *const links[] = { "youtu.be/abc", "t.co/xyz", "example.co.uk", "halo.me:8080",
+			"clan.us/join" };
+		static char const *const lines[] = { "go.to the base", "he.is camping", "nice shot.Me", "wow.live",
+			"next.fun round", "k.top", "lol.it was close", "me.to", "x.win", "ok.so" };
+		int index;
+
+		for (index = 0; index < (int)NUMBEROF(links); index++)
+			CHECK(chat_text_has_link(links[index]), "not a link: '%s'", links[index]);
+		for (index = 0; index < (int)NUMBEROF(lines); index++)
+			CHECK(!chat_text_has_link(lines[index]), "a link: '%s'", lines[index]);
+	}
+
+	/* what is not one: sentences, numbers, abbreviations, a dot and a word
+	that is not a domain, a domain's letters running into more */
+	CASE("link-not")
+	{
+		static char const *const lines[] =
+		{
+			"gg ez", "nice shot. com on", "the score is 1.5 to 2", "e.g. the sniper", "i.e. no", "U.S.A",
+			"version 1.2.3", "lol...ok", "use the www to read", "wait.comrades", "Mr.Chief", "a.b", "dot com",
+			"hello world", "3.14159", "", "it's .com", "1.2.3.4567", "player.com2", "v1.2.3.4.5",
+		};
+		int index;
+
+		for (index = 0; index < (int)NUMBEROF(lines); index++)
+			CHECK(!chat_text_has_link(lines[index]), "a link: '%s'", lines[index]);
+	}
+
+	/* the host's settings: no chat refuses every line; links refused unless
+	allowed */
+	CASE("refused")
+	{
+		byte on = (byte)FLAG(_chat_config_allowed_bit);
+		byte links = (byte)(FLAG(_chat_config_allowed_bit) | FLAG(_chat_config_links_bit));
+
+		CHECK(chat_refused(0, "hello") != NULL, "a line taken with the chat off");
+		CHECK(chat_refused((byte)FLAG(_chat_config_links_bit), "hello") != NULL, "links alone let the chat on");
+		CHECK(chat_refused(on, "hello") == NULL, "a line refused with the chat on");
+		CHECK(chat_refused(on, "see discord.gg/x") != NULL, "a link taken where links are refused");
+		CHECK(chat_refused(links, "see discord.gg/x") == NULL, "a link refused where links are allowed");
+	}
+
+	/* the on-screen keyboard's characters: a letter in capitals with shift,
+	nothing else changed; none on the last row, or off the keyboard */
+	CASE("keyboard-character")
+	{
+		/* (and a row past them, which no key reads) */
+		static char const *const rows[CHAT_KEYBOARD_ROWS] =
+			{ "1234567890", "qwertyuiop", "asdfghjkl'", "zxcvbnm,.?", "##########" };
+
+		CHECK(chat_keyboard_character(rows, 1, 0, FALSE) == 'q', "'%c'", chat_keyboard_character(rows, 1, 0, FALSE));
+		CHECK(chat_keyboard_character(rows, 1, 0, TRUE) == 'Q', "'%c'", chat_keyboard_character(rows, 1, 0, TRUE));
+		CHECK(chat_keyboard_character(rows, 0, 3, TRUE) == '4', "a digit changed by shift");
+		CHECK(chat_keyboard_character(rows, 3, 9, TRUE) == '?', "a sign changed by shift");
+		CHECK(chat_keyboard_character(rows, CHAT_KEYBOARD_ROWS - 1, 0, FALSE) == 0, "the last row has a character");
+		CHECK(chat_keyboard_character(rows, -1, 0, FALSE) == 0 && chat_keyboard_character(rows, 0, CHAT_KEYBOARD_COLUMNS,
+			FALSE) == 0, "a key off the keyboard");
+	}
+
+	/* moving: round the edges; on the last row a wide key at a time, and its
+	first column */
+	CASE("keyboard-move")
+	{
+		short row = 0;
+		short column = 0;
+
+		chat_keyboard_move(&row, &column, -1, 0);
+		CHECK(row == CHAT_KEYBOARD_ROWS - 1 && column == 0, "up from the top: %d %d", row, column);
+		chat_keyboard_move(&row, &column, 0, -1);
+		CHECK(column == CHAT_KEYBOARD_COLUMNS - CHAT_KEYBOARD_WIDE_COLUMNS, "left round the last row: %d", column);
+		row = 3;
+		column = 5;
+		chat_keyboard_move(&row, &column, 1, 0);
+		CHECK(row == CHAT_KEYBOARD_ROWS - 1 && column == 4, "down onto a wide key: %d %d", row, column);
+		chat_keyboard_move(&row, &column, 0, 1);
+		CHECK(column == 4 + CHAT_KEYBOARD_WIDE_COLUMNS, "right on the last row: %d", column);
+		chat_keyboard_move(&row, &column, 1, 0);
+		CHECK(row == 0 && column == 4 + CHAT_KEYBOARD_WIDE_COLUMNS, "down round the bottom: %d %d", row, column);
+		column = CHAT_KEYBOARD_COLUMNS - 1;
+		chat_keyboard_move(&row, &column, 0, 1);
+		CHECK(column == 0, "right round a row: %d", column);
+	}
+
+	/* a tap: the key under it, a wide key's first column; none outside */
+	CASE("keyboard-tap")
+	{
+		short row = -1;
+		short column = -1;
+
+		CHECK(chat_keyboard_key_at(0.05f, 0.05f, &row, &column) && row == 0 && column == 0, "%d %d", row, column);
+		CHECK(chat_keyboard_key_at(0.95f, 0.3f, &row, &column) && row == 1 && column == 9, "%d %d", row, column);
+		CHECK(chat_keyboard_key_at(0.55f, 0.9f, &row, &column) && row == CHAT_KEYBOARD_ROWS - 1 && column == 4,
+			"the space key: %d %d", row, column);
+		CHECK(!chat_keyboard_key_at(-0.01f, 0.5f, &row, &column) && !chat_keyboard_key_at(0.5f, 1.0f, &row, &column),
+			"a tap outside taken");
 	}
 
 	return 0;

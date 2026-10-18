@@ -9,9 +9,9 @@ from harness import build, read, function, structure, enum_with, constant, run, 
 
 def generated(fault=None):
     source = read('port/linux/game/network_chat.c')
-    names = ('chat_lower', 'chat_command_word', 'chat_command_parse', 'chat_player_name_ascii',
+    names = ('chat_lower', 'chat_command_word', 'chat_command_parse', 'chat_player_name_length', 'chat_player_name_ascii',
              'chat_prefix', 'chat_candidate', 'chat_complete', 'chat_input_begin', 'chat_input_end',
-             'chat_input_submit', 'chat_input_insert', 'network_chat_update', 'network_chat_typing')
+             'chat_input_submit', 'chat_input_insert', 'chat_input_delete', 'network_chat_update', 'network_chat_typing')
     code = '\n'.join(function(source, name) for name in names)
     if fault == 'slash':
         code = mutated(code, "if (text[0]=='/' && text[1]", 'if (FALSE && text[1]')
@@ -24,7 +24,8 @@ def generated(fault=None):
     config += enum_with(read('port/linux/game/network_chat.h'), '_chat_channel_everyone,')+'\n'
     config += enum_with(source, '_chat_command_none,')+'\n'
     for name in ('CHAT_TEXT_SIZE', 'CHAT_NAME_SIZE', 'CHAT_CANDIDATES', 'CHAT_KEY_MODIFIER_CONTROL_BIT',
-                 'CHAT_MUTE_DEFAULT_MINUTES', 'CHAT_MUTE_MAXIMUM_MINUTES'):
+                 'CHAT_MUTE_DEFAULT_MINUTES', 'CHAT_MUTE_MAXIMUM_MINUTES',
+                 'CHAT_LINE_MILLISECONDS', 'CHAT_FADE_MILLISECONDS'):
         config += f'#define {name} {constant(source, name)}\n'
     config += re.search(r'static struct\s*\{[^}]+\} chat_input;', source).group()+'\n'
     config += re.search(r'static struct\s*\{[^}]+\} chat_completion;', source).group()+'\n'
