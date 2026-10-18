@@ -244,8 +244,9 @@ Press = (`controls.camera_zoom_in`) to move the camera nearer, or -
 (from about 0.75 m to 3.7 m). The wheel still changes weapons. The level
 and objects push the camera in, as the game's vehicle cameras are.
 
-- Free look holds the player's facing and aim while the mouse turns the
-  camera alone. F5 returns to first person and releases the held aim.
+- Free look holds the player's facing, aim and head direction at entry
+  while the mouse turns the camera alone. F5 returns to first person and
+  releases the held directions.
 - Zooming with a scope temporarily uses first person.
 - Vehicles, death and cutscenes retain their own cameras and release
   third-person input; the selected mode resumes when eligible again.

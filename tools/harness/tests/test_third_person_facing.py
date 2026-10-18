@@ -10,10 +10,10 @@ def generated(fault=None):
     code=re.sub(r'^#include "[^"\n]+"\n','',read('port/linux/game/third_person.c'),flags=re.M)
     has_filter='void third_person_action_facing(' in code
     if fault=='freeze':code=mutated(code,'*desired_facing = third_person_frozen_facing;',';')
-    if fault=='head':code=mutated(code,'player_control_get_facing_direction(0, &control_data->looking_vector);','control_data->looking_vector = control_data->aiming_vector;')
+    if fault=='head':code=mutated(code,'control_data->looking_vector = third_person_frozen_looking;','player_control_get_facing_direction(0, &control_data->looking_vector);')
     return (('under_test.inc','#define HAS_ACTION_FILTER '+str(int(has_filter))+'\n'+code),)
 
-@pytest.mark.parametrize('case',['replicas','head','normal','second-player','release'])
+@pytest.mark.parametrize('case',['replicas','head','head-reentry','normal','second-player','release'])
 def test_case(case):
     status,output=run(build('third_person_facing',generated()),case)
     assert status==0,output

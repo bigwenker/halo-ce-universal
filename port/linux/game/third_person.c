@@ -11,10 +11,9 @@ player, in a campaign (co-op too), never in competitive multiplayer.
   to THIRD_PERSON_FURTHEST). The wheel still changes weapons. The level and
   its objects push it in, as the game's own vehicle cameras are
   (observer.c's penetration check).
-- Press F5 again to look freely: the player keeps the facing and aim it had (moving
-  on that way), the mouse turns the camera alone all the way round, and the
-  player's head turns to where the camera looks (over the shoulder, when it
-  looks back). Press F5 again to return to first person.
+- Press F5 again to look freely: the player's facing, aim and head direction
+  stay as they were at entry. The mouse turns the camera alone all the way
+  round. Press F5 again to return to first person.
 - On foot only: in a vehicle its own cameras, dead the game's dead camera, in
   a cutscene the cutscene's. The body is drawn and the first-person weapon
   is not (the director takes it as a third-person view: director.c).
@@ -65,6 +64,7 @@ static real third_person_distance = THIRD_PERSON_START;
 static boolean third_person_free_look = FALSE;
 static boolean third_person_frozen = FALSE;
 static real_euler_angles2d third_person_frozen_facing;
+static real_vector3d third_person_frozen_looking;
 
 /* ---------- private code */
 
@@ -123,6 +123,9 @@ boolean third_person_camera_wanted(
 			wanted = FALSE;
 	}
 	platform_third_person_active(wanted);
+	/* Capture the head once on entry, before the camera orbits behind it. */
+	if (wanted && third_person_mode == _third_person_free && !third_person_free_look)
+		unit_get_looking_vector(third_person_unit(), &third_person_frozen_looking);
 	third_person_free_look = wanted && third_person_mode == _third_person_free;
 	if (!third_person_free_look)
 		third_person_frozen = FALSE;
@@ -182,7 +185,7 @@ void third_person_action_facing(
 }
 
 /* (players.c) the local player's control, as it goes to its unit: in free
-look, the facing and aim held, and the head turned to the camera's way */
+look, the facing, aim and head direction held at their entry values */
 void third_person_control(
 	long player_index,
 	real_euler_angles2d const *desired_facing,
@@ -199,8 +202,7 @@ void third_person_control(
 		third_person_frozen_facing = *desired_facing;
 	}
 	player_aiming_vector_from_facing(player_index, &held, &third_person_frozen_facing);
-	/* (the head: where the camera looks, the mouse's facing) */
-	player_control_get_facing_direction(0, &control_data->looking_vector);
+	control_data->looking_vector = third_person_frozen_looking;
 	control_data->facing_vector = held;
 	control_data->aiming_vector = held;
 }

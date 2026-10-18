@@ -20,6 +20,8 @@ static int platform_third_person_distance(void){int r=distance;distance=0;return
 static boolean game_engine_running(void){return multiplayer;}
 static boolean cinematic_in_progress(void){return cinematic;}
 static void player_control_get_facing_direction(short n,real_vector3d *v){*v=direction;}
+static real_vector3d head_direction={1,0,0};
+static void unit_get_looking_vector(long n,real_vector3d *v){*v=head_direction;}
 static real normalize3d(real_vector3d *v){return sqrtf(v->i*v->i+v->j*v->j+v->k*v->k);}
 static void unit_get_camera_position(long n,real_vector3d *v){*v=(real_vector3d){10,20,30};}
 static real player_control_get_field_of_view(short n){return 1.2f;}
@@ -65,7 +67,19 @@ int main(int argc,char **argv){char const *case_name=argc>1?argv[1]:"";
   CHECK(fabsf(predicted.aiming_vector.i-host.aiming_vector.i)<1e-6f&&fabsf(predicted.aiming_vector.j-host.aiming_vector.j)<1e-6f,"host and predicted aim disagree during free look");
   CHECK(packet.yaw==0,"camera angle was sent as body aim");
  }
- else CASE("head"){begin_free_look();consume(action_facing(0,0),0);struct unit_control_data c=consume(action_facing(1,0),0);CHECK(fabsf(c.looking_vector.j-sinf(1))<1e-6f&&c.aiming_vector.i==1,"head stopped following camera independently of held aim");}
+ else CASE("head"){
+  int n;head_direction=(real_vector3d){.8f,.6f,0};begin_free_look();consume(action_facing(0,0),0);
+  for(n=0;n<64;n++){
+   struct unit_control_data c=consume(action_facing(n*.11f,0),0);
+   CHECK(c.looking_vector.i==.8f&&c.looking_vector.j==.6f&&c.aiming_vector.i==1,"head changed as camera crossed behind player");
+  }
+ }
+ else CASE("head-reentry"){
+  head_direction=(real_vector3d){.8f,.6f,0};begin_free_look();consume(action_facing(0,0),0);
+  key=1;third_person_camera_wanted(0);head_direction=(real_vector3d){.6f,-.8f,0};begin_free_look();
+  struct unit_control_data c=consume(action_facing(1,0),0);
+  CHECK(c.looking_vector.i==.6f&&c.looking_vector.j==-.8f,"head direction not refreshed on next entry");
+ }
  else CASE("normal"){real_euler_angles2d a=action_facing(1,0);CHECK(a.yaw==1,"first-person aim changed");}
  else CASE("second-player"){begin_free_look();consume(action_facing(0,0),0);real_euler_angles2d a=action_facing(1,1);CHECK(a.yaw==1,"second local player's input changed");}
  else CASE("release"){begin_free_look();consume(action_facing(0,0),0);key=1;third_person_camera_wanted(0);real_euler_angles2d a=action_facing(2,0);CHECK(a.yaw==2,"aim did not return to camera on release");}
