@@ -65,11 +65,11 @@ struct custom_asset
     struct halo_custom_matrix source_contact[4],target_contact_inverse[4];
     struct custom_shader shader[HALO_CUSTOM_MATERIALS];
     struct custom_shader_ref shader_ref[HALO_CUSTOM_MATERIALS];
-    struct custom_geometry geometry[5];struct custom_part parts[5][HALO_CUSTOM_MATERIALS];
+    struct custom_geometry geometry;struct custom_part parts[HALO_CUSTOM_MATERIALS];
     struct model_region region;struct model_region_permutation permutation;
     struct bitmap_group bitmap_groups[HALO_CUSTOM_MATERIALS][2];struct bitmap_group_sequence sequences[HALO_CUSTOM_MATERIALS][2];
     struct bitmap_data *bitmaps[HALO_CUSTOM_MATERIALS][2];
-    void *vertex_data[5][HALO_CUSTOM_MATERIALS],*index_data[5][HALO_CUSTOM_MATERIALS];
+    void *vertex_data[HALO_CUSTOM_MATERIALS],*index_data[HALO_CUSTOM_MATERIALS];
     char names[1+HALO_CUSTOM_MATERIALS*3][128],id[32];long tag;
     short material_count;struct halo_custom_material materials[HALO_CUSTOM_MATERIALS];
     boolean ready;unsigned long memory_bytes;
@@ -305,11 +305,11 @@ static boolean asset_skeleton(struct custom_asset *a,short index,struct halo_cus
     }
     return TRUE;
 }
-static boolean geometry_part_make(struct custom_asset *asset,short lod,short slot,short shader,struct halo_custom_mesh const *mesh)
+static boolean geometry_part_make(struct custom_asset *asset,short slot,short shader,struct halo_custom_mesh const *mesh)
 {
     struct model_vertex_uncompressed *vertices;
     struct model_vertex_compressed *compressed;
-    struct custom_part *part=&asset->parts[lod][slot];
+    struct custom_part *part=&asset->parts[slot];
     unsigned short *indices;
     long i;unsigned long bytes=3*(mesh->vertex_count*sizeof(*compressed)+mesh->triangle_count*6);
     if(bytes>0x8000000UL-geometry_bytes)return FALSE;
@@ -333,8 +333,8 @@ static boolean geometry_part_make(struct custom_asset *asset,short lod,short slo
     rasterizer_geometry_compress_vertices(_rasterizer_vertex_type_model_uncompressed,mesh->vertex_count,compressed,
         mesh->vertex_count*sizeof(*compressed),vertices,mesh->vertex_count*sizeof(*vertices));
     part->shader=shader;part->previous=part->next=NONE;part->centroid_weight[0]=1.f;
-    asset->vertex_data[lod][slot]=compressed;
-    indices=malloc(mesh->triangle_count*6);asset->index_data[lod][slot]=indices;
+    asset->vertex_data[slot]=compressed;
+    indices=malloc(mesh->triangle_count*6);asset->index_data[slot]=indices;
     if(!indices){free(vertices);return FALSE;}
     for(i=0;i<mesh->triangle_count*3;i++)indices[i]=(unsigned short)mesh->triangles[i];
     if(!rasterizer_vertex_buffer_new(&part->vertex_buffer,_rasterizer_vertex_type_model_compressed,mesh->vertex_count,compressed,mesh->vertex_count*sizeof(*compressed)) ||
@@ -343,51 +343,31 @@ static boolean geometry_part_make(struct custom_asset *asset,short lod,short slo
     geometry_bytes+=bytes;asset->memory_bytes+=bytes;
     free(vertices);return TRUE;
 }
-static boolean geometry_make(struct custom_asset *asset,short index,short lod,struct model *stock)
+static boolean geometry_make(struct custom_asset *asset,struct halo_custom_mesh const *mesh)
 {
-    struct halo_custom_mesh mesh,part;
-    struct halo_custom_node source[19],target[19];unsigned char key[32];
-    short material,shader,slot;
-    if(!halo_custom_mesh_load(index,lod,&mesh))return FALSE;
-    if(!skeleton_nodes(&mesh,stock,source,target) || !halo_custom_skeleton_hash(source,target,key))
-    {halo_custom_mesh_dispose(&mesh);return FALSE;}
-    if(memcmp(key,asset->skeleton_key,32))
+    struct halo_custom_mesh part;
+    short material,slot;
+    asset->geometry.parts.address=asset->parts;
+    for(material=0;material<mesh->material_count;material++)
     {
-        /* Exporters often update superhigh before the other LODs. Mixing
-           inverse binds would deform the model as LOD changes; use the
-           authoritative mesh without rewriting the author's source files. */
-        halo_custom_mesh_dispose(&mesh);
-        if(lod==4 || !halo_custom_mesh_load(index,4,&mesh))return FALSE;
-        if(!skeleton_nodes(&mesh,stock,source,target) || !halo_custom_skeleton_hash(source,target,key) || memcmp(key,asset->skeleton_key,32))
-        {halo_custom_mesh_dispose(&mesh);return FALSE;}
-        platform_log("custom models: %s LOD %d uses superhigh because its skeleton differs",halo_custom_model_info(index)->id,lod);
-    }
-    if(!skeleton_remap(&mesh,stock)){halo_custom_mesh_dispose(&mesh);return FALSE;}
-    asset->geometry[lod].parts.address=asset->parts[lod];
-    for(material=0;material<mesh.material_count;material++)
-    {
-        for(shader=0;shader<asset->material_count;shader++)
-            if(!strcmp(mesh.materials[material].name,asset->materials[shader].name) &&
-                !strcmp(mesh.materials[material].texture,asset->materials[shader].texture))break;
-        if(shader==asset->material_count || !halo_custom_mesh_material(&mesh,material,&part))
-        {halo_custom_mesh_dispose(&mesh);return FALSE;}
+        if(!halo_custom_mesh_material(mesh,material,&part))return FALSE;
         if(!part.triangle_count){halo_custom_mesh_dispose(&part);continue;}
-        slot=(short)asset->geometry[lod].parts.count++;
-        if(!geometry_part_make(asset,lod,slot,shader,&part))
-        {halo_custom_mesh_dispose(&part);halo_custom_mesh_dispose(&mesh);return FALSE;}
+        slot=(short)asset->geometry.parts.count++;
+        if(!geometry_part_make(asset,slot,material,&part))
+        {halo_custom_mesh_dispose(&part);return FALSE;}
         halo_custom_mesh_dispose(&part);
     }
-    halo_custom_mesh_dispose(&mesh);return TRUE;
+    return TRUE;
 }
 static void asset_dispose(struct custom_asset *asset)
 {
     short i,j;
-    for(i=0;i<5;i++)for(j=0;j<HALO_CUSTOM_MATERIALS;j++)
+    for(j=0;j<HALO_CUSTOM_MATERIALS;j++)
     {
-        struct custom_part *part=&asset->parts[i][j];
+        struct custom_part *part=&asset->parts[j];
         if(part->vertex_buffer.hardware_format)rasterizer_vertex_buffer_delete(&part->vertex_buffer);
         if(part->triangle_buffer.hardware_format)rasterizer_triangle_buffer_delete(&part->triangle_buffer);
-        if(asset->vertex_data[i][j])free(asset->vertex_data[i][j]);if(asset->index_data[i][j])free(asset->index_data[i][j]);
+        if(asset->vertex_data[j])free(asset->vertex_data[j]);if(asset->index_data[j])free(asset->index_data[j]);
     }
     for(i=0;i<HALO_CUSTOM_MATERIALS;i++)for(j=0;j<2;j++)if(asset->bitmaps[i][j])bitmap_delete(asset->bitmaps[i][j]);
     geometry_bytes-=asset->memory_bytes;
@@ -462,21 +442,23 @@ static boolean asset_make(short index,struct model *stock,long first)
     struct halo_custom_model_info const *info=halo_custom_model_info(index);
     stock_shader=tag_loaded('soso',"characters\\cyborg\\shaders\\armor");
     if(stock_shader==NONE)stock_shader=tag_loaded('soso',"characters\\cyborg_mp\\shaders\\armor");
-    if(stock_shader==NONE || !halo_custom_mesh_load(index,4,&mesh))return FALSE;
+    if(stock_shader==NONE || !halo_custom_mesh_load(index,0,&mesh))return FALSE;
     if(!asset_skeleton(asset,index,&mesh,stock)){halo_custom_mesh_dispose(&mesh);return FALSE;}
     if(!skeleton_remap(&mesh,stock)){halo_custom_mesh_dispose(&mesh);return FALSE;}
     asset->material_count=(short)mesh.material_count;
-    memcpy(asset->materials,mesh.materials,mesh.material_count*sizeof(*mesh.materials));halo_custom_mesh_dispose(&mesh);
-    for(i=0;i<asset->material_count;i++)if(!material_make(asset,index,i,stock_shader,first))return FALSE;
-    for(i=0;i<5;i++)if(!geometry_make(asset,index,i,stock))return FALSE;
+    memcpy(asset->materials,mesh.materials,mesh.material_count*sizeof(*mesh.materials));
+    for(i=0;i<asset->material_count;i++)if(!material_make(asset,index,i,stock_shader,first))
+    {halo_custom_mesh_dispose(&mesh);return FALSE;}
+    if(!geometry_make(asset,&mesh)){halo_custom_mesh_dispose(&mesh);return FALSE;}
+    halo_custom_mesh_dispose(&mesh);
     asset->model.regions.count=1;asset->model.regions.address=&asset->region;
-    asset->model.geometries.count=5;asset->model.geometries.address=asset->geometry;
+    asset->model.geometries.count=1;asset->model.geometries.address=&asset->geometry;
     asset->model.shaders.count=asset->material_count;asset->model.shaders.address=asset->shader_ref;
     strcpy(asset->region.name,"cyborg");asset->region.permutations.count=1;asset->region.permutations.address=&asset->permutation;
-    strcpy(asset->permutation.name,"__base");for(i=0;i<5;i++)asset->permutation.geometry_indices[i]=i;
+    strcpy(asset->permutation.name,"__base");for(i=0;i<5;i++)asset->permutation.geometry_indices[i]=0;
     snprintf(asset->names[0],128,"custom_models\\%s\\model",info->id);tag_set(first,'mode',&asset->model,asset->names[0]);
     strcpy(asset->id,info->id);asset->tag=0x6F000000L|first;asset->ready=TRUE;
-    platform_log("custom models: loaded %s (five LODs, %d materials, profile color %s)",info->id,asset->material_count,info->colorable ? "enabled" : "disabled");
+    platform_log("custom models: loaded %s (single JMS, %d materials, profile color %s)",info->id,asset->material_count,info->colorable ? "enabled" : "disabled");
     return TRUE;
 }
 void custom_models_loaded(void)

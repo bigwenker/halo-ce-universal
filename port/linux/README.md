@@ -1408,24 +1408,23 @@ A pack needs `info.toml` with `full_name` (string), `colorable` (boolean) and
 `preview` (a PNG filename in the pack's root). IDs use lowercase ASCII letters,
 numbers, underscores and hyphens, at most 31 characters; `master_chief` is reserved.
 Preview PNG/BMP images must have width:height 1:2 and are displayed at 128x256. Put the base
-texture in `textures/armor.png` (or `armor.bmp`; PNG takes precedence), and five JMS 8200 files in
-`source/characters/cyborg/models/`, named `__base superlow.jms`, `__base low.jms`,
-`__base medium.jms`, `__base high.jms` and `__base superhigh.jms`. The last also
-accepts `.JMS` for existing Blender exports. Up to 32 named materials retain
+texture in `textures/armor.png` (or `armor.bmp`; PNG takes precedence), and one
+JMS 8200 file in `source/characters/cyborg/models/<id>.jms`. For example,
+`custom_models/space_marine/source/characters/cyborg/models/space_marine.jms`.
+This one geometry is used at every detail level; old `__base` files are ignored.
+Up to 32 named materials retain
 their triangle assignments. Texture bitmap hints resolve only their local
 filename under `textures/`, ignoring author-machine directories, with `.png`
 preferred over `.bmp`. `<none>` uses the material name; the legacy `armor`
 material always uses `armor.png`/`armor.bmp`. For example, `face_d.bmp` uses
-`textures/face_d.png` or `textures/face_d.bmp`. Material order may differ between
-LODs, but their names and texture mappings must match the superhigh file.
+`textures/face_d.png` or `textures/face_d.bmp`.
 Their 19 bone names must match Chief's exactly, with no missing or duplicate
 names. Source bone order and rest transforms may differ. The named parent-child
 relationships must still match Chief's humanoid hierarchy. Weights are remapped
 by name. Rendering retargets Chief's final blended animation onto the pack's
 rest pose, retaining its limb proportions and using its own inverse bind
-matrices. Superhigh defines that rest pose. If another LOD has an older/different
-skeleton, its geometry falls back to superhigh rather than mixing bind poses;
-the source files are never rewritten. Authoring checksums and source region
+matrices. The named JMS defines that rest pose; there are no separate LOD bind
+poses to mix. The source files are never rewritten. Authoring checksums and source region
 labels are normalized. Images may be PNGs or paletted 8-bit, RGB 24-bit or RGBA 32-bit BMPs (including top-down BMPs), and are
 resampled to power-of-two dimensions in memory. Assets are bounded by file,
 vertex, triangle and image limits and a shared 128 MiB residency allowance.

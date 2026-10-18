@@ -123,17 +123,16 @@ int halo_custom_model_find(char const *id)
     for(i=0;i<halo_custom_models_count();i++) if (!strcmp(id,catalogue[i].id)) return i;
     return 0;
 }
-int halo_custom_mesh_load(int index, int lod, struct halo_custom_mesh *mesh)
+int halo_custom_mesh_load(int index,int first_person,struct halo_custom_mesh *mesh)
 {
-    static char const *names[]={"superlow","low","medium","high","superhigh"};
-    char path[4096]; char *data; unsigned int size; int ok;
-    if (index<=0 || index>=halo_custom_models_count() || lod<0 || lod>=5) return 0;
-    if (SDL_snprintf(path,sizeof(path),"%s/%s/source/characters/cyborg/models/__base %s.jms",root,catalogue[index].id,names[lod])>=(int)sizeof(path)) return 0;
+    char path[4096];char *data;unsigned int size;int ok;
+    memset(mesh,0,sizeof(*mesh));
+    if(index<=0 || index>=halo_custom_models_count() || first_person<0 || first_person>1)return 0;
+    if(SDL_snprintf(path,sizeof(path),"%s/%s/source/characters/cyborg/%smodels/%s.jms",root,catalogue[index].id,
+        first_person ? "fp/" : "",catalogue[index].id)>=(int)sizeof(path))return 0;
     data=read_bounded(path,16u*1024u*1024u,&size);
-    if (!data && lod==4) { strcpy(path+strlen(path)-3,"JMS"); data=read_bounded(path,16u*1024u*1024u,&size); }
-    if (!data) return 0;
-    ok=halo_custom_mesh_parse(data,size,mesh); free(data);
-    return ok;
+    if(!data)return 0;
+    ok=halo_custom_mesh_parse(data,size,mesh);free(data);return ok;
 }
 /* stb decodes palettes and pixels; reject truncated BMP rows before it can
    fill missing input with zeroes. Heights may encode top-down rows. */
