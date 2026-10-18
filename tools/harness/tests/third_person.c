@@ -29,17 +29,17 @@ static void object_get_velocities(long n,real_vector3d *v,void *angular){*v=(rea
 static void player_aiming_vector_from_facing(long n,real_vector3d *v,real_euler_angles2d const *f){*v=(real_vector3d){cosf(f->yaw),sinf(f->yaw),f->pitch};}
 typedef short director_perspective;
 typedef void (*director_camera_update_proc)(void*,void*,void*);
-struct director {director_camera_update_proc camera_proc;short seat_state;byte camera_data[128];};
+struct director {director_camera_update_proc camera_proc;short seat_state;byte camera_data[128];real debug_input_scale,camera_change_pause;boolean debug_controls;};
 struct first_person_camera {int unused;};struct following_camera {int unused;};
 static void first_person_camera_update(void*a,void*b,void*c){}
 static void following_camera_update(void*a,void*b,void*c){}
 static void first_person_camera_new(struct first_person_camera *p){}
 static void following_camera_new(struct following_camera *p){}
-static struct director director={first_person_camera_update,0,{0}};static short following;
+static struct director director={.camera_proc=first_person_camera_update};static short following;
 static struct director *director_get(short n){return &director;}
 static long player_control_get_unit_index(short n){return player.unit_index;}
 static short director_desired_perspective(long n,director_perspective *p){*p=following;return following;}
-static void director_set_camera(short n,director_camera_update_proc proc,boolean transition){director.camera_proc=proc;}
+static void scripted_camera_update(void*a,void*b,void*c){}
 #include "under_test.inc"
 static void on(void){key=1;CHECK(third_person_camera_wanted(0),"not enabled");}
 int main(int argc,char **argv){char const *case_name=argc>1?argv[1]:"";
@@ -50,5 +50,7 @@ int main(int argc,char **argv){char const *case_name=argc>1?argv[1]:"";
  else CASE("camera"){short n=0;struct observer_command cmd;on();third_person_camera_update(NULL,&n,&cmd);CHECK(TEST_FLAG(cmd.flags,_observer_command_valid_bit)&&cmd.focus_position.k==30&&cmd.focus_offset.j==THIRD_PERSON_RIGHT&&cmd.field_of_view==1.2f,"observer command");}
  else CASE("free-look"){real_euler_angles2d f={0,0};struct unit_control_data c={0};on();alt=TRUE;third_person_camera_wanted(0);third_person_control(0,&f,&c);f.yaw=1;c.aiming_vector=(real_vector3d){0,1,0};third_person_control(0,&f,&c);CHECK(c.aiming_vector.i==1&&c.looking_vector.j==1,"free look changed aim");alt=FALSE;third_person_camera_wanted(0);CHECK(!third_person_frozen,"frozen after release");}
  else CASE("vehicle-transition"){on();alt=TRUE;director_choose_game_perspective(0,FALSE);CHECK(director.camera_proc==third_person_camera_update,"did not enter camera");unit.object.parent_object_index=2;following=TRUE;director_choose_game_perspective(0,FALSE);CHECK(!enabled&&!third_person_free_look,"vehicle kept wheel/free look");CHECK(director.camera_proc==following_camera_update,"vehicle camera not restored");following=FALSE;unit.object.parent_object_index=NONE;director_choose_game_perspective(0,FALSE);director_choose_game_perspective(0,FALSE);CHECK(director.camera_proc==third_person_camera_update,"on-foot return");}
+ else CASE("scripted-transition"){real_euler_angles2d f={0,0};struct unit_control_data c={0};on();alt=TRUE;third_person_camera_wanted(0);third_person_control(0,&f,&c);CHECK(third_person_frozen,"fixture did not freeze");director_set_camera(0,scripted_camera_update,FALSE);CHECK(!enabled&&!third_person_free_look&&!third_person_frozen,"scripted camera kept third-person input/frozen aim");CHECK(third_person_on,"camera preference lost");}
+ else CASE("secondary-view"){on();director_set_camera(1,scripted_camera_update,FALSE);CHECK(enabled,"second view disabled first player's camera input");}
  else return 2;return 0;
 }
