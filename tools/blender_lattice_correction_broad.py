@@ -11,7 +11,7 @@ bone parents, so no closest-bone guess was needed. For an unparented reference
 marker, the appropriate fallback would be the nearest original rest joint,
 not the nearest joint AFTER editing the skeleton.
 
-goldsrc_to_halo_vtex.py only renames/merges vertex groups; it does not record
+blender_goldsrc_to_halo_vtex.py only renames/merges vertex groups; it does not record
 bone displacements. Instead, apply the measured reference offset as follows:
 
     offset = original_bone_rest.inverse() @ original_marker_position
@@ -31,8 +31,9 @@ Missing markers are reported; extra/unknown markers are left alone because
 their original offsets cannot be recovered reliably from an edited rig.
 
 This is attachment-location assistance, not animation/bind-pose retargeting.
-The current OpenCE custom-mesh loader still keeps Chief's stock markers; it
-must gain marker import support before exported edits affect game attachments.
+This fork imports visual contact markers for retargeting. Gameplay attachment
+markers remain Chief's. Export markers with their exact names (for example,
+"left hand", without a Blender duplicate suffix such as ".001").
 """
 
 import re
