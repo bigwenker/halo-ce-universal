@@ -1506,10 +1506,11 @@ checkpoints and the stock default are unchanged. Enter saves; Back/Escape leaves
 the selection unchanged. Packs are rescanned when entering the picker and at map
 load. Restart/reload a map after changing a pack's files.
 
-A pack needs `info.toml` with `full_name` (string), `colorable` (boolean) and
-`preview` (a PNG filename in the pack's root). IDs use lowercase ASCII letters,
+A pack needs `info.toml` with `full_name` (string) and `colorable` (boolean).
+Its preview is `preview.png` in the pack's root; there is no preview setting
+in TOML. IDs use lowercase ASCII letters,
 numbers, underscores and hyphens, at most 31 characters; `master_chief` is reserved.
-Preview PNG/BMP images must have width:height 1:2 and are displayed at 128x256. Put the base
+Preview images must have width:height 1:2 and are displayed at 128x256. Put the base
 texture in `textures/armor.png` (or `armor.bmp`; PNG takes precedence), and one
 JMS 8200 file in `source/characters/cyborg/models/<id>.jms`. For example,
 `custom_models/space_marine/source/characters/cyborg/models/space_marine.jms`.

@@ -44,7 +44,7 @@ def check_image(root,kind,pixels):
         assert int(actual,16)==(pixel[3]<<24)|(pixel[0]<<16)|(pixel[1]<<8)|pixel[2]
 
 @pytest.mark.parametrize('bits',[8,24,32])
-@pytest.mark.parametrize('kind',[0,1,2])
+@pytest.mark.parametrize('kind',[1,2])
 @pytest.mark.parametrize('top_down',[False,True])
 def test_bmp(tmp_path,bits,kind,top_down):
     folder=tmp_path/'model';(folder/'textures').mkdir(parents=True)
@@ -79,3 +79,17 @@ def test_material_texture(tmp_path,texture,mask):
 @pytest.mark.parametrize('texture',['../secret','a/b','a\\b','C:drive','..',''])
 def test_unsafe_material_texture(tmp_path,texture):
     assert subprocess.run([str(executable()),str(tmp_path),'1',texture],capture_output=True).returncode==1
+
+
+def test_fixed_preview_png(tmp_path):
+    folder=tmp_path/'model';folder.mkdir()
+    pixel=(12,34,56,255)
+    (folder/'preview.png').write_bytes(png(2,4,pixel))
+    check_image(tmp_path,0,[[pixel]*2]*4)
+
+
+def test_preview_does_not_use_other_filenames(tmp_path):
+    folder=tmp_path/'model';folder.mkdir()
+    (folder/'old_portrait.png').write_bytes(png(2,4,(1,2,3,255)))
+    (folder/'preview.bmp').write_bytes(bmp(2,4,24)[0])
+    assert subprocess.run([str(executable()),str(tmp_path),'0'],capture_output=True).returncode==1

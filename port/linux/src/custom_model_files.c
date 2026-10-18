@@ -69,20 +69,13 @@ static void *read_bounded(char const *path, unsigned int limit, unsigned int *si
     fclose(file);
     return data;
 }
-static int leaf_image(char const *name)
-{
-    size_t n = strlen(name), i;
-    if (n < 5 || n >= sizeof(catalogue[0].preview) || (SDL_strcasecmp(name+n-4, ".png") && SDL_strcasecmp(name+n-4, ".bmp"))) return 0;
-    for (i=0;i<n;i++) if (name[i]=='/' || name[i]=='\\' || name[i]==':' || (unsigned char)name[i]<32) return 0;
-    return strcmp(name,".") && strcmp(name,"..");
-}
 static SDL_EnumerationResult SDLCALL discover(void *unused, char const *directory, char const *name)
 {
     char path[4096]; unsigned int size;
     char *data;
     SDL_PathInfo stat;
     toml_result_t result;
-    toml_datum_t full, color, preview, default_rgb;
+    toml_datum_t full, color, default_rgb;
     struct halo_custom_model_info *info;
     (void)unused;
     if (!*name || !strcmp(name,"master_chief") || !halo_custom_model_id_valid(name) || model_count == HALO_CUSTOM_MODELS) return SDL_ENUM_CONTINUE;
@@ -91,14 +84,13 @@ static SDL_EnumerationResult SDLCALL discover(void *unused, char const *director
     result=toml_parse(data,(int)size);
     free(data);
     if (!result.ok) { platform_log("custom models: %s: %s",name,result.errmsg); toml_free(result); return SDL_ENUM_CONTINUE; }
-    full=toml_seek(result.toptab,"full_name"); color=toml_seek(result.toptab,"colorable"); preview=toml_seek(result.toptab,"preview");
+    full=toml_seek(result.toptab,"full_name"); color=toml_seek(result.toptab,"colorable");
     if (full.type==TOML_STRING && *full.u.s && strlen(full.u.s)<sizeof(catalogue[0].name) &&
-        color.type==TOML_BOOLEAN && preview.type==TOML_STRING && leaf_image(preview.u.s))
+        color.type==TOML_BOOLEAN)
     {
         info=&catalogue[model_count++];
         SDL_snprintf(info->id,sizeof(info->id),"%s",name);
         SDL_snprintf(info->name,sizeof(info->name),"%s",full.u.s);
-        SDL_snprintf(info->preview,sizeof(info->preview),"%s",preview.u.s);
         info->colorable=color.u.boolean;
         if (info->colorable)
         {
@@ -107,7 +99,7 @@ static SDL_EnumerationResult SDLCALL discover(void *unused, char const *director
                 memcpy(info->default_rgb,default_rgb.u.s,sizeof(info->default_rgb));
         }
     }
-    else platform_log("custom models: %s: expected full_name, colorable and a local PNG/BMP preview filename",name);
+    else platform_log("custom models: %s: expected full_name and colorable",name);
     toml_free(result);
     return SDL_ENUM_CONTINUE;
 }
@@ -204,7 +196,7 @@ int halo_custom_image_load(int index,int kind,struct halo_custom_image *image)
     memset(image,0,sizeof(*image));
     if(index<=0 || index>=halo_custom_models_count() || kind<0 || kind>2)return 0;
     if(SDL_snprintf(path,sizeof(path),"%s/%s/%s",root,catalogue[index].id,
-        kind==0 ? catalogue[index].preview : kind==1 ? "textures/armor.png" : "textures/armor_mask.png")>=(int)sizeof(path))return 0;
+        kind==0 ? "preview.png" : kind==1 ? "textures/armor.png" : "textures/armor_mask.png")>=(int)sizeof(path))return 0;
     return custom_image_load_path(path,kind,image);
 }
 int halo_custom_material_image_load(int index,char const *texture,int mask,struct halo_custom_image *image)
