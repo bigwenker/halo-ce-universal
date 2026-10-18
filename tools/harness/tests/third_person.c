@@ -9,15 +9,14 @@ struct player_datum {long unit_index;short local_player_index;};
 struct unit_datum {struct {long parent_object_index,damage_flags;}object;struct {short current_zoom_level;}unit;};
 enum {_object_dead_bit,_observer_command_valid_bit};
 static struct player_datum player={1,0};static struct unit_datum unit={{NONE,0},{NONE}};
-static boolean has_player=TRUE,has_unit=TRUE,multiplayer,cinematic,enabled,alt;
-static int key;static float wheel;static real_vector3d direction={1,0,0};
+static boolean has_player=TRUE,has_unit=TRUE,multiplayer,cinematic,enabled;
+static int key;static int distance;static real_vector3d direction={1,0,0};
 static long local_player_get_player_index(short n){return has_player?0:NONE;}
 static struct player_datum *player_try_and_get(long n){return n==0&&has_player?&player:NULL;}
 static struct unit_datum *unit_try_and_get(long n){return n==1&&has_unit?&unit:NULL;}
 static int platform_third_person_key(void){int k=key;key=0;return k;}
 static void platform_third_person_active(int a){enabled=a;}
-static int platform_free_look_held(void){return alt;}
-static float platform_third_person_wheel(void){real r=wheel;wheel=0;return r;}
+static int platform_third_person_distance(void){int r=distance;distance=0;return r;}
 static boolean game_engine_running(void){return multiplayer;}
 static boolean cinematic_in_progress(void){return cinematic;}
 static void player_control_get_facing_direction(short n,real_vector3d *v){*v=direction;}
@@ -43,14 +42,14 @@ static void scripted_camera_update(void*a,void*b,void*c){}
 #include "under_test.inc"
 static void on(void){key=1;CHECK(third_person_camera_wanted(0),"not enabled");}
 int main(int argc,char **argv){char const *case_name=argc>1?argv[1]:"";
- CASE("toggle"){CHECK(!third_person_camera_wanted(0),"default on");on();CHECK(third_person_camera_wanted(0),"key repeated");key=1;CHECK(!third_person_camera_wanted(0),"toggle off");}
+ CASE("toggle"){CHECK(!third_person_camera_wanted(0),"default on");on();CHECK(third_person_camera_wanted(0),"key repeated");key=1;CHECK(third_person_camera_wanted(0)&&third_person_free_look,"free look missing");key=1;CHECK(!third_person_camera_wanted(0)&&!third_person_free_look,"toggle off");}
  else CASE("eligibility"){on();CHECK(!third_person_camera_wanted(1),"second local player");multiplayer=TRUE;CHECK(!third_person_camera_wanted(0)&&!enabled,"competitive allowed");multiplayer=FALSE;cinematic=TRUE;CHECK(!third_person_camera_wanted(0),"cutscene");cinematic=FALSE;unit.object.damage_flags=FLAG(_object_dead_bit);CHECK(!third_person_camera_wanted(0),"dead");unit.object.damage_flags=0;has_unit=FALSE;CHECK(!third_person_camera_wanted(0),"missing unit");has_unit=TRUE;has_player=FALSE;CHECK(!third_person_camera_wanted(0),"missing player");}
  else CASE("scope"){on();unit.unit.current_zoom_level=0;CHECK(!third_person_camera_wanted(0)&&!enabled,"scoped third person");unit.unit.current_zoom_level=NONE;CHECK(third_person_camera_wanted(0),"scope exit");}
- else CASE("distance"){short n=0;struct observer_command cmd;on();wheel=100;third_person_camera_update(NULL,&n,&cmd);CHECK(cmd.focus_distance==THIRD_PERSON_NEAREST,"near clamp");wheel=-100;third_person_camera_update(NULL,&n,&cmd);CHECK(cmd.focus_distance==THIRD_PERSON_FURTHEST,"far clamp");}
+ else CASE("distance"){short n=0;struct observer_command cmd;on();distance=-100;third_person_camera_update(NULL,&n,&cmd);CHECK(cmd.focus_distance==THIRD_PERSON_NEAREST,"near clamp");distance=100;third_person_camera_update(NULL,&n,&cmd);CHECK(cmd.focus_distance==THIRD_PERSON_FURTHEST,"far clamp");}
  else CASE("camera"){short n=0;struct observer_command cmd;on();third_person_camera_update(NULL,&n,&cmd);CHECK(TEST_FLAG(cmd.flags,_observer_command_valid_bit)&&cmd.focus_position.k==30&&cmd.focus_offset.j==THIRD_PERSON_RIGHT&&cmd.field_of_view==1.2f,"observer command");}
- else CASE("free-look"){real_euler_angles2d f={0,0};struct unit_control_data c={0};on();alt=TRUE;third_person_camera_wanted(0);third_person_control(0,&f,&c);f.yaw=1;c.aiming_vector=(real_vector3d){0,1,0};third_person_control(0,&f,&c);CHECK(c.aiming_vector.i==1&&c.looking_vector.j==1,"free look changed aim");alt=FALSE;third_person_camera_wanted(0);CHECK(!third_person_frozen,"frozen after release");}
- else CASE("vehicle-transition"){on();alt=TRUE;director_choose_game_perspective(0,FALSE);CHECK(director.camera_proc==third_person_camera_update,"did not enter camera");unit.object.parent_object_index=2;following=TRUE;director_choose_game_perspective(0,FALSE);CHECK(!enabled&&!third_person_free_look,"vehicle kept wheel/free look");CHECK(director.camera_proc==following_camera_update,"vehicle camera not restored");following=FALSE;unit.object.parent_object_index=NONE;director_choose_game_perspective(0,FALSE);director_choose_game_perspective(0,FALSE);CHECK(director.camera_proc==third_person_camera_update,"on-foot return");}
- else CASE("scripted-transition"){real_euler_angles2d f={0,0};struct unit_control_data c={0};on();alt=TRUE;third_person_camera_wanted(0);third_person_control(0,&f,&c);CHECK(third_person_frozen,"fixture did not freeze");director_set_camera(0,scripted_camera_update,FALSE);CHECK(!enabled&&!third_person_free_look&&!third_person_frozen,"scripted camera kept third-person input/frozen aim");CHECK(third_person_on,"camera preference lost");}
+ else CASE("free-look"){real_euler_angles2d f={0,0};struct unit_control_data c={0};on();key=1;third_person_camera_wanted(0);third_person_camera_wanted(0);third_person_control(0,&f,&c);f.yaw=1;c.aiming_vector=(real_vector3d){0,1,0};direction=(real_vector3d){0,1,0};third_person_control(0,&f,&c);CHECK(c.aiming_vector.i==1&&c.looking_vector.j==1,"free look changed aim");key=1;third_person_camera_wanted(0);CHECK(!third_person_frozen,"frozen after release");}
+ else CASE("vehicle-transition"){on();key=1;third_person_camera_wanted(0);director_choose_game_perspective(0,FALSE);CHECK(director.camera_proc==third_person_camera_update,"did not enter camera");unit.object.parent_object_index=2;following=TRUE;director_choose_game_perspective(0,FALSE);CHECK(!enabled&&!third_person_free_look,"vehicle kept wheel/free look");CHECK(director.camera_proc==following_camera_update,"vehicle camera not restored");following=FALSE;unit.object.parent_object_index=NONE;director_choose_game_perspective(0,FALSE);director_choose_game_perspective(0,FALSE);CHECK(director.camera_proc==third_person_camera_update,"on-foot return");}
+ else CASE("scripted-transition"){real_euler_angles2d f={0,0};struct unit_control_data c={0};on();key=1;third_person_camera_wanted(0);third_person_camera_wanted(0);third_person_control(0,&f,&c);CHECK(third_person_frozen,"fixture did not freeze");director_set_camera(0,scripted_camera_update,FALSE);CHECK(!enabled&&!third_person_free_look&&!third_person_frozen,"scripted camera kept third-person input/frozen aim");CHECK(third_person_mode != _third_person_first,"camera preference lost");}
  else CASE("secondary-view"){on();director_set_camera(1,scripted_camera_update,FALSE);CHECK(enabled,"second view disabled first player's camera input");}
  else return 2;return 0;
 }

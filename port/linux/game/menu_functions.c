@@ -2252,8 +2252,9 @@ static struct
 	{ "controls.push_to_talk", L"PUSH TO TALK", 3 },
 	{ "controls.chat", L"CHAT", 3 },
 	{ "controls.team_chat", L"TEAM CHAT", 3 },
-	{ "controls.third_person", L"THIRD PERSON", 2 },
-	{ "controls.free_look", L"FREE LOOK", 2 },
+	{ "controls.third_person", L"CAMERA MODE", 4 },
+	{ "controls.camera_zoom_in", L"CAMERA ZOOM IN", 4 },
+	{ "controls.camera_zoom_out", L"CAMERA ZOOM OUT", 4 },
 };
 
 static struct

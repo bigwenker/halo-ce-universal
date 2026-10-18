@@ -1,26 +1,25 @@
 /*
 THIRD_PERSON.C
 
-A third-person camera on foot, over the right shoulder, as many games have
-it (Helldivers 2 among them): controls.third_person (Numpad Enter) turns it
-on and off for the first local player, in a campaign (co-op too), never in
-multiplayer.
+A third-person camera on foot, over the right shoulder. controls.third_person
+(F5) cycles first person, third person and free look for the first local
+player, in a campaign (co-op too), never in competitive multiplayer.
 
 - The camera sits behind the player's head, a little to the right and up,
   looking where the player looks: the mouse turns the player as in first
-  person. The wheel brings it nearer or further (THIRD_PERSON_NEAREST to
-  THIRD_PERSON_FURTHEST), and switches no weapon meanwhile. The level and
+  person. The = and - keys bring it nearer or further (THIRD_PERSON_NEAREST
+  to THIRD_PERSON_FURTHEST). The wheel still changes weapons. The level and
   its objects push it in, as the game's own vehicle cameras are
   (observer.c's penetration check).
-- Alt held looks freely: the player keeps the facing and aim it had (moving
+- Press F5 again to look freely: the player keeps the facing and aim it had (moving
   on that way), the mouse turns the camera alone all the way round, and the
   player's head turns to where the camera looks (over the shoulder, when it
-  looks back). Let go, and the player turns to the camera's way.
+  looks back). Press F5 again to return to first person.
 - On foot only: in a vehicle its own cameras, dead the game's dead camera, in
   a cutscene the cutscene's. The body is drawn and the first-person weapon
   is not (the director takes it as a third-person view: director.c).
 
-Only the first local player's view and controls change; nothing is sent.
+Only the first local player's view and controls change; no new messages are sent.
 */
 
 #include "cseries.h"
@@ -35,15 +34,13 @@ Only the first local player's view and controls change; nothing is sent.
 
 /* xinput_sdl.c's, port_config.c's */
 void platform_third_person_active(int active);
-float platform_third_person_wheel(void);
+int platform_third_person_distance(void);
 int platform_third_person_key(void);
-int platform_free_look_held(void);
 
 /* ---------- constants */
 
 /* the camera behind the head, world units (a world unit about 3 m): nearest,
-furthest and at first (about 0.75 m, 3.7 m and 1.7 m), and a notch of the
-wheel */
+furthest and at first (about 0.75 m, 3.7 m and 1.7 m), and a key press */
 #define THIRD_PERSON_NEAREST 0.25f
 #define THIRD_PERSON_FURTHEST 1.2f
 #define THIRD_PERSON_START 0.55f
@@ -51,12 +48,18 @@ wheel */
 /* the camera over the right shoulder and a little up (about 40 cm, 15 cm) */
 #define THIRD_PERSON_RIGHT 0.13f
 #define THIRD_PERSON_UP 0.05f
-/* the wheel's turn a notch is (as xinput_sdl.c's) */
-#define THIRD_PERSON_WHEEL_NOTCH 1.0f
 
 /* ---------- globals */
 
-static boolean third_person_on = FALSE;
+enum
+{
+	_third_person_first,
+	_third_person_follow,
+	_third_person_free,
+	NUMBER_OF_THIRD_PERSON_MODES
+};
+
+static short third_person_mode = _third_person_first;
 static real third_person_distance = THIRD_PERSON_START;
 /* free look: the player's facing held while it lasts */
 static boolean third_person_free_look = FALSE;
@@ -106,10 +109,10 @@ boolean third_person_camera_wanted(
 	if (local_player_index != 0)
 		return FALSE;
 	if (platform_third_person_key())
-		third_person_on = !third_person_on;
+		third_person_mode = (third_person_mode + 1) % NUMBER_OF_THIRD_PERSON_MODES;
 	/* (a campaign's, co-op's too: never in multiplayer, where a game
 	engine runs) */
-	wanted = third_person_on && !game_engine_running() && !cinematic_in_progress() && third_person_unit() != NONE;
+	wanted = third_person_mode != _third_person_first && !game_engine_running() && !cinematic_in_progress() && third_person_unit() != NONE;
 	/* (zoomed in, a scope: first person at once, as the scope is the
 	player's own view; back out again as it zooms out) */
 	if (wanted)
@@ -120,7 +123,7 @@ boolean third_person_camera_wanted(
 			wanted = FALSE;
 	}
 	platform_third_person_active(wanted);
-	third_person_free_look = wanted && platform_free_look_held();
+	third_person_free_look = wanted && third_person_mode == _third_person_free;
 	if (!third_person_free_look)
 		third_person_frozen = FALSE;
 	return wanted;
@@ -135,14 +138,14 @@ void third_person_camera_update(
 	struct observer_command *command = (struct observer_command *)result;
 	short local_player_index = *(short const *)controls;
 	long unit_index = third_person_unit();
-	real wheel = platform_third_person_wheel();
+	int distance = platform_third_person_distance();
 	real_vector3d forward;
 
 	(void)camera;
 	if (unit_index == NONE)
 		return;
-	/* (a wheel turned forward: nearer) */
-	third_person_distance -= wheel / THIRD_PERSON_WHEEL_NOTCH * THIRD_PERSON_NOTCH;
+	/* A distance key changes one step per press, independent of frame rate. */
+	third_person_distance += distance * THIRD_PERSON_NOTCH;
 	third_person_distance = PIN(third_person_distance, THIRD_PERSON_NEAREST, THIRD_PERSON_FURTHEST);
 
 	player_control_get_facing_direction(local_player_index, &forward);

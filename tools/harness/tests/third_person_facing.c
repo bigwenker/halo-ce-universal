@@ -9,15 +9,14 @@ struct player_datum {long unit_index;short local_player_index;};
 struct unit_datum {struct {long parent_object_index,damage_flags;}object;struct {short current_zoom_level;}unit;};
 enum {_object_dead_bit,_observer_command_valid_bit};
 static struct player_datum player={1,0};static struct unit_datum unit={{NONE,0},{NONE}};
-static boolean has_player=TRUE,has_unit=TRUE,multiplayer,cinematic,enabled,alt;
-static int key;static float wheel;static real_vector3d direction={1,0,0};
+static boolean has_player=TRUE,has_unit=TRUE,multiplayer,cinematic,enabled;
+static int key;static int distance;static real_vector3d direction={1,0,0};
 static long local_player_get_player_index(short n){return has_player?0:NONE;}
 static struct player_datum *player_try_and_get(long n){return n==0&&has_player?&player:NULL;}
 static struct unit_datum *unit_try_and_get(long n){return n==1&&has_unit?&unit:NULL;}
 static int platform_third_person_key(void){int k=key;key=0;return k;}
 static void platform_third_person_active(int a){enabled=a;}
-static int platform_free_look_held(void){return alt;}
-static float platform_third_person_wheel(void){real r=wheel;wheel=0;return r;}
+static int platform_third_person_distance(void){int r=distance;distance=0;return r;}
 static boolean game_engine_running(void){return multiplayer;}
 static boolean cinematic_in_progress(void){return cinematic;}
 static void player_control_get_facing_direction(short n,real_vector3d *v){*v=direction;}
@@ -41,7 +40,7 @@ static long player_control_get_unit_index(short n){return player.unit_index;}
 static short director_desired_perspective(long n,director_perspective *p){*p=following;return following;}
 static void director_set_camera(short n,director_camera_update_proc proc,boolean transition){director.camera_proc=proc;}
 #include "under_test.inc"
-static void begin_free_look(void){key=1;third_person_camera_wanted(0);alt=TRUE;third_person_camera_wanted(0);}
+static void begin_free_look(void){key=1;third_person_camera_wanted(0);key=1;third_person_camera_wanted(0);third_person_camera_wanted(0);}
 static real_euler_angles2d action_facing(real yaw,short local)
 {
  real_euler_angles2d facing={yaw,0};
@@ -69,6 +68,6 @@ int main(int argc,char **argv){char const *case_name=argc>1?argv[1]:"";
  else CASE("head"){begin_free_look();consume(action_facing(0,0),0);struct unit_control_data c=consume(action_facing(1,0),0);CHECK(fabsf(c.looking_vector.j-sinf(1))<1e-6f&&c.aiming_vector.i==1,"head stopped following camera independently of held aim");}
  else CASE("normal"){real_euler_angles2d a=action_facing(1,0);CHECK(a.yaw==1,"first-person aim changed");}
  else CASE("second-player"){begin_free_look();consume(action_facing(0,0),0);real_euler_angles2d a=action_facing(1,1);CHECK(a.yaw==1,"second local player's input changed");}
- else CASE("release"){begin_free_look();consume(action_facing(0,0),0);alt=FALSE;third_person_camera_wanted(0);real_euler_angles2d a=action_facing(2,0);CHECK(a.yaw==2,"aim did not return to camera on release");}
+ else CASE("release"){begin_free_look();consume(action_facing(0,0),0);key=1;third_person_camera_wanted(0);real_euler_angles2d a=action_facing(2,0);CHECK(a.yaw==2,"aim did not return to camera on release");}
  else return 2;return 0;
 }

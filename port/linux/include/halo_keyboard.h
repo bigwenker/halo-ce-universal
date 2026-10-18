@@ -43,11 +43,10 @@ enum halo_keyboard_action
 	everyone, or to the team: port/linux/game/network_chat.c) */
 	HALO_KEYBOARD_CHAT,
 	HALO_KEYBOARD_TEAM_CHAT,
-	/* (the third-person camera turned on and off, which the game itself does
-	not read: platform_third_person_key) */
+	/* Camera modes and distance keys consumed by third_person.c. */
 	HALO_KEYBOARD_THIRD_PERSON,
-	/* (the third-person camera's free look, held: platform_free_look_held) */
-	HALO_KEYBOARD_FREE_LOOK,
+	HALO_KEYBOARD_CAMERA_ZOOM_IN,
+	HALO_KEYBOARD_CAMERA_ZOOM_OUT,
 	NUMBER_OF_HALO_KEYBOARD_ACTIONS
 };
 

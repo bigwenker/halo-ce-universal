@@ -217,8 +217,8 @@ gamepads' only.
 | type a chat line to your team | U |
 | while typing: complete a command or player name (reverse with Shift) | Tab |
 | while typing: cycle everyone, team and vehicle channels | Ctrl+Tab (or empty Tab) |
-| third-person camera, on and off (campaign and co-op) | keypad enter |
-| free look in the third-person camera (hold) | left alt, right alt |
+| cycle first person, third person, free look (campaign and co-op) | F5 |
+| third-person camera nearer / further | = / - |
 
 Always: \` opens the developer console, F12 releases or captures the mouse,
 F11 changes between fullscreen and window. Screenshot (default F10,
@@ -232,27 +232,26 @@ movement after a short pause changes it again.
 
 ### Third-person camera
 
-In a campaign, and in co-op, keypad enter (`controls.third_person`) turns a
-third-person camera on and off for the first player on this computer; never
-in multiplayer. The camera sits behind the player's head, a little to the
-right and up, and looks where the player looks: the mouse turns the player
-as in first person. The mouse wheel brings it nearer or further (from about
-0.75 m to 3.7 m) and changes no weapon meanwhile: change it with 1. The
-level and objects push the camera in, as the game's vehicle cameras are.
+In campaign and co-op, F5 (`controls.third_person`) cycles first person,
+third person, free look, then first person for the first local player.
+Competitive multiplayer retains its normal camera. Controls Setup > Camera
+can rebind the mode and distance keys.
 
-- Free look: hold alt (`controls.free_look`). The player keeps the facing
-  and aim it had, and moves on that way; the mouse turns the camera alone,
-  all the way round, and the player's head turns to where it looks, over
-  the shoulder when it looks back. Let go, and the player turns to the
-  camera's way.
-- Zoomed in with a scope, the view is first person at once, and third
-  person again as it zooms out.
-- On foot only: in a vehicle its own cameras, dead the game's dead camera,
-  in a cutscene the cutscene's.
+The camera sits behind the player's head, a little to the right and up.
+In ordinary third person, the mouse turns the player as in first person.
+Press = (`controls.camera_zoom_in`) to move the camera nearer, or -
+(`controls.camera_zoom_out`) to move it further away, one step per press
+(from about 0.75 m to 3.7 m). The wheel still changes weapons. The level
+and objects push the camera in, as the game's vehicle cameras are.
 
-Only the view and the first player's facing while free look is held
-change. Nothing new is sent between machines: in co-op, the player's facing
-is sent as it always is.
+- Free look holds the player's facing and aim while the mouse turns the
+  camera alone. F5 returns to first person and releases the held aim.
+- Zooming with a scope temporarily uses first person.
+- Vehicles, death and cutscenes retain their own cameras and release
+  third-person input; the selected mode resumes when eligible again.
+
+Only the first local player's view and controls change. Co-op sends the
+held aim through its existing player actions; no new messages are needed.
 
 In the menus, the mouse moves a pointer:
 
@@ -432,7 +431,7 @@ clients and in `init.txt`, without becoming map-script functions.
 | `input.invert_mouse` | `false` | `HALO_MOUSE_INVERT=1` sets `true` | `true`: the vertical mouse aim is inverted. |
 | `network.block_mouse_aim_assist` | `false` | `HALO_NET_BLOCK_MOUSE_AIM_ASSIST` | Host: Player Options > Aim Assist, Allowed or Block M+KB. Block overrides optional mouse magnetism while mouse/keyboard aims, including on the host, without changing the saved preference. Controllers and touch retain their existing behavior; bullet autoaim is unchanged. |
 | `input.mouse_aim_assist` | `false` | `HALO_MOUSE_AIM_ASSIST` | `true`: the magnetism of the controller also operates for the mouse. `false`: when the mouse moved after the right stick, the view is not slowed or dragged by a target. The autoaim of the bullets operates in both cases. |
-| `controls.<action>` | (the table in "Controls") | `HALO_KEY_<ACTION>` | The keys and mouse buttons of an action, up to two, separated by a comma: `move_forward`, `move_backward`, `strafe_left`, `strafe_right`, `jump`, `crouch`, `fire`, `throw_grenade`, `melee`, `reload`, `zoom`, `switch_weapon`, `switch_grenade`, `action`, `flashlight`, `scoreboard`, `pause`, `screenshot`, `spray`, `push_to_talk`, `chat`, `team_chat`, `third_person`, `free_look`. Keys by their names (`"W"`, `"Space"`, `"Left Ctrl"`, `"F1"`), and `"Mouse Left"`, `"Mouse Right"`, `"Mouse Middle"`, `"Mouse 4"`, `"Mouse 5"`, `"Wheel"` (either way), `"Wheel Up"`, `"Wheel Down"`. |
+| `controls.<action>` | (the table in "Controls") | `HALO_KEY_<ACTION>` | The keys and mouse buttons of an action, up to two, separated by a comma: `move_forward`, `move_backward`, `strafe_left`, `strafe_right`, `jump`, `crouch`, `fire`, `throw_grenade`, `melee`, `reload`, `zoom`, `switch_weapon`, `switch_grenade`, `action`, `flashlight`, `scoreboard`, `pause`, `screenshot`, `spray`, `push_to_talk`, `chat`, `team_chat`, `third_person`, `camera_zoom_in`, `camera_zoom_out`. Keys by their names (`"W"`, `"Space"`, `"Left Ctrl"`, `"F1"`), and `"Mouse Left"`, `"Mouse Right"`, `"Mouse Middle"`, `"Mouse 4"`, `"Mouse 5"`, `"Wheel"` (either way), `"Wheel Up"`, `"Wheel Down"`. |
 | `game.console_log` | `"important"` | `HALO_CONSOLE_LOG` | What the console shows on the screen. `"important"`: bans, players that the host drops for cheating, the reasons that the game refuses a command, and the asserts that stop the game. `"all"`: all the lines. `"none"`: only the asserts that stop the game. The output of a command always shows. `debug.txt` gets all the lines. |
 | `game.language` | `""` | `HALO_LANGUAGE` | The language of the menus: `ja`, `de`, `fr`, `es` or `it`. Empty: English. |
 | `game.streamer_mode` | `false` | `HALO_STREAMER_MODE` | Streamer mode (Settings > Audio > Voice and Text Chat > STREAMER MODE): the text chat shows the slurs and swearing in players' names and lines as harmless words. Only what this machine shows. Refer to "Text chat". |
