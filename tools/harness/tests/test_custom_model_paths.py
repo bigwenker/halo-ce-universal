@@ -20,7 +20,7 @@ def test_named_paths(tmp_path,kind):
     body=tmp_path/'model/source/characters/cyborg/models';body.mkdir(parents=True)
     fp=body.parent/'fp/models';fp.mkdir(parents=True)
     (body/'model.jms').write_text(fixture())
-    (fp/'model.jms').write_text(fixture().replace('0 0 0\n0 0 1','50 0 0\n0 0 1',1))
+    (fp/'model.jms').write_text(fixture(37).replace('0 0 0\n0 0 1','50 0 0\n0 0 1',1))
     # Deliberately corrupt obsolete files; the named model remains authoritative.
     (body/'__base superhigh.jms').write_text('invalid')
     import subprocess

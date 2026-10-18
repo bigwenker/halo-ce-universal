@@ -20,7 +20,7 @@ def executable(fault=False):
 
 
 @pytest.mark.parametrize('case', ['identity', 'rest', 'motion', 'axes', 'axes-motion', 'world', 'translation',
-    'hash', 'invalid', 'cache', 'corrupt', 'ik', 'unreachable', 'fold', 'straight', 'zero'])
+    'hash', 'invalid', 'cache', 'corrupt', 'ik', 'unreachable', 'fold', 'straight', 'zero', 'fp37', 'fp64', 'fingers'])
 def test_case(case):
     status, output = run(executable(), case)
     assert status == 0, output

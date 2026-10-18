@@ -12,6 +12,7 @@
 #include "bitmaps/bitmap_group.h"
 #include "bitmaps/bitmaps.h"
 #include "game/players.h"
+#include "game/game_globals.h"
 #include "objects/objects.h"
 #include "objects/object_definitions.h"
 #include "saved games/player_profile.h"
@@ -53,10 +54,11 @@ struct custom_shader
 typedef char custom_part_size[sizeof(struct custom_part)==0x68 ? 1:-1];
 typedef char custom_shader_base_offset[offsetof(struct custom_shader,base_map.index)==0xB0 ? 1:-1];
 typedef char custom_shader_size[sizeof(struct custom_shader)==0x174 ? 1:-1];
+typedef char custom_matrix_size[sizeof(struct halo_custom_matrix)==sizeof(real_matrix4x3) ? 1:-1];
 struct custom_asset
 {
     struct model model;
-    struct model_node nodes[19];
+    struct model_node nodes[HALO_CUSTOM_MAX_NODES];
     struct halo_custom_retarget retarget;
     unsigned char skeleton_key[32];
     struct model_marker markers[256];struct model_marker_instance marker_instances[256];
@@ -71,12 +73,13 @@ struct custom_asset
     struct bitmap_data *bitmaps[HALO_CUSTOM_MATERIALS][2];
     void *vertex_data[HALO_CUSTOM_MATERIALS],*index_data[HALO_CUSTOM_MATERIALS];
     char names[1+HALO_CUSTOM_MATERIALS*3][128],id[32];long tag;
+    boolean first_person;
     short material_count;struct halo_custom_material materials[HALO_CUSTOM_MATERIALS];
     boolean ready;unsigned long memory_bytes;
 };
-static struct custom_asset assets[HALO_CUSTOM_MODELS];
+static struct custom_asset assets[HALO_CUSTOM_MODELS],arms_assets[HALO_CUSTOM_MODELS];
 static struct custom_tag_instance *original_table,*new_table;
-static long original_count, stock_model=NONE;
+static long original_count, tag_capacity, stock_model=NONE,stock_hands=NONE;
 static struct {long handle;long tag;} objects[HALO_PORT_MAXIMUM_OBJECTS_PER_MAP];
 static struct bitmap_data *preview_bitmap;
 static short preview_model=NONE,preview_loaded=NONE;
@@ -169,22 +172,22 @@ struct bitmap_data *custom_models_preview_bitmap(char const *name,struct bitmap_
    by bone name, independent of source order, hierarchy or rest transforms. */
 static boolean skeleton_remap(struct halo_custom_mesh *mesh,struct model const *stock)
 {
-    short map[HALO_CUSTOM_MODEL_NODES];
+    short map[HALO_CUSTOM_MAX_NODES];
     short i,j,k;
-    long vertex;
-    if(stock->nodes.count!=HALO_CUSTOM_MODEL_NODES)return FALSE;
-    for(i=0;i<HALO_CUSTOM_MODEL_NODES;i++)
+    long vertex;short count=(short)stock->nodes.count;
+    if(count<1 || count>HALO_CUSTOM_MAX_NODES || mesh->node_count!=count)return FALSE;
+    for(i=0;i<count;i++)
     {
-        for(j=0;j<HALO_CUSTOM_MODEL_NODES;j++)
+        for(j=0;j<count;j++)
             if(!strcmp(mesh->nodes[i].name,((struct model_node const *)stock->nodes.address)[j].name))break;
-        if(j==HALO_CUSTOM_MODEL_NODES)return FALSE;
+        if(j==count)return FALSE;
         for(k=0;k<i;k++)if(map[k]==j)return FALSE;
         map[i]=j;
     }
     for(vertex=0;vertex<mesh->vertex_count;vertex++)
     {
         struct halo_custom_vertex *v=&mesh->vertices[vertex];
-        if(v->node[0]<0 || v->node[0]>=HALO_CUSTOM_MODEL_NODES || v->node[1]<-1 || v->node[1]>=HALO_CUSTOM_MODEL_NODES)return FALSE;
+        if(v->node[0]<0 || v->node[0]>=count || v->node[1]<-1 || v->node[1]>=count)return FALSE;
         v->node[0]=map[v->node[0]];
         if(v->node[1]>=0)v->node[1]=map[v->node[1]];
     }
@@ -192,21 +195,21 @@ static boolean skeleton_remap(struct halo_custom_mesh *mesh,struct model const *
 }
 /* Canonicalize the parsed skeleton into the animation rig's node order.
    LODs can reorder bone records but must describe the same actual skeleton. */
-static boolean skeleton_nodes(struct halo_custom_mesh const *mesh,struct model const *stock,struct halo_custom_node source[19],struct halo_custom_node target[19])
+static boolean skeleton_nodes(struct halo_custom_mesh const *mesh,struct model const *stock,struct halo_custom_node source[HALO_CUSTOM_MAX_NODES],struct halo_custom_node target[HALO_CUSTOM_MAX_NODES])
 {
-    struct model_node const *nodes=stock->nodes.address;short map[19];int i,j;
-    memset(source,0,19*sizeof(*source));memset(target,0,19*sizeof(*target));
-    if(stock->nodes.count!=19)return FALSE;
-    for(i=0;i<19;i++)
+    struct model_node const *nodes=stock->nodes.address;short map[HALO_CUSTOM_MAX_NODES];int i,j,count=(int)stock->nodes.count;
+    memset(source,0,HALO_CUSTOM_MAX_NODES*sizeof(*source));memset(target,0,HALO_CUSTOM_MAX_NODES*sizeof(*target));
+    if(count<1 || count>HALO_CUSTOM_MAX_NODES || mesh->node_count!=count)return FALSE;
+    for(i=0;i<count;i++)
     {
         strcpy(source[i].name,nodes[i].name);source[i].parent=nodes[i].parent_node_index;
         memcpy(source[i].translation,&nodes[i].default_translation,12);memcpy(source[i].rotation,&nodes[i].default_rotation,16);
-        for(j=0;j<19;j++)if(!strcmp(mesh->nodes[i].name,nodes[j].name))break;if(j==19)return FALSE;map[i]=(short)j;
+        for(j=0;j<count;j++)if(!strcmp(mesh->nodes[i].name,nodes[j].name))break;if(j==count)return FALSE;map[i]=(short)j;
         for(j=0;j<i;j++)if(map[j]==map[i])return FALSE;
     }
-    for(i=0;i<19;i++)
+    for(i=0;i<count;i++)
     {
-        int parent=mesh->nodes[i].parent;if(parent< -1 || parent>=19)return FALSE;
+        int parent=mesh->nodes[i].parent;if(parent< -1 || parent>=count)return FALSE;
         target[map[i]]=mesh->nodes[i];target[map[i]].parent=parent<0 ? -1:map[parent];
     }
     return TRUE;
@@ -224,7 +227,7 @@ static boolean asset_markers(struct custom_asset *a,struct halo_custom_mesh cons
         struct model_marker_instance const *instance=marker->instances.address;
         for(j=0;j<mesh->marker_count;j++)if(!_stricmp(marker->name,mesh->markers[j].name))break;
         if(j<mesh->marker_count || !marker->instances.count)continue;
-        if(count==256 || instance->node_index>=19)return FALSE;
+        if(count==256 || instance->node_index>=a->retarget.count)return FALSE;
         strcpy(a->markers[count].name,marker->name);a->marker_instances[count]=*instance;
         a->marker_instances[count].region_index=0;a->marker_instances[count].permutation_index=0;count++;
     }
@@ -258,7 +261,7 @@ static boolean contact_matrix(struct model const *model,char const *name,struct 
         if(!_stricmp(m->name,name) && m->instances.count)
         {
             struct model_marker_instance const *p=m->instances.address;
-            if(p->node_index>=19)return FALSE;*node=p->node_index;
+            if(p->node_index>=model->nodes.count)return FALSE;*node=p->node_index;
             memset(&n,0,sizeof(n));memcpy(n.rotation,&p->rotation,16);memcpy(n.translation,&p->translation,12);halo_custom_matrix_node(&n,matrix);return TRUE;
         }
     }
@@ -266,19 +269,21 @@ static boolean contact_matrix(struct model const *model,char const *name,struct 
 }
 static boolean asset_skeleton(struct custom_asset *a,short index,struct halo_custom_mesh const *mesh,struct model const *stock)
 {
-    struct halo_custom_node source[19],target[19];int i,j,limb,bone,node,hand;struct halo_custom_matrix contact,bind;
+    struct halo_custom_node source[HALO_CUSTOM_MAX_NODES],target[HALO_CUSTOM_MAX_NODES];int i,j,limb,bone,node,hand,count=(int)stock->nodes.count;struct halo_custom_matrix contact,bind;boolean cached;
     static char const *limbs[4][3]={{"bip01 l upperarm","bip01 l forearm","bip01 l hand"},{"bip01 r upperarm","bip01 r forearm","bip01 r hand"},{"bip01 l thigh","bip01 l calf","bip01 l foot"},{"bip01 r thigh","bip01 r calf","bip01 r foot"}};
     static char const *markers[4]={"left hand","right hand","left foot","right foot"};
-    if(!skeleton_nodes(mesh,stock,source,target) || !halo_custom_skeleton_hash(source,target,a->skeleton_key))return FALSE;
-    if(halo_custom_retarget_cache_load(index,a->skeleton_key,&a->retarget))platform_log("custom models: reused retarget cache for %s",halo_custom_model_info(index)->id);
+    if(!skeleton_nodes(mesh,stock,source,target) || !halo_custom_skeleton_hash_count(count,source,target,a->skeleton_key))return FALSE;
+    cached=halo_custom_retarget_cache_load(index,a->first_person,a->skeleton_key,&a->retarget) && a->retarget.count==count;
+    if(cached)for(i=0;i<count;i++)if(a->retarget.parent[i]!=source[i].parent || a->retarget.map[i]!=i)cached=FALSE;
+    if(cached)platform_log("custom models: reused %s retarget cache for %s",a->first_person ? "first-person" : "body",halo_custom_model_info(index)->id);
     else
     {
-        if(!halo_custom_retarget_build(source,target,&a->retarget))return FALSE;
-        halo_custom_retarget_cache_save(index,a->skeleton_key,&a->retarget);platform_log("custom models: generated retarget cache for %s",halo_custom_model_info(index)->id);
+        if(!halo_custom_retarget_build_count(count,source,target,&a->retarget))return FALSE;
+        halo_custom_retarget_cache_save(index,a->first_person,a->skeleton_key,&a->retarget);platform_log("custom models: generated %s retarget cache for %s",a->first_person ? "first-person" : "body",halo_custom_model_info(index)->id);
     }
     /* The canonical input order makes plan.map identity. Geometry remapping
        uses the original JMS order separately. */
-    for(i=0;i<19;i++)
+    for(i=0;i<count;i++)
     {
         a->nodes[i]=((struct model_node *)stock->nodes.address)[i];
         memcpy(&a->nodes[i].default_translation,target[i].translation,12);memcpy(&a->nodes[i].default_rotation,target[i].rotation,16);
@@ -286,12 +291,19 @@ static boolean asset_skeleton(struct custom_asset *a,short index,struct halo_cus
     }
     a->model=*stock;a->model.nodes.address=a->nodes;
     /* Marker node indices come from the JMS's own order. */
-    for(i=0;i<19;i++)for(j=0;j<19;j++)if(!strcmp(mesh->nodes[i].name,source[j].name)){a->retarget.map[i]=j;break;}
+    for(i=0;i<count;i++)for(j=0;j<count;j++)if(!strcmp(mesh->nodes[i].name,source[j].name)){a->retarget.map[i]=j;break;}
     if(!asset_markers(a,mesh,stock))return FALSE;
+    if(a->first_person)
+    {
+        static char const *arms[2][3]={{"frame l upperarm","frame l forearm","frame l wriste"},{"frame r upperarm","frame r forearm","frame r wriste"}};
+        for(limb=0;limb<2;limb++)for(bone=0;bone<3;bone++)
+        {for(i=0;i<count;i++)if(!strcmp(source[i].name,arms[limb][bone]))break;a->limb_nodes[limb][bone]=i<count ? (short)i:NONE;}
+        return TRUE;
+    }
     for(limb=0;limb<4;limb++)
     {
         for(bone=0;bone<3;bone++)
-        {for(i=0;i<19;i++)if(!strcmp(source[i].name,limbs[limb][bone]))break;if(i==19)return FALSE;a->limb_nodes[limb][bone]=(short)i;}
+        {for(i=0;i<count;i++)if(!strcmp(source[i].name,limbs[limb][bone]))break;if(i==count)return FALSE;a->limb_nodes[limb][bone]=(short)i;}
         hand=a->limb_nodes[limb][2];
         if(!contact_matrix(stock,markers[limb],&a->source_contact[limb],&node))return FALSE;
         halo_custom_matrix_inverse(&a->retarget.source_inverse[node],&bind);
@@ -423,26 +435,28 @@ static boolean material_make(struct custom_asset *asset,short index,short materi
     reference_set(&shader->detail,'bitm',NONE);reference_set(&shader->cubemap,'bitm',NONE);
     memset(shader->animation,0,sizeof(shader->animation));
     reference_set(&asset->shader_ref[material].shader,'soso',0x6F000000L|base);
-    snprintf(asset->names[1+material*3],128,"custom_models\\%s\\%s",info->id,asset->materials[material].name);
+    snprintf(asset->names[1+material*3],128,"custom_models\\%s\\%s%s",info->id,asset->first_person ? "fp\\" : "",asset->materials[material].name);
     tag_set(base,'soso',shader,asset->names[1+material*3]);
     for(i=0;i<2;i++)
     {
         asset->bitmap_groups[material][i].sequences.count=1;asset->bitmap_groups[material][i].sequences.address=&asset->sequences[material][i];
         asset->sequences[material][i].bitmap_count=1;
         asset->bitmap_groups[material][i].bitmaps.count=1;asset->bitmap_groups[material][i].bitmaps.address=asset->bitmaps[material][i];
-        snprintf(asset->names[2+material*3+i],128,"custom_models\\%s\\%s_%s",info->id,texture,i ? "mask" : "bitmap");
+        snprintf(asset->names[2+material*3+i],128,"custom_models\\%s\\%s%s_%s",info->id,asset->first_person ? "fp\\" : "",texture,i ? "mask" : "bitmap");
         tag_set(base+1+i,'bitm',&asset->bitmap_groups[material][i],asset->names[2+material*3+i]);
     }
     return TRUE;
 }
-static boolean asset_make(short index,struct model *stock,long first)
+static boolean asset_make(struct custom_asset *asset,short index,boolean first_person,struct model *stock,long first)
 {
-    struct custom_asset *asset=&assets[index];short i;long stock_shader;
+    short i;long stock_shader;
     struct halo_custom_mesh mesh;
     struct halo_custom_model_info const *info=halo_custom_model_info(index);
     stock_shader=tag_loaded('soso',"characters\\cyborg\\shaders\\armor");
     if(stock_shader==NONE)stock_shader=tag_loaded('soso',"characters\\cyborg_mp\\shaders\\armor");
-    if(stock_shader==NONE || !halo_custom_mesh_load(index,0,&mesh))return FALSE;
+    if(stock_shader==NONE || !halo_custom_mesh_load(index,first_person,&mesh))return FALSE;
+    if(first+1+mesh.material_count*3>tag_capacity){halo_custom_mesh_dispose(&mesh);return FALSE;}
+    asset->first_person=first_person;
     if(!asset_skeleton(asset,index,&mesh,stock)){halo_custom_mesh_dispose(&mesh);return FALSE;}
     if(!skeleton_remap(&mesh,stock)){halo_custom_mesh_dispose(&mesh);return FALSE;}
     asset->material_count=(short)mesh.material_count;
@@ -456,42 +470,50 @@ static boolean asset_make(short index,struct model *stock,long first)
     asset->model.shaders.count=asset->material_count;asset->model.shaders.address=asset->shader_ref;
     strcpy(asset->region.name,"cyborg");asset->region.permutations.count=1;asset->region.permutations.address=&asset->permutation;
     strcpy(asset->permutation.name,"__base");for(i=0;i<5;i++)asset->permutation.geometry_indices[i]=0;
-    snprintf(asset->names[0],128,"custom_models\\%s\\model",info->id);tag_set(first,'mode',&asset->model,asset->names[0]);
+    snprintf(asset->names[0],128,"custom_models\\%s\\%smodel",info->id,first_person ? "fp\\" : "");tag_set(first,'mode',&asset->model,asset->names[0]);
     strcpy(asset->id,info->id);asset->tag=0x6F000000L|first;asset->ready=TRUE;
     platform_log("custom models: loaded %s (single JMS, %d materials, profile color %s)",info->id,asset->material_count,info->colorable ? "enabled" : "disabled");
     return TRUE;
 }
 void custom_models_loaded(void)
 {
-    struct model *stock;short i;long total;
-    halo_custom_models_scan();
-    memset(objects,0,sizeof(objects));
+    struct model *stock;struct game_globals *globals;short i,kind;long total,globals_tag;
+    halo_custom_models_scan();memset(objects,0,sizeof(objects));
     stock_model=tag_loaded('mode',"characters\\cyborg\\cyborg");
     if(stock_model==NONE)stock_model=tag_loaded('mode',"characters\\cyborg_mp\\cyborg_mp");
-    if(stock_model==NONE)return;
-    stock=model_definition_get(stock_model);if(stock->nodes.count!=19)return;
-    original_table=cache_files_tag_instances(&original_count);
-    total=original_count+(halo_custom_models_count()-1)*(1+HALO_CUSTOM_MATERIALS*3);
-    if(!original_table || total>=65535 || total==original_count){original_table=NULL;return;}
-    new_table=zero_allocate(total*sizeof(*new_table));if(!new_table){original_table=NULL;return;}
-    memcpy(new_table,original_table,original_count*sizeof(*new_table));
-    /* Install the table before texture/shader construction asks for a tag. */
-    cache_files_set_tag_instances(new_table,original_count);
-    total=original_count;
-    for(i=1;i<halo_custom_models_count();i++)
+    stock_hands=NONE;globals_tag=tag_loaded('matg',"globals\\globals");
+    if(globals_tag!=NONE)
     {
-        if(asset_make(i,stock,total)){total+=1+assets[i].material_count*3;cache_files_set_tag_instances(new_table,total);}
-        else {platform_log("custom models: %s has incomplete assets or an incompatible Chief skeleton; retaining Chief",halo_custom_model_info(i)->id);asset_dispose(&assets[i]);}
+        globals=tag_get('matg',globals_tag);
+        if(globals->first_person_interface.count>0)
+            stock_hands=((struct game_globals_first_person_interface *)globals->first_person_interface.address)->hands.index;
+    }
+    if(stock_model==NONE && stock_hands==NONE)return;
+    original_table=cache_files_tag_instances(&original_count);
+    tag_capacity=MIN(65535L,original_count+(halo_custom_models_count()-1)*2*(1+HALO_CUSTOM_MATERIALS*3));
+    if(!original_table || tag_capacity<=original_count){original_table=NULL;return;}
+    new_table=zero_allocate(tag_capacity*sizeof(*new_table));if(!new_table){original_table=NULL;return;}
+    memcpy(new_table,original_table,original_count*sizeof(*new_table));cache_files_set_tag_instances(new_table,original_count);
+    total=original_count;
+    for(i=1;i<halo_custom_models_count();i++)for(kind=0;kind<2;kind++)
+    {
+        struct custom_asset *asset=kind ? &arms_assets[i]:&assets[i];long model=kind ? stock_hands:stock_model;
+        if(model==NONE)continue;stock=model_definition_get(model);
+        if(!kind && stock->nodes.count!=HALO_CUSTOM_MODEL_NODES)continue;
+        if(asset_make(asset,i,kind!=0,stock,total))
+        {total+=1+asset->material_count*3;cache_files_set_tag_instances(new_table,total);}
+        else
+        {platform_log("custom models: %s has no valid %s model; retaining Chief",halo_custom_model_info(i)->id,kind ? "first-person" : "body");asset_dispose(asset);}
     }
 }
 void custom_models_unloaded(void)
 {
     short i;
     custom_models_preview_forget();
-    for(i=1;i<HALO_CUSTOM_MODELS;i++)asset_dispose(&assets[i]);
+    for(i=1;i<HALO_CUSTOM_MODELS;i++){asset_dispose(&assets[i]);asset_dispose(&arms_assets[i]);}
     if(original_table)cache_files_set_tag_instances(original_table,original_count);
     if(new_table)free(new_table);
-    original_table=new_table=NULL;original_count=0;stock_model=NONE;geometry_bytes=0;
+    original_table=new_table=NULL;original_count=0;tag_capacity=0;stock_model=stock_hands=NONE;geometry_bytes=0;
     memset(objects,0,sizeof(objects));
 }
 static long model_for_player(long player)
@@ -562,4 +584,26 @@ boolean custom_models_render_nodes(long index,long model,real_matrix4x3 const *s
         else for(j=0;j<3;j++)output[i].v[3][j]+=source[0].n[3][j]-raw[0].n[3][j];
     }
     memcpy(target,output,sizeof(output));return TRUE;
+}
+long custom_models_first_person_model(long unit,long original)
+{
+    struct object_datum *object=object_try_and_get(unit);struct player_datum *player;char const *id;short i;
+    if(original!=stock_hands || !object || object->object.type!=_object_type_biped)return original;
+    player=player_try_and_get(object->object.owner_player_index);
+    if(!player || player->unit_index!=unit)return original;
+    id=custom_models_player_id(object->object.owner_player_index);
+    for(i=1;i<HALO_CUSTOM_MODELS;i++)if(arms_assets[i].ready && !strcmp(arms_assets[i].id,id))return arms_assets[i].tag;
+    return original;
+}
+boolean custom_models_first_person_nodes(long model,real_matrix4x3 *nodes)
+{
+    struct custom_asset *asset=NULL;struct halo_custom_matrix input[HALO_CUSTOM_MAX_NODES],output[HALO_CUSTOM_MAX_NODES];
+    short i,limb;long bytes;
+    for(i=1;i<HALO_CUSTOM_MODELS;i++)if(arms_assets[i].ready && arms_assets[i].tag==model){asset=&arms_assets[i];break;}
+    if(!asset)return FALSE;
+    bytes=asset->retarget.count*sizeof(real_matrix4x3);memcpy(input,nodes,bytes);
+    if(!halo_custom_retarget_pose(&asset->retarget,input,output))return FALSE;
+    if(!asset->retarget.identical)for(limb=0;limb<2;limb++)
+        halo_custom_retarget_grip(&asset->retarget,input,output,asset->limb_nodes[limb][0],asset->limb_nodes[limb][1],asset->limb_nodes[limb][2]);
+    memcpy(nodes,output,bytes);return TRUE;
 }

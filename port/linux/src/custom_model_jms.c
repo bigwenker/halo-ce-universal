@@ -59,18 +59,18 @@ void halo_custom_mesh_dispose(struct halo_custom_mesh *m)
 int halo_custom_mesh_parse(char const *data, unsigned int size, struct halo_custom_mesh *m)
 {
     struct reader r;
-    int i,j,regions,parents[19]; char name[512];
+    int i,j,regions,parents[HALO_CUSTOM_MAX_NODES]; char name[512];
     memset(m,0,sizeof(*m));
     if (!data || !size || size>16u*1024u*1024u || memchr(data,0,size)) return 0;
     r.at=data;r.end=data+size;r.failed=0;
     if(integer(&r,8200,8200)!=8200) return 0;
     number(&r); /* authoring checksum; runtime uses the validated stock nodes */
-    if(integer(&r,19,19)!=19 || r.failed) return 0;
-    for(i=0;i<19;i++)
+    m->node_count=integer(&r,1,HALO_CUSTOM_MAX_NODES);if(r.failed)return 0;
+    for(i=0;i<m->node_count;i++)
     {
         struct halo_custom_node *node=&m->nodes[i];
         line(&r,node->name,sizeof(node->name));
-        node->child=integer(&r,-1,18);node->sibling=integer(&r,-1,18);node->parent=-1;parents[i]=-1;
+        node->child=integer(&r,-1,m->node_count-1);node->sibling=integer(&r,-1,m->node_count-1);node->parent=-1;parents[i]=-1;
         {
             float norm=0;
             for(j=0;j<4;j++){node->rotation[j]=real_value(&r,-1.001f,1.001f);norm+=node->rotation[j]*node->rotation[j];}
@@ -78,19 +78,19 @@ int halo_custom_mesh_parse(char const *data, unsigned int size, struct halo_cust
         }
         for(j=0;j<3;j++)node->translation[j]=real_value(&r,-10000.f,10000.f)/100.f;
     }
-    for(i=0;i<19;i++)
+    for(i=0;i<m->node_count;i++)
     {
         int at=m->nodes[i].child,steps=0;
-        while(at!=-1 && steps++<19)
+        while(at!=-1 && steps++<m->node_count)
         {if(at==0 || parents[at]!=-1)r.failed=1;parents[at]=i;at=m->nodes[at].sibling;}
-        if(steps>19)r.failed=1;
+        if(steps>m->node_count)r.failed=1;
     }
-    for(i=0;i<19;i++)
+    for(i=0;i<m->node_count;i++)
     {
         int at=i,steps=0;
         m->nodes[i].parent=parents[i];
-        while(at!=-1 && steps++<20)at=parents[at];
-        if(steps>19 || (i && parents[i]==-1))r.failed=1;
+        while(at!=-1 && steps++<=m->node_count)at=parents[at];
+        if(steps>m->node_count || (i && parents[i]==-1))r.failed=1;
     }
     if(m->nodes[0].sibling!=-1)r.failed=1;
     m->material_count=integer(&r,1,HALO_CUSTOM_MATERIALS);
@@ -106,7 +106,7 @@ int halo_custom_mesh_parse(char const *data, unsigned int size, struct halo_cust
     for(i=0;i<m->marker_count;i++)
     {
         struct halo_custom_marker *marker=&m->markers[i];float norm=0;
-        line(&r,marker->name,sizeof(marker->name));integer(&r,-1,31);marker->node=integer(&r,-1,18);
+        line(&r,marker->name,sizeof(marker->name));integer(&r,-1,31);marker->node=integer(&r,-1,m->node_count-1);
         for(j=0;j<4;j++){marker->rotation[j]=real_value(&r,-1.001f,1.001f);norm+=marker->rotation[j]*marker->rotation[j];}
         if(norm<.999f || norm>1.001f)r.failed=1;
         for(j=0;j<3;j++)marker->translation[j]=real_value(&r,-10000.f,10000.f)/100.f;
@@ -122,11 +122,11 @@ int halo_custom_mesh_parse(char const *data, unsigned int size, struct halo_cust
     {
         struct halo_custom_vertex *v=&m->vertices[i];
         float length=0;
-        v->node[0]=integer(&r,0,18);
+        v->node[0]=integer(&r,0,m->node_count-1);
         for(j=0;j<3;j++)v->position[j]=real_value(&r,-10000.f,10000.f)/100.f;
         for(j=0;j<3;j++){v->normal[j]=real_value(&r,-1.001f,1.001f);length+=v->normal[j]*v->normal[j];}
         if(length<.9f || length>1.1f)r.failed=1;
-        v->node[1]=integer(&r,-1,18);v->weight=real_value(&r,0,1);
+        v->node[1]=integer(&r,-1,m->node_count-1);v->weight=real_value(&r,0,1);
         if(v->node[1]==-1 && v->weight!=0)r.failed=1;
         v->uv[0]=real_value(&r,-16,16);v->uv[1]=1.f-real_value(&r,-16,16);real_value(&r,-16,16);
     }

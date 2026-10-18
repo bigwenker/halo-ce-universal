@@ -7,6 +7,8 @@ void custom_models_unloaded(void);
 long custom_models_render_model(long object, long original);
 boolean custom_models_render_nodes(long object,long model,struct real_matrix4x3 const *source,struct real_matrix4x3 *target);
 unsigned int unit_custom_model_ik(long unit); /* units.c: original animation IK gates */
+long custom_models_first_person_model(long unit,long original);
+boolean custom_models_first_person_nodes(long model,struct real_matrix4x3 *nodes);
 void custom_models_object_created(long object);
 void custom_models_player_changed(long player);
 void custom_models_selection_changed(void);

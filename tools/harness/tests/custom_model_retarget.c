@@ -23,7 +23,26 @@ int main(int argc,char **argv)
     fixture(s);memcpy(t,s,sizeof(t));t[1].translation[0]=.7f;t[2].translation[0]=1.3f;
     CHECK(halo_custom_skeleton_hash(s,t,key),"hash failed");CHECK(halo_custom_retarget_build(s,t,&plan),"plan failed");
     bind(s,source);bind(t,expected);
-    if(!strcmp(case_name,"identity"))
+    if(!strcmp(case_name,"fp37") || !strcmp(case_name,"fp64") || !strcmp(case_name,"fingers"))
+    {
+        struct halo_custom_node sn[64]={0},tn[64];struct halo_custom_matrix sm[64],tm[64],local,old_inverse,relative;
+        int count=!strcmp(case_name,"fp64") ? 64:37;
+        for(i=0;i<count;i++){sn[i].parent=i-1;sn[i].rotation[3]=1;sn[i].translation[0]=.1f;snprintf(sn[i].name,32,"joint%d",i);}
+        memcpy(tn,sn,sizeof(tn));tn[1].translation[0]=.07f;tn[2].translation[0]=.13f;
+        CHECK(halo_custom_skeleton_hash_count(count,sn,tn,key),"FP hash");CHECK(halo_custom_retarget_build_count(count,sn,tn,&plan),"FP build");
+        for(i=0;i<count;i++){halo_custom_matrix_node(&sn[i],&local);if(i)halo_custom_matrix_multiply(&sm[i-1],&local,&sm[i]);else sm[i]=local;}
+        CHECK(halo_custom_retarget_pose(&plan,sm,tm),"FP pose");
+        size=halo_custom_retarget_encode(&plan,key,bytes);CHECK(size<=HALO_RETARGET_CACHE_BYTES && halo_custom_retarget_decode(bytes,size,key,&loaded) && loaded.count==count,"FP cache");
+        for(i=0;i<count;i++){halo_custom_matrix_multiply(&tm[i],&plan.target_inverse[i],&skin);close_value(skin.v[3][0],0);}
+        if(!strcmp(case_name,"fingers"))
+        {
+            halo_custom_matrix_inverse(&tm[2],&old_inverse);halo_custom_matrix_multiply(&old_inverse,&tm[36],&relative);
+            sm[2].v[3][0]=.23f;sm[2].v[3][1]=.03f;CHECK(halo_custom_retarget_grip(&plan,sm,tm,0,1,2),"wrist solve");
+            halo_custom_matrix_inverse(&tm[2],&old_inverse);halo_custom_matrix_multiply(&old_inverse,&tm[36],&skin);close_matrix(&skin,&relative);
+            close_value(tm[2].v[3][0],.23f);close_value(tm[2].v[3][1],.03f);
+        }
+    }
+    else if(!strcmp(case_name,"identity"))
     {
         CHECK(halo_custom_retarget_build(s,s,&plan)&&plan.identical,"identity not detected");
         s[2].rotation[2]=sinf(.4f);s[2].rotation[3]=cosf(.4f);s[0].translation[1]=4;bind(s,source);

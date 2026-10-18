@@ -14,28 +14,34 @@ static struct halo_custom_model_info catalogue[HALO_CUSTOM_MODELS];
 static int model_count;
 static char root[4096];
 
-static int retarget_path(int index,char path[4096],int directory)
+static int retarget_path(int index,int first_person,char path[4096],int directory)
 {
     if(index<=0 || index>=halo_custom_models_count())return 0;
     return SDL_snprintf(path,4096,"%s/%s/generated%s",root,catalogue[index].id,
-        directory ? "" : "/retarget-v1.cache")<4096;
+        directory ? "" : first_person ? "/retarget-fp-v2.cache" : "/retarget-body-v2.cache")<4096;
 }
-int halo_custom_retarget_cache_load(int index,unsigned char const key[32],struct halo_custom_retarget *plan)
+int halo_custom_retarget_cache_load(int index,int first_person,unsigned char const key[32],struct halo_custom_retarget *plan)
 {
     char path[4096];unsigned char bytes[HALO_RETARGET_CACHE_BYTES];size_t size;FILE *f;int ok;
-    if(!retarget_path(index,path,0) || !(f=fopen(path,"rb")))return 0;
+    if(!retarget_path(index,first_person,path,0) || !(f=fopen(path,"rb")))return 0;
     size=fread(bytes,1,sizeof(bytes),f);ok=!ferror(f) && feof(f);fclose(f);
     return ok && halo_custom_retarget_decode(bytes,(unsigned int)size,key,plan);
 }
-void halo_custom_retarget_cache_save(int index,unsigned char const key[32],struct halo_custom_retarget const *plan)
+void halo_custom_retarget_cache_save(int index,int first_person,unsigned char const key[32],struct halo_custom_retarget const *plan)
 {
     char path[4096],temporary[4096],directory[4096];unsigned char bytes[HALO_RETARGET_CACHE_BYTES];
     FILE *f;int size,ok;
-    if(!retarget_path(index,path,0) || !retarget_path(index,directory,1) || !SDL_CreateDirectory(directory) ||
-        SDL_snprintf(temporary,sizeof(temporary),"%s.%llu.tmp",path,(unsigned long long)SDL_GetTicksNS())>=(int)sizeof(temporary))return;
-    size=halo_custom_retarget_encode(plan,key,bytes);f=fopen(temporary,"wb");if(!f)return;
+    if(!retarget_path(index,first_person,path,0) || !retarget_path(index,first_person,directory,1) || !SDL_CreateDirectory(directory) ||
+        SDL_snprintf(temporary,sizeof(temporary),"%s.%llu.%p.tmp",path,(unsigned long long)SDL_GetTicks(),(void *)bytes)>=(int)sizeof(temporary))return;
+    size=halo_custom_retarget_encode(plan,key,bytes);if(!size)return;f=fopen(temporary,"wb");if(!f)return;
     ok=fwrite(bytes,1,size,f)==(size_t)size;if(fclose(f))ok=0;
-    if(!ok || !SDL_RenamePath(temporary,path))SDL_RemovePath(temporary);
+    /* Android's guest bridges SDL_GetTicks and ordinary file syscalls;
+       SDL's newer rename/remove helpers are not guest imports. */
+#ifdef HALO_WINDOWS
+    if(!ok || !SDL_RenamePath(temporary,path))remove(temporary);
+#else
+    if(!ok || rename(temporary,path))remove(temporary);
+#endif
 }
 
 int halo_custom_model_id_valid(char const *id)

@@ -1433,7 +1433,19 @@ material is compacted into its own ordinary geometry part, with at most
 65,535 referenced vertices per material. Invalid or incomplete models fall
 back to Chief; source meshes, weights and face winding are not altered.
 
-The first map load generates `generated/retarget-v1.cache` in each pack. It
+An optional `source/characters/cyborg/fp/models/<id>.jms` replaces that profile's
+first-person arms independently of its body mesh. It uses the same material,
+texture and RGB conventions. The exported bones must match the map's original
+FP hands rig by name and hierarchy (stock Chief has 37 bones, including fingers;
+the body has 19). The parser supports up to 64 bones. Changed FP rest poses use
+the same retargeter, with wrist IK and finger propagation to preserve weapon
+grips. The weapon model, weapon animations, muzzle/gameplay markers, viewmodel
+FOV/visibility, camouflage and shield passes retain their existing pipelines.
+Missing, malformed or incompatible FP files retain stock arms while the custom
+body continues to work. A pack need not supply an FP mesh.
+
+The first map load generates `generated/retarget-body-v2.cache` and, when FP
+arms are provided, `generated/retarget-fp-v2.cache` in each pack. Each
 caches rest-pose corrections, not animation clips: ordinary animation blending,
 aiming and overlays still run live. SHA-256 covers the parsed source and target
 skeletons (names, hierarchy, rest translations and normalized rotations) and
@@ -1470,7 +1482,7 @@ is an authored image, not an automatically recolored rendering of the model.
 
 The unit's cosmetic is bound as it is assigned to its player, before rendering;
 its mesh, shadow, shield and camouflage use the existing renderer. The original
-unit definition, collision, hitboxes, first-person arms, gameplay markers and
+unit definition, collision, hitboxes, gameplay markers and
 animation graph remain Chief's. No custom gameplay data enters the simulation.
 
 Only model IDs are shared over the optional negotiated model feature. A client

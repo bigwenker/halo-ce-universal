@@ -121,6 +121,7 @@ symbols in this file:
 #include "render/render.h"
 #include "saved games/game_state.h"
 #include "scenario/scenario.h"
+#include "custom_models.h" /* port: optional per-profile first-person arms */
 #include "sound/game_sound.h"
 #include "sound/sound_manager.h"
 #include "units/units.h"
@@ -574,14 +575,21 @@ void first_person_weapon_draw(
 					if (first_person_weapon->hands_node_remapping_table_valid &&
 						first_person_interface->hands.index!=NONE)
 					{
+						/* port: remap the original hands to the weapon graph first,
+						   then retarget only the cosmetic arms. Missing/invalid FP
+						   files keep stock hands and the weapon is never replaced. */
+						long hands_model = custom_models_first_person_model(unit_index, first_person_interface->hands.index);
 						model_remap_node_matrices_to_match_animation_graph(
 							first_person_interface->hands.index,
 							model_node_matrices,
 							weapon_definition->weapon.interface_definition.first_person_animations.index,
 							first_person_weapon->node_matrices,
 							first_person_weapon->hands_node_remapping_table);
+						if (hands_model != first_person_interface->hands.index &&
+							!custom_models_first_person_nodes(hands_model, model_node_matrices))
+							hands_model = first_person_interface->hands.index;
 						render_model(
-							first_person_interface->hands.index,
+							hands_model,
 							0.0f,
 							model_node_matrices,
 							NULL,

@@ -10,12 +10,18 @@ def executable(fault=False):
     if fault:code=mutated(code,'if(v<low || v>high)','if(0)')
     return build('custom_models_jms',(('halo_custom_models.h',read('port/linux/include/halo_custom_models.h')),('jms.inc',code)))
 
-def fixture():
-    lines=['8200','1828349080','19']
-    for i in range(19):lines += [f'bone {i}',str(i+1 if i<18 else -1),'-1','0 0 0 1','0 0 0']
+def fixture(count=19):
+    lines=['8200','1828349080',str(count)]
+    for i in range(count):lines += [f'bone {i}',str(i+1 if i<count-1 else -1),'-1','0 0 0 1','0 0 0']
     lines += ['1','armor','<none>','0','1','cyborg','3']
     for position in ['0 0 0','100 0 0','0 100 0']:lines += ['0',position,'0 0 1','-1','0','0 0','0']
     return '\n'.join(lines+['1','0','0','0 1 2'])+'\n'
+
+
+@pytest.mark.parametrize('count',[0,1,19,37,64,65])
+def test_body_and_fp_node_limits(tmp_path,count):
+    path=tmp_path/'model.jms';path.write_text(fixture(count))
+    assert run(executable(),str(path))[0]==(0 if 1<=count<=64 else 1)
 
 @pytest.mark.parametrize('case',['valid','truncated','bad_weight','nan','bad_index','bad_count','cycle','material','trailing','nul'])
 def test_parser(tmp_path,case):

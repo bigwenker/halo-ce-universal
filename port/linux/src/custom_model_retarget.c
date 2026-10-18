@@ -37,19 +37,20 @@ void halo_custom_matrix_node(struct halo_custom_node const *n,struct halo_custom
     m->v[2][0]=s*(x*z-w*y);m->v[2][1]=s*(y*z+w*x);m->v[2][2]=1.f-s*(x*x+y*y);
     memcpy(m->v[3],n->translation,12);
 }
-static int nodes_valid(struct halo_custom_node const *nodes)
+static int nodes_valid(int count,struct halo_custom_node const *nodes)
 {
     int i,j,at,steps;float n;
-    for(i=0;i<19;i++)
+    if(count<1 || count>HALO_CUSTOM_MAX_NODES)return 0;
+    for(i=0;i<count;i++)
     {
-        if(!nodes[i].name[0] || !memchr(nodes[i].name,0,32) || nodes[i].parent< -1 || nodes[i].parent>=19)return 0;
+        if(!nodes[i].name[0] || !memchr(nodes[i].name,0,32) || nodes[i].parent< -1 || nodes[i].parent>=count)return 0;
         for(j=0;j<i;j++)if(!strcmp(nodes[i].name,nodes[j].name))return 0;
         n=0;for(j=0;j<4;j++){if(!isfinite(nodes[i].rotation[j]))return 0;n+=nodes[i].rotation[j]*nodes[i].rotation[j];}
         if(n<.999f || n>1.001f)return 0;
         for(j=0;j<3;j++)if(!isfinite(nodes[i].translation[j]) || fabsf(nodes[i].translation[j])>100.f)return 0;
-        at=i;steps=0;while(at!=-1 && steps++<19)at=nodes[at].parent;if(at!=-1)return 0;
         if((i==0)!=(nodes[i].parent==-1))return 0;
     }
+    for(i=0;i<count;i++){at=i;steps=0;while(at!=-1 && steps++<count)at=nodes[at].parent;if(at!=-1)return 0;}
     return 1;
 }
 static void put_u32(unsigned char **p,unsigned int v)
@@ -63,15 +64,15 @@ static float get_float(unsigned char const **p)
 /* Hash only the parsed skeleton, including its index order (cached matrices
    use that order). Whitespace, geometry, textures and quaternion sign do not
    invalidate the key. Serialize explicitly, never hash structure padding. */
-int halo_custom_skeleton_hash(struct halo_custom_node const *s,struct halo_custom_node const *t,unsigned char hash[32])
+int halo_custom_skeleton_hash_count(int count,struct halo_custom_node const *s,struct halo_custom_node const *t,unsigned char hash[32])
 {
-    unsigned char bytes[4096],*p=bytes;int pass,i,j,n;float q[4],length,sign;
-    if(!nodes_valid(s) || !nodes_valid(t))return 0;
-    put_u32(&p,HALO_RETARGET_VERSION);
+    unsigned char bytes[HALO_RETARGET_CACHE_BYTES],*p=bytes;int pass,i,j,n;float q[4],length,sign;
+    if(!nodes_valid(count,s) || !nodes_valid(count,t))return 0;
+    put_u32(&p,HALO_RETARGET_VERSION);put_u32(&p,(unsigned int)count);
     for(pass=0;pass<2;pass++)
     {
         struct halo_custom_node const *nodes=pass ? t:s;
-        for(i=0;i<19;i++)
+        for(i=0;i<count;i++)
         {
             struct halo_custom_node const *node=&nodes[i];
             n=(int)strlen(node->name)+1;memcpy(p,node->name,n);p+=n;
@@ -84,20 +85,21 @@ int halo_custom_skeleton_hash(struct halo_custom_node const *s,struct halo_custo
     }
     p2p_sha256(bytes,(int)(p-bytes),hash);return 1;
 }
-int halo_custom_retarget_build(struct halo_custom_node const *s,struct halo_custom_node const *t,struct halo_custom_retarget *p)
+int halo_custom_retarget_build_count(int count,struct halo_custom_node const *s,struct halo_custom_node const *t,struct halo_custom_retarget *p)
 {
-    struct halo_custom_matrix source[19],local;int i,j,done[19]={0},left=19,progress;
-    memset(p,0,sizeof(*p));if(!nodes_valid(s) || !nodes_valid(t))return 0;
-    for(i=0;i<19;i++)
+    struct halo_custom_matrix source[HALO_CUSTOM_MAX_NODES],local;int i,j,done[HALO_CUSTOM_MAX_NODES]={0},left=count,progress;
+    memset(p,0,sizeof(*p));if(!nodes_valid(count,s) || !nodes_valid(count,t))return 0;
+    p->count=count;
+    for(i=0;i<count;i++)
     {
-        for(j=0;j<19;j++)if(!strcmp(t[i].name,s[j].name))break;if(j==19)return 0;p->map[i]=j;
+        for(j=0;j<count;j++)if(!strcmp(t[i].name,s[j].name))break;if(j==count)return 0;p->map[i]=j;
     }
-    for(i=0;i<19;i++)
+    for(i=0;i<count;i++)
     {j=p->map[i];p->parent[j]=s[j].parent;if(t[i].parent<0 ? s[j].parent!=-1 : p->map[t[i].parent]!=s[j].parent)return 0;}
     while(left)
     {
         progress=0;
-        for(i=0;i<19;i++)
+        for(i=0;i<count;i++)
         {
             int at=p->map[i],parent=p->parent[at];
             if(done[at] || (parent>=0 && !done[parent]))continue;
@@ -109,7 +111,7 @@ int halo_custom_retarget_build(struct halo_custom_node const *s,struct halo_cust
         if(!progress)return 0;
     }
     p->identical=1;
-    for(i=0;i<19;i++)for(j=0;j<12;j++)if(fabsf(((float *)source[i].v)[j]-((float *)p->target[i].v)[j])>1.e-5f)p->identical=0;
+    for(i=0;i<count;i++)for(j=0;j<12;j++)if(fabsf(((float *)source[i].v)[j]-((float *)p->target[i].v)[j])>1.e-5f)p->identical=0;
     return 1;
 }
 static int matrix_valid(struct halo_custom_matrix const *m)
@@ -122,14 +124,15 @@ static int matrix_valid(struct halo_custom_matrix const *m)
 }
 int halo_custom_retarget_pose(struct halo_custom_retarget const *p,struct halo_custom_matrix const *s,struct halo_custom_matrix *t)
 {
-    struct halo_custom_matrix delta[19],source_bind,inv,local;int done[19]={0},left=19,i,j,parent,progress;float edge[3],motion[3],v[3];
-    for(i=0;i<19;i++)if(!matrix_valid(&s[i]))return 0;
-    if(p->identical){memcpy(t,s,19*sizeof(*t));return 1;}
-    for(i=0;i<19;i++)halo_custom_matrix_multiply(&s[i],&p->source_inverse[i],&delta[i]);
+    struct halo_custom_matrix delta[HALO_CUSTOM_MAX_NODES],source_bind,inv,local;int done[HALO_CUSTOM_MAX_NODES]={0},count=p->count,left=count,i,j,parent,progress;float edge[3],motion[3],v[3];
+    if(count<1 || count>HALO_CUSTOM_MAX_NODES)return 0;
+    for(i=0;i<count;i++)if(!matrix_valid(&s[i]))return 0;
+    if(p->identical){memcpy(t,s,count*sizeof(*t));return 1;}
+    for(i=0;i<count;i++)halo_custom_matrix_multiply(&s[i],&p->source_inverse[i],&delta[i]);
     while(left)
     {
         progress=0;
-        for(i=0;i<19;i++)
+        for(i=0;i<count;i++)
         {
             parent=p->parent[i];if(done[i] || (parent>=0 && !done[parent]))continue;
             halo_custom_matrix_multiply(&delta[i],&p->target[i],&t[i]);
@@ -180,14 +183,33 @@ int halo_custom_retarget_arm(struct halo_custom_matrix *a,struct halo_custom_mat
     aim_segment(a,upper,new_upper);aim_segment(b,lower,new_lower);
     for(i=0;i<3;i++)b->v[3][i]=a->v[3][i]+new_upper[i];*h=*goal;memcpy(h->v[3],end,12);return 1;
 }
+/* First-person guns retain their animation. Pin each wrist to its original
+   animated position, then carry all finger descendants with the corrected
+   wrist. Moving only the wrist would otherwise detach the fingers. */
+int halo_custom_retarget_grip(struct halo_custom_retarget const *p,struct halo_custom_matrix const *s,struct halo_custom_matrix *t,int upper,int forearm,int wrist)
+{
+    struct halo_custom_matrix old,goal,delta;int i,at,steps;
+    if(upper<0 || upper>=p->count || forearm<0 || forearm>=p->count || wrist<0 || wrist>=p->count ||
+        p->parent[forearm]!=upper || p->parent[wrist]!=forearm)return 0;
+    old=t[wrist];goal=old;memcpy(goal.v[3],s[wrist].v[3],12);
+    if(!halo_custom_retarget_arm(&t[upper],&t[forearm],&t[wrist],&goal))return 0;
+    halo_custom_matrix_inverse(&old,&delta);halo_custom_matrix_multiply(&t[wrist],&delta,&delta);
+    for(i=0;i<p->count;i++)if(i!=wrist)
+    {
+        at=p->parent[i];steps=0;while(at!=-1 && at!=wrist && steps++<p->count)at=p->parent[at];
+        if(at==wrist)halo_custom_matrix_multiply(&delta,&t[i],&t[i]);
+    }
+    return 1;
+}
 /* Explicit little-endian representation: no ABI padding, pointers or host
    endianness. A digest, bounds and rigid-matrix checks reject corrupt caches. */
 int halo_custom_retarget_encode(struct halo_custom_retarget const *plan,unsigned char const key[32],unsigned char data[HALO_RETARGET_CACHE_BYTES])
 {
-    unsigned char *p=data;int i,j,k;unsigned char digest[32];
-    memcpy(p,"HCERTGT1",8);p+=8;put_u32(&p,HALO_RETARGET_VERSION);memcpy(p,key,32);p+=32;
-    put_u32(&p,plan->identical);
-    for(i=0;i<19;i++)
+    unsigned char *p=data;int count=plan->count,i,j,k;unsigned char digest[32];
+    if(count<1 || count>HALO_CUSTOM_MAX_NODES)return 0;
+    memcpy(p,"HCERTGT2",8);p+=8;put_u32(&p,HALO_RETARGET_VERSION);memcpy(p,key,32);p+=32;
+    put_u32(&p,plan->identical);put_u32(&p,(unsigned int)count);
+    for(i=0;i<count;i++)
     {
         struct halo_custom_matrix const *m[3]={&plan->source_inverse[i],&plan->target[i],&plan->target_inverse[i]};
         put_u32(&p,(unsigned int)(plan->parent[i]+1));put_u32(&p,plan->map[i]);
@@ -198,14 +220,15 @@ int halo_custom_retarget_encode(struct halo_custom_retarget const *plan,unsigned
 int halo_custom_retarget_decode(unsigned char const *data,unsigned int size,unsigned char const key[32],struct halo_custom_retarget *plan)
 {
     unsigned char const *p=data;unsigned char digest[32];struct halo_custom_retarget r;struct halo_custom_matrix check;
-    unsigned int parent,map;int i,j,k,at,steps,seen[19]={0};
-    if(size!=3196 || memcmp(p,"HCERTGT1",8))return 0;p+=8;if(get_u32(&p)!=HALO_RETARGET_VERSION || memcmp(p,key,32))return 0;p+=32;
+    unsigned int parent,map;int count,i,j,k,at,steps,seen[HALO_CUSTOM_MAX_NODES]={0};
+    if(size<84 || size>HALO_RETARGET_CACHE_BYTES || memcmp(p,"HCERTGT2",8))return 0;p+=8;if(get_u32(&p)!=HALO_RETARGET_VERSION || memcmp(p,key,32))return 0;p+=32;
     p2p_sha256(data,(int)size-32,digest);if(memcmp(digest,data+size-32,32))return 0;
     memset(&r,0,sizeof(r));r.identical=(int)get_u32(&p);if(r.identical!=0 && r.identical!=1)return 0;
-    for(i=0;i<19;i++)
+    count=(int)get_u32(&p);if(count<1 || count>HALO_CUSTOM_MAX_NODES || size!=84u+(unsigned int)count*164u)return 0;r.count=count;
+    for(i=0;i<count;i++)
     {
         struct halo_custom_matrix *m[3]={&r.source_inverse[i],&r.target[i],&r.target_inverse[i]};
-        parent=get_u32(&p);map=get_u32(&p);if(parent>19 || map>=19 || seen[map]++)return 0;
+        parent=get_u32(&p);map=get_u32(&p);if(parent>(unsigned int)count || map>=(unsigned int)count || seen[map]++)return 0;
         r.parent[i]=(int)parent-1;r.map[i]=(int)map;
         for(j=0;j<3;j++){m[j]->scale=get_float(&p);for(k=0;k<12;k++)((float *)m[j]->v)[k]=get_float(&p);if(!matrix_valid(m[j]))return 0;}
         halo_custom_matrix_multiply(&r.target[i],&r.target_inverse[i],&check);
@@ -216,7 +239,13 @@ int halo_custom_retarget_decode(unsigned char const *data,unsigned int size,unsi
             for(j=0;j<12;j++)if(fabsf(((float *)check.v)[j]-(j<9 && j%4==0 ? 1.f:0.f))>.001f)return 0;
         }
     }
-    for(i=0;i<19;i++)
-    {at=i;steps=0;while(at!=-1 && steps++<19)at=r.parent[at];if(at!=-1 || ((i==0)!=(r.parent[i]==-1)))return 0;}
+    for(i=0;i<count;i++)
+    {at=i;steps=0;while(at!=-1 && steps++<count)at=r.parent[at];if(at!=-1 || ((i==0)!=(r.parent[i]==-1)))return 0;}
     *plan=r;return 1;
 }
+
+/* Existing body callers retain the fixed Chief-rig interface. */
+int halo_custom_skeleton_hash(struct halo_custom_node const *s,struct halo_custom_node const *t,unsigned char hash[32])
+{return halo_custom_skeleton_hash_count(HALO_CUSTOM_MODEL_NODES,s,t,hash);}
+int halo_custom_retarget_build(struct halo_custom_node const *s,struct halo_custom_node const *t,struct halo_custom_retarget *p)
+{return halo_custom_retarget_build_count(HALO_CUSTOM_MODEL_NODES,s,t,p);}
