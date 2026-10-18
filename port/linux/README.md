@@ -1408,7 +1408,7 @@ A pack needs `info.toml` with `full_name` (string), `colorable` (boolean) and
 `preview` (a PNG filename in the pack's root). IDs use lowercase ASCII letters,
 numbers, underscores and hyphens, at most 31 characters; `master_chief` is reserved.
 Preview PNGs must have width:height 1:2 and are displayed at 128x256. Put the base
-texture in `textures/armor.png`, and five JMS 8200 files in
+texture in `textures/armor.png` (or `armor.bmp`; PNG takes precedence), and five JMS 8200 files in
 `source/characters/cyborg/models/`, named `__base superlow.jms`, `__base low.jms`,
 `__base medium.jms`, `__base high.jms` and `__base superhigh.jms`. The last also
 accepts `.JMS` for existing Blender exports. Each has one material named `armor`.

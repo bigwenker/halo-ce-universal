@@ -38,10 +38,10 @@ static void *read_bounded(char const *path, unsigned int limit, unsigned int *si
     fclose(file);
     return data;
 }
-static int leaf_png(char const *name)
+static int leaf_image(char const *name)
 {
     size_t n = strlen(name), i;
-    if (n < 5 || n >= sizeof(catalogue[0].preview) || strcmp(name+n-4, ".png")) return 0;
+    if (n < 5 || n >= sizeof(catalogue[0].preview) || (SDL_strcasecmp(name+n-4, ".png") && SDL_strcasecmp(name+n-4, ".bmp"))) return 0;
     for (i=0;i<n;i++) if (name[i]=='/' || name[i]=='\\' || name[i]==':' || (unsigned char)name[i]<32) return 0;
     return strcmp(name,".") && strcmp(name,"..");
 }
@@ -62,7 +62,7 @@ static SDL_EnumerationResult SDLCALL discover(void *unused, char const *director
     if (!result.ok) { platform_log("custom models: %s: %s",name,result.errmsg); toml_free(result); return SDL_ENUM_CONTINUE; }
     full=toml_seek(result.toptab,"full_name"); color=toml_seek(result.toptab,"colorable"); preview=toml_seek(result.toptab,"preview");
     if (full.type==TOML_STRING && *full.u.s && strlen(full.u.s)<sizeof(catalogue[0].name) &&
-        color.type==TOML_BOOLEAN && preview.type==TOML_STRING && leaf_png(preview.u.s))
+        color.type==TOML_BOOLEAN && preview.type==TOML_STRING && leaf_image(preview.u.s))
     {
         info=&catalogue[model_count++];
         SDL_snprintf(info->id,sizeof(info->id),"%s",name);
@@ -76,7 +76,7 @@ static SDL_EnumerationResult SDLCALL discover(void *unused, char const *director
                 memcpy(info->default_rgb,default_rgb.u.s,sizeof(info->default_rgb));
         }
     }
-    else platform_log("custom models: %s: expected full_name, colorable and a local PNG preview filename",name);
+    else platform_log("custom models: %s: expected full_name, colorable and a local PNG/BMP preview filename",name);
     toml_free(result);
     return SDL_ENUM_CONTINUE;
 }
@@ -110,6 +110,28 @@ int halo_custom_mesh_load(int index, int lod, struct halo_custom_mesh *mesh)
     ok=halo_custom_mesh_parse(data,size,mesh); free(data);
     return ok;
 }
+/* stb decodes palettes and pixels; reject truncated BMP rows before it can
+   fill missing input with zeroes. Heights may encode top-down rows. */
+static unsigned int custom_image_u32(unsigned char const *p)
+{ return (unsigned int)p[0] | ((unsigned int)p[1]<<8) | ((unsigned int)p[2]<<16) | ((unsigned int)p[3]<<24); }
+static int custom_bmp_dimensions(void const *data,unsigned int size,int *width,int *height)
+{
+    unsigned char const *p=data;
+    unsigned int header,offset,w,h,bits,compression,colors,end,row;
+    if(size<54 || memcmp(p,"BM",2))return 0;
+    header=custom_image_u32(p+14);offset=custom_image_u32(p+10);
+    if((header!=40 && header!=52 && header!=56 && header!=108 && header!=124) || header>size-14)return 0;
+    w=custom_image_u32(p+18);h=custom_image_u32(p+22);if(h&0x80000000u)h=0u-h;
+    bits=custom_image_u32(p+28)&65535u;compression=custom_image_u32(p+30);
+    if(w<1 || w>2048 || h<1 || h>2048 || p[26]!=1 || p[27] ||
+        (bits!=8 && bits!=24 && bits!=32) || (compression!=0 && !(compression==3 && bits==32)))return 0;
+    end=14+header;
+    if(compression==3 && header==40)end+=12;
+    if(bits==8){colors=custom_image_u32(p+46);if(!colors)colors=256;if(colors>256)return 0;end+=colors*4;}
+    row=((w*bits+31)/32)*4;
+    if(offset<end || offset>size || h>(size-offset)/row)return 0;
+    *width=(int)w;*height=(int)h;return 1;
+}
 void halo_custom_image_dispose(struct halo_custom_image *image) { free(image->pixels); memset(image,0,sizeof(*image)); }
 int halo_custom_image_load(int index, int kind, struct halo_custom_image *image)
 {
@@ -121,9 +143,18 @@ int halo_custom_image_load(int index, int kind, struct halo_custom_image *image)
     if (SDL_snprintf(path,sizeof(path),"%s/%s/%s",root,catalogue[index].id,
         kind==0 ? catalogue[index].preview : kind==1 ? "textures/armor.png" : "textures/armor_mask.png")>=(int)sizeof(path)) return 0;
     data=read_bounded(path,16u*1024u*1024u,&size);
+    /* PNG takes precedence; BMP is the fallback for a missing texture. */
+    if (!data && kind!=0)
+    {
+        memcpy(path+strlen(path)-3,"bmp",4);
+        data=read_bounded(path,16u*1024u*1024u,&size);
+    }
     if (!data) return 0;
-    if (size<8 || memcmp(data,"\x89PNG\r\n\x1a\n",8) || !stbi_info_from_memory(data,size,&width,&height,&channels) ||
-        width<1 || height<1 || width>2048 || height>2048 || (kind==0 && height!=width*2)) { free(data); return 0; }
+    if (size>=2 && !memcmp(data,"BM",2))
+    { if(!custom_bmp_dimensions(data,size,&width,&height)){free(data);return 0;} }
+    else if(size<8 || memcmp(data,"\x89PNG\r\n\x1a\n",8) || !stbi_info_from_memory(data,size,&width,&height,&channels))
+    {free(data);return 0;}
+    if(width<1 || height<1 || width>2048 || height>2048 || (kind==0 && height!=width*2)){free(data);return 0;}
     pixels=stbi_load_from_memory(data,size,&width,&height,&channels,4); free(data);
     if (!pixels) return 0;
     w=kind==0 ? 128 : 1; h=kind==0 ? 256 : 1;
