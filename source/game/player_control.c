@@ -213,6 +213,9 @@ symbols in this file:
 #include "network_coop.h" /* port: port/linux/game/network_coop.c */
 #include "network_chat.h" /* port: chat owns the local player's input */
 
+/* port: port/linux/game/third_person.c */
+void third_person_action_facing(short local_player_index, real_euler_angles2d *desired_facing);
+
 /* ---------- constants */
 
 enum control_button
@@ -819,6 +822,8 @@ static void handle_one_player_input(
 			player->primary_trigger);
 
 		action.desired_facing = player->desired_angles;
+		/* port: prediction and co-op peers must receive the same free-look aim. */
+		third_person_action_facing(local_player_index, &action.desired_facing);
 		action.control_flags = player->control_flags;
 		action.desired_weapon_index = player->desired_weapon_index;
 		action.desired_grenade_index = player->desired_grenade_index;
