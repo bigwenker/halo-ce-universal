@@ -214,6 +214,7 @@ gamepads' only.
 | spray image | T |
 | talk in voice chat (hold) | V |
 | open or close the spawn menu | F6 |
+| start or stop noclip (when the host allows it) | N |
 
 Always: \` opens the developer console, F12 releases or captures the mouse,
 F11 changes between fullscreen and window. Screenshot (default F10,
@@ -389,7 +390,7 @@ clients and in `init.txt`, without becoming map-script functions.
 | `input.invert_mouse` | `false` | `HALO_MOUSE_INVERT=1` sets `true` | `true`: the vertical mouse aim is inverted. |
 | `network.block_mouse_aim_assist` | `false` | `HALO_NET_BLOCK_MOUSE_AIM_ASSIST` | Host: Player Options > Aim Assist, Allowed or Block M+KB. Block overrides optional mouse magnetism while mouse/keyboard aims, including on the host, without changing the saved preference. Controllers and touch retain their existing behavior; bullet autoaim is unchanged. |
 | `input.mouse_aim_assist` | `false` | `HALO_MOUSE_AIM_ASSIST` | `true`: the magnetism of the controller also operates for the mouse. `false`: when the mouse moved after the right stick, the view is not slowed or dragged by a target. The autoaim of the bullets operates in both cases. |
-| `controls.<action>` | (the table in "Controls") | `HALO_KEY_<ACTION>` | The keys and mouse buttons of an action, up to two, separated by a comma: `move_forward`, `move_backward`, `strafe_left`, `strafe_right`, `jump`, `crouch`, `fire`, `throw_grenade`, `melee`, `reload`, `zoom`, `switch_weapon`, `switch_grenade`, `action`, `flashlight`, `scoreboard`, `pause`, `screenshot`, `spray`, `chat`, `push_to_talk`, `spawn_menu`. Keys by their names (`"W"`, `"Space"`, `"Left Ctrl"`, `"F1"`), and `"Mouse Left"`, `"Mouse Right"`, `"Mouse Middle"`, `"Mouse 4"`, `"Mouse 5"`, `"Wheel"` (either way), `"Wheel Up"`, `"Wheel Down"`. |
+| `controls.<action>` | (the table in "Controls") | `HALO_KEY_<ACTION>` | The keys and mouse buttons of an action, up to two, separated by a comma: `move_forward`, `move_backward`, `strafe_left`, `strafe_right`, `jump`, `crouch`, `fire`, `throw_grenade`, `melee`, `reload`, `zoom`, `switch_weapon`, `switch_grenade`, `action`, `flashlight`, `scoreboard`, `pause`, `screenshot`, `spray`, `chat`, `push_to_talk`, `spawn_menu`, `noclip`. Keys by their names (`"W"`, `"Space"`, `"Left Ctrl"`, `"F1"`), and `"Mouse Left"`, `"Mouse Right"`, `"Mouse Middle"`, `"Mouse 4"`, `"Mouse 5"`, `"Wheel"` (either way), `"Wheel Up"`, `"Wheel Down"`. |
 | `game.console_log` | `"important"` | `HALO_CONSOLE_LOG` | What the console shows on the screen. `"important"`: bans, players that the host drops for cheating, the reasons that the game refuses a command, and the asserts that stop the game. `"all"`: all the lines. `"none"`: only the asserts that stop the game. The output of a command always shows. `debug.txt` gets all the lines. |
 | `game.language` | `""` | `HALO_LANGUAGE` | The language of the menus: `ja`, `de`, `fr`, `es` or `it`. Empty: English. |
 | `game.enhanced_animations` | `true` | `HALO_ENHANCED_ANIMATIONS` | `true`: the player bipeds' grenade throws keep their legs moving, blended by speed and direction (crouched throws stay crouched, throws in the air use the jump's legs), Warthog and Scorpion riders stay seated to throw and let go of the grips to throw and reload, and a player turns with the aim while throwing, as while meleeing. `false`: the original animations, which freeze the legs during a throw and stand a rider up. Only in config.toml, not in the menus. |
@@ -1189,6 +1190,7 @@ Other changes:
 | `cache/cache_files.c`, `cache/cache_files_windows.c` | The spawn menu's tags loaded from other maps (`game/spawn_tags.c`): started afresh as a map's tags load, let go after the texture and sound caches as they unload, and their bitmaps' and sounds' reads served from their maps. |
 | `objects/objects.c` | An object the spawn menu makes is what was picked: a game type does not swap it for another. |
 | `saved games/game_state.c` | A checkpoint keeps the spawn menu's loads with it, and a saved game makes them again as it loads ("Spawn menu"). |
+| `units/bipeds.c`, `main/main.c`, `game/players.c`, `game/game_engine.c` | Noclip (`game/noclip.c`, "Noclip"): a noclipping player's biped flies where they look instead of moving by its physics; the key is read each frame of a game in progress, after the spawn menu; a co-op player noclipping outside the BSP is not brought back as one stranded there; the scoreboard's menu of a player has the host's Allow noclip and Forbid noclip. |
 | `cutscene/cinematics.c` | A scenario's titles (some Custom Edition maps show their name for the whole game) are not drawn over a menu, as the letterbox is not: the screen's overlays are drawn after the players' menus. |
 | `tag_files/tag_groups.h` | `TAG_BLOCK_GET_ELEMENT` returns an element in the block without a call, and calls `tag_block_get_element_with_size` for anything else. |
 | `input/input_xbox.c`, `physics/collision_usage.c` | The clock is read only for a button held, and for collision tests only when their times are shown: a read of the clock is slow in a browser. |
@@ -1293,6 +1295,38 @@ first, at the same places. If one cannot be made (its map is gone), the
 objects that need it are deleted and the level starts over.
 
 There is no spawn menu on Android, which has no pointer for it.
+
+### Noclip (fork feature)
+
+N (`controls.noclip`, Settings > Controls Setup > Other) starts noclip for
+the keyboard's player, and N again stops it. A noclipping player on foot
+flies where they look, at about twice a run's speed: forward and back
+along the view (so looking up and moving forward rises), sideways level;
+jump rises and crouch sinks, and nothing pressed holds them still. They
+pass through everything, the level's walls and floors, its objects and the
+space outside the level, and nothing they stood on carries them. Stopped,
+they fall from where they are as a player falling does (and may be hurt
+landing, as from any fall); outside the level, they fall out of it. Noclip does not work in a vehicle's seat, and
+a dead player's ends; a new game ends everyone's. It changes nothing else:
+a noclipping player can be shot and shoot. The HUD says "Noclip on" and
+"Noclip off".
+
+The host decides who may noclip. In a game on one computer, and on the
+host's computer, its players may. A client's players may not until the
+host allows them: the host's scoreboard (hold Tab, right click to free the
+pointer, click a player's name) has Allow noclip for each player, and
+Forbid noclip takes it back again, landing them if they fly. The host's
+choice is for that player in that game; one who joins again, or a new
+game, starts forbidden again. A client's key asks the host, which starts
+or stops its noclip if it may; the client is told when the host allows or
+forbids it.
+
+In a network game this is a fork extension, as the spawn menu is (a
+message of its own, 252, offered only to machines that took it): the
+network version is unchanged. A client of a host without it has no noclip
+(the HUD says the host does not have it). The host takes a noclipping
+client's position as fast as noclip flies, through anything, not as fast
+as a player runs ("Corrections" in [NETCODE.md](NETCODE.md)).
 
 ### Image sprays (fork feature)
 

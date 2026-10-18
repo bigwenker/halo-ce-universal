@@ -42,6 +42,8 @@ enum halo_keyboard_action
 	HALO_KEYBOARD_CHAT,
 	/* (the spawn menu's: halo_spawn_menu_requested) */
 	HALO_KEYBOARD_SPAWN_MENU,
+	/* (noclip's: halo_noclip_requested) */
+	HALO_KEYBOARD_NOCLIP,
 	NUMBER_OF_HALO_KEYBOARD_ACTIONS
 };
 
@@ -57,5 +59,8 @@ int halo_chat_requested(void);
 closes the spawn menu (port/linux/game/spawn_menu.c); its pause key, while
 the menu is open, closes it too */
 int halo_spawn_menu_requested(void);
+/* whether controls.noclip was pressed since the last call: it starts and
+stops the keyboard's player's noclip (port/linux/game/noclip.c) */
+int halo_noclip_requested(void);
 
 #endif

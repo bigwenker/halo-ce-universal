@@ -29,6 +29,9 @@ short network_distributed_server_machines(long *out,short maximum){out[0]=1;out[
 static short distributed_client_machines(long *out,short maximum){return network_distributed_server_machines(out,maximum);}
 static void distributed_batch_add(short peer,void const *data,word size,word entry_size){record(peer,data,size);}
 static void network_aim_assist_send_policy(long machine){if(network_extensions_allows(machine,_distributed_message_aim_assist_policy))policies++;}
+static int spawn_ready, noclip_ready;
+static void network_spawn_machine_ready(long machine){(void)machine;spawn_ready++;}
+static void network_noclip_machine_ready(long machine){(void)machine;noclip_ready++;}
 void distributed_send_to_machine_reliably(long,void*,byte,short,word);
 #define HOST_SENDER 128
 #define csmemcpy memcpy
@@ -49,13 +52,26 @@ int main(int argc,char **argv){CHECK(argc==2,"case");char const *case_name=argv[
  } else CASE("partial") {
   negotiate(EXT_SUICIDE);CHECK(network_extensions_allows(1,_distributed_message_suicide_request),"missing selected feature");CHECK(!network_extensions_allows(1,_distributed_message_aim_assist_policy)&&!policies,"unselected feature enabled");
   CHECK(!network_extensions_allows(2,_distributed_message_suicide_request),"other machine enabled");
+  CHECK(!spawn_ready&&!noclip_ready,"unselected machine readied");
+  network_extensions_machine_joined(1);negotiate(EXT_SPAWN);CHECK(spawn_ready==1&&!noclip_ready,"spawn alone");
+  network_extensions_machine_joined(1);negotiate(EXT_NOCLIP);CHECK(spawn_ready==1&&noclip_ready==1&&network_extensions_allows(1,252),"noclip alone");
+ } else CASE("hellos") {
+  /* (unanswered, a client offers every feature, then those before noclip,
+  then those before the spawn menu, in turn: older hosts drop a hello with
+  a bit they do not know) */
+  struct extension_message m;word offered[4];int n;
+  role=1;network_extensions_select_host(TRUE);
+  for(n=0;n<4;n++){network_extensions_update();CHECK(sends==n+1,"hello not sent");memcpy(&m,wire[n],sizeof(m));offered[n]=m.features;now+=2000;}
+  CHECK(offered[0]==EXT_ALL&&offered[1]==EXT_BEFORE_NOCLIP&&offered[2]==EXT_LEGACY&&offered[3]==EXT_ALL,"hello rotation");
+  CHECK(EXT_ALL==127&&EXT_BEFORE_NOCLIP==63&&EXT_LEGACY==31,"feature sets");
+  CHECK(network_extensions_feature(251)==EXT_SPAWN&&network_extensions_feature(252)==EXT_NOCLIP,"private message features");
  } else CASE("admission") {
   struct extension_message m=hello();
   for(int n=0;n<16;n++)network_extensions_handle(1,(word*)&m,n,TRUE);
   network_extensions_handle(1,(word*)&m,17,TRUE);network_extensions_handle(1,(word*)&m,16,FALSE);
   network_extensions_handle(NONE,(word*)&m,16,TRUE);network_extensions_handle(3,(word*)&m,16,TRUE);
   m.magic++;network_extensions_handle(1,(word*)&m,16,TRUE);m=hello();m.revision++;network_extensions_handle(1,(word*)&m,16,TRUE);
-  m=hello();m.features=32;network_extensions_handle(1,(word*)&m,16,TRUE);m=hello();m.header.count=2;network_extensions_handle(1,(word*)&m,16,TRUE);
+  m=hello();m.features=128;network_extensions_handle(1,(word*)&m,16,TRUE);m=hello();m.header.count=2;network_extensions_handle(1,(word*)&m,16,TRUE);
   CHECK(!sends&&!network_extensions_allows(1,250),"malformed negotiation accepted");
   role=1;m=hello();network_extensions_select_host(TRUE);network_extensions_handle(NONE,(word*)&m,16,TRUE);CHECK(!network_extensions_allows(NONE,250),"unsolicited ack");
  } else CASE("reset") {

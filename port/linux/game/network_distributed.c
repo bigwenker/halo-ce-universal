@@ -82,6 +82,7 @@ machine (their datum identifiers need not be).
 #include "network_aim_assist.h"
 #include "network_suicide.h"
 #include "network_spawn.h"
+#include "noclip.h"
 #include "network_killfeed.h"
 #include "halo_spray.h"
 #include "map_share.h"
@@ -2099,6 +2100,68 @@ static boolean distributed_riding_moving_elevator(
 		distributed_supported_elevator(unit_index) != NONE);
 }
 
+/* (the host) a noclipping client's player's prediction (noclip.c): taken
+where it says within a tolerance, and no further from the anchor than
+noclip flies in the client's ticks since (as on foot, those no more than
+the host's since and a little jitter), up and down alike and through
+anything. Its unit on foot is measured afresh once it lands. */
+static void distributed_take_noclip_prediction(
+	short player_index,
+	long unit_index)
+{
+	struct distributed_unit_state const *state = &distributed_predictions[player_index].state;
+	struct object_datum *object = object_get(unit_index);
+	long now = game_time_get();
+	real_point3d const *position = &state->position;
+	real speed = noclip_speed();
+	real dx = position->x - object->object.position.x;
+	real dy = position->y - object->object.position.y;
+	real dz = position->z - object->object.position.z;
+
+	distributed_host_speeds[player_index].unit_index = NONE;
+	if (!(dx * dx + dy * dy + dz * dz <= HOST_ACCEPT_TOLERANCE * HOST_ACCEPT_TOLERANCE))
+		return;
+	if (distributed_accepted[player_index].valid)
+	{
+		long ticks = MIN(distributed_predictions[player_index].time - distributed_accepted[player_index].time,
+			now - distributed_accepted[player_index].host_time + PREDICTION_JITTER_TICKS);
+		real reach = speed * (real)ticks + HOST_BLEND_DISTANCE;
+
+		dx = position->x - distributed_accepted[player_index].position.x;
+		dy = position->y - distributed_accepted[player_index].position.y;
+		dz = position->z - distributed_accepted[player_index].position.z;
+		if (ticks <= 0 || !(dx * dx + dy * dy + dz * dz <= reach * reach))
+			return;
+	}
+	if (distributed_apply_state(unit_index, state, position, 0.0f, HOST_BLEND_DISTANCE, speed, speed))
+	{
+		distributed_predictions[player_index].taken_time = distributed_predictions[player_index].time;
+		distributed_predictions[player_index].taken_host_time = now;
+		if (!distributed_accepted[player_index].valid ||
+			now - distributed_accepted[player_index].host_time >= PREDICTION_ANCHOR_TICKS)
+		{
+			distributed_accepted[player_index].valid = TRUE;
+			distributed_accepted[player_index].unit_index = unit_index;
+			distributed_accepted[player_index].time = distributed_predictions[player_index].time;
+			distributed_accepted[player_index].host_time = now;
+			distributed_accepted[player_index].position = *position;
+		}
+		distributed_accepted[player_index].taken_host_time = now;
+		distributed_accepted[player_index].taken_host_position = object->object.position;
+	}
+}
+
+/* (the host) a player's prediction measured afresh, from where the host
+has its unit (noclip.c: noclip begun or ended) */
+void network_distributed_prediction_restart(
+	short player_index)
+{
+	if (player_index < 0 || player_index >= MAXIMUM_TRACKED_PLAYERS)
+		return;
+	distributed_accepted[player_index].valid = FALSE;
+	distributed_host_speeds[player_index].unit_index = NONE;
+}
+
 /* (the host) a client's player's prediction of its unit on foot, taken
 where it says within a tolerance (distributed_apply_predictions). Riding a
 moving elevator, only across: a client's elevator follows the host's
@@ -2119,6 +2182,12 @@ static void distributed_take_prediction(
 	real_point3d position = state->position;
 	real dx, dy, dz;
 
+	/* (noclipping, as fast as noclip flies and through anything) */
+	if (noclip_player_active(player_index))
+	{
+		distributed_take_noclip_prediction(player_index, unit_index);
+		return;
+	}
 	if (distributed_riding_moving_elevator(unit_index))
 		position.z = object->object.position.z;
 	dx = position.x - object->object.position.x;
@@ -4056,6 +4125,12 @@ void network_distributed_handle_message(
 	if (network_spawn_handles_message(message, size))
 	{
 		network_spawn_handle_message(machine_index, message, size);
+		return;
+	}
+	/* (noclip's: noclip.c) */
+	if (network_noclip_handles_message(message, size))
+	{
+		network_noclip_handle_message(machine_index, message, size);
 		return;
 	}
 	/* (voice chat's, in the lobby too: network_voice.c) */

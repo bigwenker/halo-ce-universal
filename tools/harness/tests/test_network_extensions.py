@@ -19,7 +19,7 @@ def generated(fault=None):
             ('api.inc', read('port/linux/game/network_extensions.h')),
             ('under_test.inc', code), ('transport.inc', parts))
 
-@pytest.mark.parametrize('case', ['legacy', 'negotiation', 'partial', 'admission', 'reset', 'transport'])
+@pytest.mark.parametrize('case', ['legacy', 'negotiation', 'partial', 'admission', 'reset', 'transport', 'hellos'])
 def test_case(case):
     status, output = run(build('network_extensions', generated()), case)
     assert status == 0, output

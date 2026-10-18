@@ -366,6 +366,19 @@ alternates between offering every feature and offering those of revision-1
 hosts before the spawn menu (bits 1-16), which ignore a hello with a bit they do
 not know.
 
+Noclip (message 252, feature bit 64: port/linux/game/noclip.c) sends a
+client's request to start or stop its player's noclip, and the host's state:
+for each player (by absolute index) whether they noclip and whether they may,
+as it changes, every three seconds and to a client as it takes the
+extension. Every machine flies a noclipping player as bipeds.c would move
+them, from the input it has of them (port/linux/game/noclip.c,
+noclip_biped_move). The host takes a noclipping client's prediction within
+the usual tolerance of its own copy and no further from the anchor than noclip
+flies in the client's ticks since, up and down alike and through anything,
+and measures the player afresh when noclip starts and ends. A client's hellos
+now offer every feature, then those of hosts before noclip (bits 1-32), then
+those before the spawn menu (bits 1-16), in turn.
+
 ## Joining a game in progress
 
 A game stays open when it starts (on the Xbox it closed, since every
@@ -786,7 +799,8 @@ Unity's Netcode for Entities, lightyear, netfox and the Ares source):
 game without the menus (in a team game the joining player takes the other
 team), and `debug.test_input` plays controller 1 with a scripted bot (or,
 `look:<seed>`, one that stands still, only turning and looking up and
-down); each machine logs every player's position, health and shields,
+down, or, `noclip:<seed>`, one that flies with noclip every 20 seconds, the
+host allowing every player 30 seconds in); each machine logs every player's position, health and shields,
 where they aim and face, their animation state and how hard they move,
 weapons, grenades, score, kills and deaths every second, with the objects
 made and removed and the hits reported, dealt, rejected and replayed, so

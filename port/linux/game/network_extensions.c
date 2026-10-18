@@ -8,6 +8,7 @@
 #include "network_extensions.h"
 #include "network_aim_assist.h"
 #include "network_spawn.h"
+#include "noclip.h"
 #include <string.h>
 
 boolean network_distributed_client_send_reliably(void *, word);
@@ -15,10 +16,11 @@ short network_distributed_server_machines(long *, short);
 enum
 {
     EXT_AIM = 1, EXT_SUICIDE = 2, EXT_DEATH = 4, EXT_SOCIAL = 8,
-    EXT_SPRAY = 16, EXT_SPAWN = 32, EXT_ALL = 63, EXT_REVISION = 1,
-    /* what hosts before the spawn menu take: they ignore a hello with a
-       feature they do not know, so every other hello offers only these */
-    EXT_LEGACY = 31
+    EXT_SPRAY = 16, EXT_SPAWN = 32, EXT_NOCLIP = 64, EXT_ALL = 127, EXT_REVISION = 1,
+    /* what hosts before noclip and before the spawn menu take: they ignore a
+       hello with a feature they do not know, so the hellos offer every
+       feature, then these, then the oldest, in turn */
+    EXT_BEFORE_NOCLIP = 63, EXT_LEGACY = 31
 };
 #define EXT_MAGIC 0x45544C45UL /* ELTE */
 struct extension_message
@@ -65,6 +67,7 @@ word network_extensions_feature(byte type)
     case _distributed_message_social_scores: return EXT_SOCIAL;
     case 250: return EXT_SPRAY; /* spray_share.h's private extension */
     case 251: return EXT_SPAWN; /* network_spawn.c's private extension */
+    case 252: return EXT_NOCLIP; /* noclip.c's private extension */
     default: return 0;
     }
 }
@@ -92,7 +95,7 @@ void network_extensions_update(void)
     message.header.game_time = game_time_get();
     message.magic = EXT_MAGIC;
     message.revision = EXT_REVISION;
-    message.features = (hellos & 1) ? EXT_LEGACY : EXT_ALL;
+    message.features = hellos % 3 == 0 ? EXT_ALL : hellos % 3 == 1 ? EXT_BEFORE_NOCLIP : EXT_LEGACY;
     build_message_header(&message.header.header, sizeof(message), 2, 0);
     if (network_distributed_client_send_reliably(&message, sizeof(message)))
     {
@@ -123,6 +126,8 @@ void network_extensions_handle(long machine, word const *data, word size, boolea
         network_aim_assist_send_policy(machine);
         if (message.features & EXT_SPAWN)
             network_spawn_machine_ready(machine);
+        if (message.features & EXT_NOCLIP)
+            network_noclip_machine_ready(machine);
     }
     else if (game_connection() == _game_connection_network_client && machine == NONE &&
         host_available && hello_sent)

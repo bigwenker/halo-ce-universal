@@ -237,6 +237,7 @@ symbols in this file:
 #include "data.h"
 #include "devices/devices.h"
 #include "network_coop.h" /* port: port/linux/game/network_coop.c */
+#include "noclip.h" /* port: port/linux/game/noclip.c */
 #include "cutscene/cinematics.h" /* port: network co-op's first spawns */
 #include "editor/editor_stubs.h"
 #include "effects/effects.h"
@@ -3010,6 +3011,9 @@ static boolean players_coop_unit_stranded(
 	long driver_index;
 
 	if (players_coop_unit_in_structure(unit_index))
+		return FALSE;
+	/* (nor noclipping, flying outside it on purpose: noclip.c) */
+	if (noclip_unit_active(unit_index))
 		return FALSE;
 	/* (on foot: only while falling, not standing on something the BSP
 	doesn't hold, such as an elevator in its shaft) */

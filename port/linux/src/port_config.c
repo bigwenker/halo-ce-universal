@@ -319,6 +319,10 @@ static const struct config_setting config_settings[] =
 	{ "controls.spawn_menu", _config_string, "\"F6\"", "HALO_KEY_SPAWN_MENU", _environment_value, _platform_all,
 		"Open the spawn menu (weapons, ammunition, equipment, health, characters\n"
 		"and vehicles, spawned where you look); press again to close it." },
+	{ "controls.noclip", _config_string, "\"N\"", "HALO_KEY_NOCLIP", _environment_value, _platform_all,
+		"Start or stop noclip: fly where you look, through everything (jump\n"
+		"rises, crouch sinks). The host's players may; the host allows others\n"
+		"in the scoreboard's menu of a player." },
 
 	{ "game.console_log", _config_string, "\"important\"", "HALO_CONSOLE_LOG", _environment_value, _platform_all,
 		"What the game's console shows on screen of what it logs: \"important\"\n"
@@ -596,7 +600,8 @@ static const struct config_setting config_settings[] =
 	{ "debug.test_input", _config_string, "\"\"", "HALO_TEST_INPUT", _environment_value, _platform_all,
 		"\"bot:<seed>\" plays controller 1 with a scripted pattern (automated\n"
 		"network tests); \"look:<seed>\" stands still, only turning and looking\n"
-		"up and down; empty for none." },
+		"up and down; \"noclip:<seed>\" flies with noclip every 20 seconds (the\n"
+		"host allowing every player 30 seconds in); empty for none." },
 	{ "debug.update_answer", _config_string, "\"\"", "HALO_UPDATE_ANSWER", _environment_value, _platform_desktop,
 		"The answer to the new version question, for automated tests: \"yes\",\n"
 		"\"no\" or \"never\" (do not ask again, confirmed); empty asks." },

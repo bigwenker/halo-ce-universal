@@ -572,6 +572,7 @@ symbols in this file:
 #include "network_coop.h" /* port: port/linux/game/network_coop.c */
 #include "network_votekick.h" /* port: port/linux/game/network_votekick.c */
 #include "network_voice.h" /* port: port/linux/game/network_voice.c */
+#include "noclip.h" /* port: port/linux/game/noclip.c */
 /* (network_server_manager_internal.h's: the host's game record) */
 struct network_game *network_game_server_get_game(struct network_game_server *server);
 #include "objects.h"
@@ -1869,13 +1870,15 @@ static boolean scoreboard_team_columns(
 (halo_scoreboard_pointer_update: a right click frees it): a player's name
 picked opens a menu of what may be done to them, the players' vote to kick
 them (network_votekick.c), muting their voice (network_voice.c), and the
-host's Kick and Ban, Ban picked twice */
+host's Kick and Ban, Ban picked twice, and whether they may noclip
+(noclip.c) */
 enum
 {
 	_scoreboard_item_vote,
 	_scoreboard_item_mute,
 	_scoreboard_item_kick,
 	_scoreboard_item_ban,
+	_scoreboard_item_noclip,
 	_scoreboard_item_cancel,
 	NUMBER_OF_SCOREBOARD_ITEMS,
 
@@ -1951,6 +1954,13 @@ static void scoreboard_menu_items(
 		offered[_scoreboard_item_ban] = TRUE;
 		usprintf(labels[_scoreboard_item_kick], L"Kick");
 		usprintf(labels[_scoreboard_item_ban], scoreboard_menu.ban_picked ? L"Ban: pick again to ban" : L"Ban");
+	}
+	if (noclip_host())
+	{
+		offered[_scoreboard_item_noclip] = TRUE;
+		usprintf(labels[_scoreboard_item_noclip],
+			noclip_player_allowed((short)DATUM_INDEX_TO_ABSOLUTE_INDEX(scoreboard_menu.player_index)) ?
+				L"Forbid noclip" : L"Allow noclip");
 	}
 	offered[_scoreboard_item_cancel] = TRUE;
 	usprintf(labels[_scoreboard_item_cancel], L"Cancel");
@@ -2028,6 +2038,9 @@ static void scoreboard_menu_pick(
 			return;
 		}
 		network_votekick_host_kick(player_index, TRUE);
+		break;
+	case _scoreboard_item_noclip:
+		noclip_host_allow(player_index, !noclip_player_allowed(player_index));
 		break;
 	default:
 		break;

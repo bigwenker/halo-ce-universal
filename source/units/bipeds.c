@@ -253,6 +253,7 @@ symbols in this file:
 #include "game/game_globals.h"
 #include "game/player_rumble.h"
 #include "game/players.h"
+#include "noclip.h" /* port: port/linux/game/noclip.c */
 #include "interface/first_person_weapons.h"
 #include "items/weapons.h"
 #include "models/model_animation_definitions.h"
@@ -4330,7 +4331,10 @@ boolean biped_update(
 			biped_verify_object_vectors(biped_index, "post-turning");
 		}
 
-		biped_update_moving(biped_index, &animation);
+		/* port: a noclipping player flies where they look, through
+		everything, instead (port/linux/game/noclip.c) */
+		if (!noclip_biped_move(biped_index))
+			biped_update_moving(biped_index, &animation);
 		biped_verify_object_vectors(biped_index, "post-moving");
 
 		if (TEST_FLAG(biped->object.damage_flags, _object_dead_bit))

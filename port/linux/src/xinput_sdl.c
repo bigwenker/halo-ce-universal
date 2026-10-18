@@ -61,6 +61,9 @@ extern unsigned char console_is_active(void);
 extern unsigned char chat_is_active(void);
 /* port/linux/game/spawn_menu.c */
 extern unsigned char spawn_menu_is_open(void);
+/* source/cseries/cseries_windows.c (debug.test_input "noclip": the clock
+noclip.c's toggles keep to) */
+extern unsigned long system_milliseconds(void);
 /* port/linux/game/menu_functions.c: two or more players on this machine
 (co-op, or split screen in a network game) */
 extern unsigned char pc_menu_split_players(void);
@@ -452,6 +455,7 @@ static const char *const binding_settings[NUMBER_OF_HALO_KEYBOARD_ACTIONS] =
 	"controls.push_to_talk",
 	"controls.chat",
 	"controls.spawn_menu",
+	"controls.noclip",
 };
 
 static const struct
@@ -652,6 +656,17 @@ static void keyboard_spawn_menu(unsigned long held, BOOL gameplay)
 	pause_was_down = pause_down;
 }
 
+/* One toggle of noclip per press of controls.noclip. */
+static SDL_AtomicInt noclip_requested;
+int halo_noclip_requested(void) { return SDL_CompareAndSwapAtomicInt(&noclip_requested, 1, 0); }
+static void keyboard_noclip(unsigned long held, BOOL gameplay)
+{
+	static BOOL was_down;
+	BOOL down = (held & (1UL << HALO_KEYBOARD_NOCLIP)) != 0;
+	if (down && !was_down && gameplay) SDL_SetAtomicInt(&noclip_requested, 1);
+	was_down = down;
+}
+
 /* the actions held while the spawn menu is open: the keyboard's movement and
 the rest stay, but not the pause (it closes the menu), and the mouse's
 buttons and wheel click and scroll the menu (sdl_platform.c) */
@@ -714,7 +729,9 @@ network tests (port/linux/game/network_test.c), different for each seed:
 it walks and strafes in circles, turns, fires every few seconds, jumps now
 and then and throws a grenade every seven seconds; "look:<seed>" stands
 still, only turning and looking up and down (where remote players aim and
-whether they stand) */
+whether they stand); "noclip:<seed>" flies (port/linux/game/noclip.c
+starts and stops its noclip): every 20 seconds it looks up, flies
+forward turning, looks down and rises, then stands still, falling once noclip stops */
 static int test_input_holding_action;
 static Uint64 test_input_holding_action_since;
 
@@ -733,6 +750,7 @@ static void test_input_gamepad(XINPUT_GAMEPAD *pad)
 	static int checked;
 	static int seed = -1;
 	static int looking;
+	static int flying;
 	double t;
 
 	if (!checked)
@@ -749,6 +767,11 @@ static void test_input_gamepad(XINPUT_GAMEPAD *pad)
 			seed = atoi(setting + 5);
 			looking = 1;
 		}
+		else if (!strncmp(setting, "noclip:", 7))
+		{
+			seed = atoi(setting + 7);
+			flying = 1;
+		}
 	}
 	if (seed < 0)
 		return;
@@ -760,6 +783,23 @@ static void test_input_gamepad(XINPUT_GAMEPAD *pad)
 		return;
 	}
 	t = (double)SDL_GetTicks() / 1000.0 + seed * 1.7;
+	if (flying)
+	{
+		double phase = (double)(system_milliseconds() % 20000) / 1000.0;
+
+		if (phase >= 2.0 && phase < 2.5)
+			pad->sThumbRY = 20000;
+		if (phase >= 4.0 && phase < 9.0)
+			pad->sThumbLY = 32000;
+		/* (turning as it flies, more than a half turn) */
+		if (phase >= 5.0 && phase < 7.0)
+			pad->sThumbRX = 32000;
+		if (phase >= 9.0 && phase < 9.5)
+			pad->sThumbRY = -20000;
+		if (phase >= 10.0 && phase < 10.5)
+			pad->bAnalogButtons[XINPUT_GAMEPAD_A] = 255;
+		return;
+	}
 	if (looking)
 	{
 		pad->sThumbRX = (SHORT)(sin(t * 0.5) * 14000.0);
@@ -1075,6 +1115,7 @@ DWORD WINAPI XInputGetState(HANDLE device, PXINPUT_STATE state)
 		keyboard_spray(held, !console_active && !input.menus);
 		keyboard_chat(held, !console_active && !input.menus);
 		keyboard_spawn_menu(held, !console_active && !input.menus);
+		keyboard_noclip(held, !console_active && !input.menus);
 		if (!console_active)
 		{
 			if (input.menus)

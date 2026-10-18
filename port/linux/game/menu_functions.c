@@ -2080,6 +2080,7 @@ static struct
 	{ "controls.chat", L"CHAT", 3 },
 	{ "controls.push_to_talk", L"PUSH TO TALK", 3 },
 	{ "controls.spawn_menu", L"SPAWN MENU", 3 },
+	{ "controls.noclip", L"NOCLIP", 3 },
 };
 
 static struct
