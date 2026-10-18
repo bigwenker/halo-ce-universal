@@ -1,5 +1,7 @@
 #include "harness.h"
 #include <math.h>
+#include <wchar.h>
+static void hud_print_message(short n,wchar_t const *text){}
 #define PIN(n,a,b) ((n)<(a)?(a):(n)>(b)?(b):(n))
 #define csmemset memset
 typedef struct {real yaw,pitch;} real_euler_angles2d;

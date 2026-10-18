@@ -29,6 +29,7 @@ Only the first local player's view and controls change; no new messages are sent
 #include "cutscene/cinematics.h"
 #include "game/game_engine.h"
 #include "game/players.h"
+#include "interface/hud_messaging.h"
 #include "objects/objects.h"
 #include "units/units.h"
 #include "units/unit_control_data.h"
@@ -108,14 +109,23 @@ boolean third_person_camera_wanted(
 	short local_player_index)
 {
 	boolean wanted;
+	boolean changed;
+	static wchar_t const *const messages[NUMBER_OF_THIRD_PERSON_MODES] =
+	{
+		L"Returned to first person",
+		L"Entered third person",
+		L"Entered front-facing third person",
+		L"Entered free look"
+	};
 
 	if (local_player_index != 0)
 		return FALSE;
-	if (platform_third_person_key())
+	changed = platform_third_person_key() != 0;
+	if (changed)
 		third_person_mode = (third_person_mode + 1) % NUMBER_OF_THIRD_PERSON_MODES;
 	/* (a campaign's, co-op's too: never in multiplayer, where a game
 	engine runs) */
-	wanted = third_person_mode != _third_person_first && !game_engine_running() && !cinematic_in_progress() && third_person_unit() != NONE;
+	wanted = !game_engine_running() && !cinematic_in_progress() && third_person_unit() != NONE;
 	/* (zoomed in, a scope: first person at once, as the scope is the
 	player's own view; back out again as it zooms out) */
 	if (wanted)
@@ -125,6 +135,10 @@ boolean third_person_camera_wanted(
 		if (unit && unit->unit.current_zoom_level != NONE)
 			wanted = FALSE;
 	}
+	/* Announce only a key-driven switch that can take effect on foot. */
+	if (changed && wanted)
+		hud_print_message(local_player_index, messages[third_person_mode]);
+	wanted = wanted && third_person_mode != _third_person_first;
 	platform_third_person_active(wanted);
 	/* Capture the head once on entry, before the camera orbits behind it. */
 	if (wanted && third_person_mode == _third_person_free && !third_person_free_look)

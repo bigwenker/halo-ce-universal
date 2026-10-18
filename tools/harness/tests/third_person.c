@@ -1,5 +1,6 @@
 #include "harness.h"
 #include <math.h>
+#include <wchar.h>
 #define PIN(n,a,b) ((n)<(a)?(a):(n)>(b)?(b):(n))
 #define csmemset memset
 #define ABS(v) ((v)<0?-(v):(v))
@@ -17,6 +18,8 @@ enum {_object_dead_bit};
 static struct player_datum player={1,0};static struct unit_datum unit={{NONE,0},{NONE}};
 static boolean has_player=TRUE,has_unit=TRUE,multiplayer,cinematic,enabled;
 static int key;static int distance;static real_vector3d direction={1,0,0};
+static int notices;static wchar_t notice[64];
+static void hud_print_message(short n,wchar_t const *text){CHECK(n==0,"notice sent to another local player");notices++;wcscpy(notice,text);}
 static long local_player_get_player_index(short n){return has_player?0:NONE;}
 static struct player_datum *player_try_and_get(long n){return n==0&&has_player?&player:NULL;}
 static struct unit_datum *unit_try_and_get(long n){return n==1&&has_unit?&unit:NULL;}
@@ -69,7 +72,21 @@ static real_point3d finish(struct observer_command const *c){
 static void on(void){key=1;CHECK(third_person_camera_wanted(0),"not enabled");}
 static void free_on(void){on();key=1;third_person_camera_wanted(0);key=1;third_person_camera_wanted(0);}
 int main(int argc,char **argv){char const *case_name=argc>1?argv[1]:"";
- CASE("toggle"){CHECK(!third_person_camera_wanted(0),"default on");on();CHECK(third_person_camera_wanted(0),"key repeated");key=1;CHECK(third_person_camera_wanted(0)&&third_person_mode==_third_person_front&&!third_person_free_look,"front view missing");key=1;CHECK(third_person_camera_wanted(0)&&third_person_free_look,"free look missing");key=1;CHECK(!third_person_camera_wanted(0)&&!third_person_free_look,"toggle off");}
+ CASE("toggle"){
+  CHECK(!third_person_camera_wanted(0)&&notices==0,"default notice");on();
+  CHECK(notices==1&&!wcscmp(notice,L"Entered third person"),"rear notice");
+  CHECK(third_person_camera_wanted(0)&&notices==1,"repeated notice");
+  key=1;CHECK(third_person_camera_wanted(0)&&third_person_mode==_third_person_front&&!third_person_free_look,"front view missing");
+  CHECK(notices==2&&!wcscmp(notice,L"Entered front-facing third person"),"front notice");
+  key=1;CHECK(third_person_camera_wanted(0)&&third_person_free_look,"free look missing");
+  CHECK(notices==3&&!wcscmp(notice,L"Entered free look"),"free notice");
+  key=1;CHECK(!third_person_camera_wanted(0)&&!third_person_free_look,"toggle off");
+  CHECK(notices==4&&!wcscmp(notice,L"Returned to first person"),"first notice");
+  unit.object.parent_object_index=2;key=1;third_person_camera_wanted(0);CHECK(notices==4,"vehicle notice");
+  unit.object.parent_object_index=NONE;unit.unit.current_zoom_level=0;key=1;third_person_camera_wanted(0);CHECK(notices==4,"scoped notice");
+  unit.unit.current_zoom_level=NONE;cinematic=TRUE;key=1;third_person_camera_wanted(0);CHECK(notices==4,"cinematic notice");
+  cinematic=FALSE;multiplayer=TRUE;key=1;third_person_camera_wanted(0);CHECK(notices==4,"competitive notice");
+ }
  else CASE("eligibility"){on();CHECK(!third_person_camera_wanted(1),"second local player");multiplayer=TRUE;CHECK(!third_person_camera_wanted(0)&&!enabled,"competitive allowed");multiplayer=FALSE;cinematic=TRUE;CHECK(!third_person_camera_wanted(0),"cutscene");cinematic=FALSE;unit.object.damage_flags=FLAG(_object_dead_bit);CHECK(!third_person_camera_wanted(0),"dead");unit.object.damage_flags=0;has_unit=FALSE;CHECK(!third_person_camera_wanted(0),"missing unit");has_unit=TRUE;has_player=FALSE;CHECK(!third_person_camera_wanted(0),"missing player");}
  else CASE("scope"){on();unit.unit.current_zoom_level=0;CHECK(!third_person_camera_wanted(0)&&!enabled,"scoped third person");unit.unit.current_zoom_level=NONE;CHECK(third_person_camera_wanted(0),"scope exit");}
  else CASE("distance"){short n=0;struct observer_command cmd;on();distance=-100;third_person_camera_update(NULL,&n,&cmd);CHECK(cmd.focus_distance==THIRD_PERSON_NEAREST,"near clamp");distance=100;third_person_camera_update(NULL,&n,&cmd);CHECK(cmd.focus_distance==THIRD_PERSON_FURTHEST,"far clamp");}
