@@ -280,7 +280,10 @@ Profiles opens Edit Profile when a profile is selected. Change Name uses the
 same name-entry prompt as creating a profile, and keeps the existing profile
 folder, checkpoints and settings. Change Color offers a hue strip and a
 saturation/brightness square, a live Chief portrait, and keyboard/controller
-Hue, Saturation and Brightness rows. OK saves; Cancel and Escape discard edits.
+Hue, Saturation and Brightness rows. Done saves and returns. Reset immediately
+removes the RGB override and clears the legacy palette selection, as on a fresh
+profile. The picker shows NOT SET; leaving or reopening it keeps that state
+until a color is edited. Escape discards unsaved picker edits.
 
 An optional `profile_color.txt` beside that profile's `blam.sav` holds its
 `#RRGGBB` color. Without a valid value, the original palette and portrait are

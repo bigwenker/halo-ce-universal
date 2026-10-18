@@ -2083,11 +2083,22 @@ static boolean profile_edit_color_save(void)
 static boolean profile_edit_color_reset(void)
 {
 	struct player_profile profile;
-	if (!player_profile_get(profile_edit.index,&profile) || !profile_rgb_clear(profile_edit.index)) return campaign_fail();
-	profile_color_menu_invalidate();
+	unsigned long previous_rgb;
+	boolean had_rgb;
+	if (!player_profile_get(profile_edit.index,&profile)) return campaign_fail();
+	had_rgb=profile_rgb_read(profile_edit.index,&previous_rgb);
+	if (!profile_rgb_clear(profile_edit.index)) return campaign_fail();
+	/* Fresh profiles have neither an RGB override nor a palette selection.
+	Done also stored a nearest palette color for upstream peers: clear it. */
+	profile.primary_color_index=NONE;
+	if (!profile_edit_save(&profile))
+	{
+		if (had_rgb) profile_rgb_write(profile_edit.index,previous_rgb);
+		network_profile_rgb_changed();
+		return FALSE;
+	}
 	profile_color_menu_portrait(profile_edit.index);
 	profile_color_menu_reset(profile_edit.index,profile.primary_color_index);
-	network_profile_rgb_changed();
 	return TRUE;
 }
 
@@ -2100,8 +2111,13 @@ static void profile_edit_color_update(struct widget_instance *widget)
 	usprintf(text,L"%d",(int)(h+.5f)); text_set(named(widget,"rgb_hue_value",0),text);
 	usprintf(text,L"%d%%",(int)(s*100.f+.5f)); text_set(named(widget,"rgb_saturation_value",0),text);
 	usprintf(text,L"%d%%",(int)(v*100.f+.5f)); text_set(named(widget,"rgb_brightness_value",0),text);
-	profile_rgb_format(profile_color_menu_rgb(),hex);
-	ascii_to_wide(hex,text,sizeof(text)); text_set(named(widget,"rgb_hex",0),text);
+	if (profile_color_menu_is_reset()) ustrcpy(text,L"NOT SET");
+	else
+	{
+		profile_rgb_format(profile_color_menu_rgb(),hex);
+		ascii_to_wide(hex,text,sizeof(text));
+	}
+	text_set(named(widget,"rgb_hex",0),text);
 }
 
 /* "request del player profile" (before its question) */

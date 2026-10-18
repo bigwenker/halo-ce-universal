@@ -39,20 +39,22 @@ void profile_color_menu_portrait(long profile)
 	if (profile == picker.portrait_profile) return;
 	picker.portrait_profile=profile;
 	picker.portrait_valid=profile_rgb_read(profile,&picker.portrait_rgb);
-	picker.portrait_palette=player_profile_get(profile,&saved) ? saved.primary_color_index : 0;
+	picker.portrait_palette=player_profile_get(profile,&saved) ? (short)PIN(saved.primary_color_index,0,player_profile_number_of_available_primary_colors()-1) : 0;
 }
 
 void profile_color_menu_begin(long profile, short palette)
 {
 	unsigned long rgb;
 	real_rgb_color color;
-    if (!profile_rgb_read(profile,&rgb) && !custom_models_profile_default_rgb(profile,&rgb))
+	boolean selected=profile_rgb_read(profile,&rgb);
+	if (!selected && !custom_models_profile_default_rgb(profile,&rgb))
 	{
 		color=player_profile_get_rgb_color(palette);
 		rgb=((unsigned long)(color.red*255.f+.5f)<<16)|((unsigned long)(color.green*255.f+.5f)<<8)|(unsigned long)(color.blue*255.f+.5f);
 	}
 	profile_rgb_to_hsv(rgb,&picker.h,&picker.s,&picker.v);
-	picker.active=TRUE; picker.drag=0; picker.reset=FALSE;
+	/* A fallback supplies the preview, not a new profile selection. */
+	picker.active=TRUE; picker.drag=0; picker.reset=!selected;
 }
 void profile_color_menu_cancel(void) { picker.active=FALSE; picker.drag=0; }
 void profile_color_menu_reset(long profile, short palette)

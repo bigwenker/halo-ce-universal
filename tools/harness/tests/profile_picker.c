@@ -6,8 +6,6 @@
 typedef struct {short x0,y0,x1,y1;} rectangle2d;
 #include "pointer.inc"
 static struct {int active,drag;float h,s,v;rectangle2d square_bounds,hue_bounds;int reset;} picker={1,0,0,0,1,{50,50,250,250},{280,50,300,250},0};
-static int picker_begins;
-static void profile_color_menu_begin(long profile,short palette){CHECK(profile==5&&palette==3,"reset retains profile and fallback palette");picker_begins++;picker.active=1;picker.drag=0;picker.h=120;picker.s=1;picker.v=1;picker.reset=0;}
 struct widget_instance {struct widget_instance *focused_child;};
 static struct {short chosen,count;} profile_list;
 static struct widget_instance *opened_from;
@@ -15,14 +13,21 @@ static char const *opened_target;
 static int profile_ok=1;
 static boolean profile_choose(short controller){(void)controller;return profile_ok;}
 static boolean campaign_fail(void){return FALSE;}
-struct player_profile {short primary_color_index;};
+struct player_profile {short primary_color_index;unsigned long preserved;};
+static struct player_profile saved_profile={3,0xabcdef};
 static struct {long index;} profile_edit={5};
-static int override_present=1,write_calls,clear_failed,profile_writes,notifications,invalidations;
-static boolean player_profile_get(long index,struct player_profile *profile){CHECK(index==5,"selected profile");profile->primary_color_index=3;return TRUE;}
+static int override_present=1,write_calls,clear_failed,profile_writes,notifications,invalidations,save_failed,model_default;
+static boolean player_profile_get(long index,struct player_profile *profile){CHECK(index==5,"selected profile");*profile=saved_profile;return TRUE;}
+typedef struct {real red,green,blue;} real_rgb_color;
+static boolean profile_rgb_read(long index,unsigned long *rgb){CHECK(index==5,"selected RGB");*rgb=0x123456;return override_present;}
+static boolean custom_models_profile_default_rgb(long index,unsigned long *rgb){(void)index;*rgb=0x6A0001;return model_default;}
+static real_rgb_color player_profile_get_rgb_color(long palette){(void)palette;return (real_rgb_color){0,1,0};}
 static unsigned long profile_color_menu_rgb(void){return 0x123456;}
 static boolean profile_rgb_write(long index,unsigned long rgb){CHECK(index==5&&rgb==0x123456,"save selected RGB");override_present=1;write_calls++;return TRUE;}
 static short profile_rgb_nearest(unsigned long rgb){(void)rgb;return 7;}
-static boolean profile_edit_save(struct player_profile *profile){CHECK(profile->primary_color_index==7,"nearest legacy color saved");profile_writes++;return TRUE;}
+static void profile_color_menu_invalidate(void);
+static void network_profile_rgb_changed(void);
+static boolean profile_edit_save(struct player_profile *profile){CHECK(profile->preserved==0xabcdef,"unrelated profile fields changed");if(save_failed)return FALSE;saved_profile=*profile;profile_writes++;profile_color_menu_invalidate();network_profile_rgb_changed();return TRUE;}
 static boolean profile_rgb_clear(long index){CHECK(index==5,"reset selected profile");if(clear_failed)return FALSE;override_present=0;return TRUE;}
 static void profile_color_menu_invalidate(void){invalidations++;}
 static void profile_color_menu_portrait(long index){CHECK(index==5,"refresh selected portrait");}
@@ -40,19 +45,28 @@ int main(int argc,char**argv){CHECK(argc==2,"case");struct halo_ui_pointer p={0}
  }else if(!strcmp(argv[1],"inactive")){
   picker.active=0;CHECK(!profile_color_menu_pointer(&p)&&picker.s==0,"closed picker consumed input");
  }else if(!strcmp(argv[1],"reset")){
-  profile_color_menu_reset(5,3);CHECK(picker_begins==1&&profile_color_menu_is_reset(),"reset selects fallback without an override");
+  profile_color_menu_reset(5,3);CHECK(profile_color_menu_is_reset(),"reset selects fallback without an override");
   profile_color_menu_adjust("unrelated",1);CHECK(profile_color_menu_is_reset(),"unrelated input must not save fallback");
   p.click_x=10;CHECK(!profile_color_menu_pointer(&p)&&profile_color_menu_is_reset(),"click outside picker preserves unset");
-  profile_color_menu_adjust("rgb_hue_value",1);CHECK(!profile_color_menu_is_reset()&&picker.h==121,"keyboard creates a new selection");
+  real before_h=picker.h;profile_color_menu_adjust("rgb_hue_value",1);CHECK(!profile_color_menu_is_reset()&&picker.h==before_h+1,"keyboard creates a new selection");
   profile_color_menu_reset(5,3);p.click_x=150;CHECK(profile_color_menu_pointer(&p)&&!profile_color_menu_is_reset(),"pointer creates a new selection");
  }else if(!strcmp(argv[1],"save-reset")){
   CHECK(profile_edit_color_save()&&override_present&&write_calls==1&&profile_writes==1,"Done saves selection");
-  profile_writes=write_calls=0;
+  profile_writes=write_calls=notifications=invalidations=0;
   CHECK(profile_edit_color_reset()&&!override_present&&notifications==1&&invalidations==1,"Reset clears and refreshes immediately");
-  CHECK(profile_edit_color_save()&&!override_present&&!write_calls&&!profile_writes,"Done after Reset must keep color unset and other profile data intact");
+  CHECK(saved_profile.primary_color_index==NONE,"Reset left a legacy palette selection");
+  CHECK(profile_edit_color_save()&&!override_present&&!write_calls&&profile_writes==1,"Done after Reset must keep color unset and other profile data intact");
   profile_color_menu_adjust("rgb_brightness_value",-1);
   CHECK(profile_edit_color_save()&&override_present&&write_calls==1,"editing after Reset can be saved");
-  clear_failed=1;CHECK(!profile_edit_color_reset()&&override_present&&notifications==1,"failed Reset keeps selection and does not notify");
+  int previous_notifications=notifications;clear_failed=1;CHECK(!profile_edit_color_reset()&&override_present&&notifications==previous_notifications,"failed Reset keeps selection and does not notify");
+ }else if(!strcmp(argv[1],"reopen")||!strcmp(argv[1],"model-default")){
+  model_default=!strcmp(argv[1],"model-default");CHECK(profile_edit_color_reset(),"reset");
+  profile_color_menu_begin(5,saved_profile.primary_color_index);
+  CHECK(profile_color_menu_is_reset(),"reopening an unset profile creates a selection");
+  int writes=profile_writes;
+  CHECK(profile_edit_color_save()&&!override_present&&saved_profile.primary_color_index==NONE&&profile_writes==writes&&!write_calls,"Done after reopen saved a fallback color");
+ }else if(!strcmp(argv[1],"save-failure")){
+  save_failed=1;CHECK(!profile_edit_color_reset()&&override_present&&saved_profile.primary_color_index==3,"failed profile save lost previous selection");
  }else if(!strcmp(argv[1],"navigation")){
   struct widget_instance row={0},list={&row};boolean deleted=FALSE;profile_list.count=1;
   CHECK(profile_edit_choose(&list,0,&deleted)&&deleted&&opened_from==&row,"return history must preserve the selected row");
