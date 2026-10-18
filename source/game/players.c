@@ -4960,7 +4960,9 @@ void players_update_before_game(
 		players_compute_combined_pvs(players_globals->combined_pvs, FALSE);
 		players_globals->local_player_count = (short)players_compute_local_player_count();
 	}
-	else
+	/* port: the main menu's scene ticks with no updates queued (game_time.c
+	builds none for the shell), so there is no input to dequeue: not an error */
+	else if (!main_menu_is_active())
 	{
 		display_assert(NULL, "c:\\halo\\SOURCE\\game\\players.c", 0x30B, TRUE);
 		system_exit(-1);
