@@ -2220,7 +2220,7 @@ static boolean coop_player2_choose(short controller)
 bindings each */
 
 #define CONTROL_BINDINGS 2
-#define CONTROL_ROWS 7
+#define CONTROL_ROWS 8
 #define CONTROL_NAME_LENGTH 32
 
 static struct
@@ -2252,6 +2252,8 @@ static struct
 	{ "controls.push_to_talk", L"PUSH TO TALK", 3 },
 	{ "controls.chat", L"CHAT", 3 },
 	{ "controls.team_chat", L"TEAM CHAT", 3 },
+	{ "controls.third_person", L"THIRD PERSON", 2 },
+	{ "controls.free_look", L"FREE LOOK", 2 },
 };
 
 static struct

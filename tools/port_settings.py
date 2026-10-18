@@ -304,7 +304,7 @@ SCREENS["network_setup/map_sharing"] = {
 # Controls Setup: the keyboard and mouse's actions, in groups (the order of
 # port/linux/game/menu_functions.c's table of them)
 CONTROL_GROUPS = ["MOVEMENT", "WEAPONS", "ACTIONS", "COMMUNICATION"]
-CONTROL_ROWS = 7
+CONTROL_ROWS = 8
 
 # the settings whose rows have the wider spinner (a device's name)
 WIDE_SETTINGS = {"audio.output_device", "audio.input_device"}

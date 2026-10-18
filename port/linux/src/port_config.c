@@ -321,6 +321,14 @@ static const struct config_setting config_settings[] =
 		"Escape lets it go)." },
 	{ "controls.team_chat", _config_string, "\"U\"", "HALO_KEY_TEAM_CHAT", _environment_value, _platform_all,
 		"Network games' text chat: type a line to your team." },
+	{ "controls.third_person", _config_string, "\"Keypad Enter\"", "HALO_KEY_THIRD_PERSON", _environment_value,
+		_platform_all,
+		"The third-person camera on foot, on and off, in a campaign and co-op\n"
+		"(controls.free_look held: free look; the wheel: nearer and further)." },
+	{ "controls.free_look", _config_string, "\"Left Alt, Right Alt\"", "HALO_KEY_FREE_LOOK", _environment_value,
+		_platform_all,
+		"Held in the third-person camera: the camera turns alone, the player\n"
+		"keeps on its way." },
 
 	{ "game.console_log", _config_string, "\"important\"", "HALO_CONSOLE_LOG", _environment_value, _platform_all,
 		"What the game's console shows on screen of what it logs: \"important\"\n"

@@ -217,6 +217,8 @@ gamepads' only.
 | type a chat line to your team | U |
 | while typing: complete a command or player name (reverse with Shift) | Tab |
 | while typing: cycle everyone, team and vehicle channels | Ctrl+Tab (or empty Tab) |
+| third-person camera, on and off (campaign and co-op) | keypad enter |
+| free look in the third-person camera (hold) | left alt, right alt |
 
 Always: \` opens the developer console, F12 releases or captures the mouse,
 F11 changes between fullscreen and window. Screenshot (default F10,
@@ -227,6 +229,30 @@ second get a numeric suffix so previous screenshots are preserved.
 
 One movement of the mouse wheel changes the weapon one time. A second
 movement after a short pause changes it again.
+
+### Third-person camera
+
+In a campaign, and in co-op, keypad enter (`controls.third_person`) turns a
+third-person camera on and off for the first player on this computer; never
+in multiplayer. The camera sits behind the player's head, a little to the
+right and up, and looks where the player looks: the mouse turns the player
+as in first person. The mouse wheel brings it nearer or further (from about
+0.75 m to 3.7 m) and changes no weapon meanwhile: change it with 1. The
+level and objects push the camera in, as the game's vehicle cameras are.
+
+- Free look: hold alt (`controls.free_look`). The player keeps the facing
+  and aim it had, and moves on that way; the mouse turns the camera alone,
+  all the way round, and the player's head turns to where it looks, over
+  the shoulder when it looks back. Let go, and the player turns to the
+  camera's way.
+- Zoomed in with a scope, the view is first person at once, and third
+  person again as it zooms out.
+- On foot only: in a vehicle its own cameras, dead the game's dead camera,
+  in a cutscene the cutscene's.
+
+Only the view and the first player's facing while free look is held
+change. Nothing new is sent between machines: in co-op, the player's facing
+is sent as it always is.
 
 In the menus, the mouse moves a pointer:
 
@@ -364,8 +390,8 @@ clients and in `init.txt`, without becoming map-script functions.
 | `display.window_size` | `""` | `HALO_WINDOW_SIZE` | The size of the window, as `"<width>x<height>"`, such as `"1920x1080"`, 640x480 or more. You can change the size of the window; the game's picture takes its shape. Empty: `display.window_scale` decides. Video Setup's Window Size sets it, from sizes of each shape (4:3, 16:10, 16:9 and 21:9) that fit the desktop; it shows with Windowed. |
 | `display.window_scale` | `2` | `HALO_WINDOW_SCALE` | Used when `display.window_size` is empty: the size of the window, as a multiple of 640x480. |
 | `display.vsync` | `true` | `HALO_NO_VSYNC=1` sets `false` | `true`: each frame waits for the display. |
-| `display.fov` | `0.0` | `HALO_FOV` | Console `fov_desired`: world horizontal FOV at 16:9, 20Ã¢â‚¬â€œ150 degrees; 0 uses the authored view. Applies to local first-person cameras on foot; scopes and special cameras retain the behavior described above. |
-| `display.viewmodel_fov` | `0.0` | `HALO_VIEWMODEL_FOV` | Console `viewmodel_fov`: independent weapon/hands FOV at 16:9, 20Ã¢â‚¬â€œ150 degrees; 0 follows world FOV. First-person models, transparent effects, particles and flares use the same projection. Invalid file/environment values follow world FOV. |
+| `display.fov` | `0.0` | `HALO_FOV` | Console `fov_desired`: world horizontal FOV at 16:9, 20ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“150 degrees; 0 uses the authored view. Applies to local first-person cameras on foot; scopes and special cameras retain the behavior described above. |
+| `display.viewmodel_fov` | `0.0` | `HALO_VIEWMODEL_FOV` | Console `viewmodel_fov`: independent weapon/hands FOV at 16:9, 20ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“150 degrees; 0 follows world FOV. First-person models, transparent effects, particles and flares use the same projection. Invalid file/environment values follow world FOV. |
 | `display.viewmodel_visible` | `true` | `HALO_VIEWMODEL_VIS` | Console `viewmodel_vis`: display the local first-person weapon, hands and attached visual effects. Hiding them preserves gameplay, sound, animations and world lights. |
 | `display.max_fps` | `0` | `HALO_MAX_FPS` | With vsync off, the most frames each second. `0`: twice the display's refresh rate. `-1`: no limit, which can hang some Intel graphics (Raptor Lake), resetting the desktop's graphics too. |
 | `display.anti_aliasing` | `"off"` | `HALO_ANTI_ALIASING` | The smoothing of jagged edges, which the Xbox did not have. `"off"`: none, as on the Xbox. `"fxaa"` or `"smaa"`: a pass over the 3D view after the game draws it. The HUD and the menus stay sharp. SMAA is the sharper and costs more. `"ssaa2x"`: the game draws at two times the resolution in each direction (at most the GPU's largest texture), and the picture is scaled down. The GPU does four times the work. Not with `display.resolution_scaling = "original"`. `"msaa2x"`, `"msaa4x"` or `"msaa8x"`: each pixel of the 3D view has that many samples (at most the GPU's). On Android, `"smaa"` gives FXAA and `"ssaa2x"` none. A change applies from the next frame. Refer to "Anti-aliasing" in "What operates". |
@@ -406,7 +432,7 @@ clients and in `init.txt`, without becoming map-script functions.
 | `input.invert_mouse` | `false` | `HALO_MOUSE_INVERT=1` sets `true` | `true`: the vertical mouse aim is inverted. |
 | `network.block_mouse_aim_assist` | `false` | `HALO_NET_BLOCK_MOUSE_AIM_ASSIST` | Host: Player Options > Aim Assist, Allowed or Block M+KB. Block overrides optional mouse magnetism while mouse/keyboard aims, including on the host, without changing the saved preference. Controllers and touch retain their existing behavior; bullet autoaim is unchanged. |
 | `input.mouse_aim_assist` | `false` | `HALO_MOUSE_AIM_ASSIST` | `true`: the magnetism of the controller also operates for the mouse. `false`: when the mouse moved after the right stick, the view is not slowed or dragged by a target. The autoaim of the bullets operates in both cases. |
-| `controls.<action>` | (the table in "Controls") | `HALO_KEY_<ACTION>` | The keys and mouse buttons of an action, up to two, separated by a comma: `move_forward`, `move_backward`, `strafe_left`, `strafe_right`, `jump`, `crouch`, `fire`, `throw_grenade`, `melee`, `reload`, `zoom`, `switch_weapon`, `switch_grenade`, `action`, `flashlight`, `scoreboard`, `pause`, `screenshot`, `spray`, `push_to_talk`, `chat`, `team_chat`. Keys by their names (`"W"`, `"Space"`, `"Left Ctrl"`, `"F1"`), and `"Mouse Left"`, `"Mouse Right"`, `"Mouse Middle"`, `"Mouse 4"`, `"Mouse 5"`, `"Wheel"` (either way), `"Wheel Up"`, `"Wheel Down"`. |
+| `controls.<action>` | (the table in "Controls") | `HALO_KEY_<ACTION>` | The keys and mouse buttons of an action, up to two, separated by a comma: `move_forward`, `move_backward`, `strafe_left`, `strafe_right`, `jump`, `crouch`, `fire`, `throw_grenade`, `melee`, `reload`, `zoom`, `switch_weapon`, `switch_grenade`, `action`, `flashlight`, `scoreboard`, `pause`, `screenshot`, `spray`, `push_to_talk`, `chat`, `team_chat`, `third_person`, `free_look`. Keys by their names (`"W"`, `"Space"`, `"Left Ctrl"`, `"F1"`), and `"Mouse Left"`, `"Mouse Right"`, `"Mouse Middle"`, `"Mouse 4"`, `"Mouse 5"`, `"Wheel"` (either way), `"Wheel Up"`, `"Wheel Down"`. |
 | `game.console_log` | `"important"` | `HALO_CONSOLE_LOG` | What the console shows on the screen. `"important"`: bans, players that the host drops for cheating, the reasons that the game refuses a command, and the asserts that stop the game. `"all"`: all the lines. `"none"`: only the asserts that stop the game. The output of a command always shows. `debug.txt` gets all the lines. |
 | `game.language` | `""` | `HALO_LANGUAGE` | The language of the menus: `ja`, `de`, `fr`, `es` or `it`. Empty: English. |
 | `game.streamer_mode` | `false` | `HALO_STREAMER_MODE` | Streamer mode (Settings > Audio > Voice and Text Chat > STREAMER MODE): the text chat shows the slurs and swearing in players' names and lines as harmless words. Only what this machine shows. Refer to "Text chat". |
@@ -459,7 +485,7 @@ clients and in `init.txt`, without becoming map-script functions.
 | `debug.network_latency`, `debug.network_loss`, `debug.network_corrupt`, `debug.network_corrupt_stream`, `debug.network_corrupt_after` | `0` | `HALO_NETWORK_LATENCY`, `HALO_NETWORK_LOSS`, `HALO_NETWORK_CORRUPT`, `HALO_NETWORK_CORRUPT_STREAM`, `HALO_NETWORK_CORRUPT_AFTER` | The game holds all the data that it receives for this number of milliseconds, ignores this percentage of the datagrams, and damages this percentage of the datagrams it receives, and this percentage of its reads of streams, at random (bytes changed, cut short, stretched or replaced), from this many seconds after the start. Use the first two to test the netcode as on the internet, and the others to test that nothing another machine sends can crash the game (a damaged stream is closed, so a little goes a long way; a host's messages to its own client are damaged too, so start damaging once the game has started). |
 | `debug.voice_test` | `false` | `HALO_VOICE_TEST` | Automatic tests of voice chat: a tone replaces the microphone, and each voice that the game hears is written to the log once each second. |
 | `debug.telnet_console`, `debug.telnet_console_port` | `false`, `2323` | `HALO_TELNET_CONSOLE`, `HALO_TELNET_CONSOLE_PORT` | The game listens on 127.0.0.1, on this port, for a script console (connect with telnet). The console has no password, so only this computer can reach it. |
-| `debug.profile_record`, `debug.profile_record_when`, `debug.profile_memory` | `false`, `"start"`, `256` | `HALO_PROFILE_RECORD`, `HALO_PROFILE_RECORD_WHEN`, `HALO_PROFILE_MEMORY` | Profiling builds only (`configure.py --profile`). Record without a command; `"start"` records from the first frame until the first map change, `"game"` records each game outside the main menu. Memory is 4Ã¢â‚¬â€œ1024 MB. Numbered `profile_<stamp>_<role>.part<n>.json` files remain in `profiles/` after recording. Refer to "Profiling builds" in the main README. |
+| `debug.profile_record`, `debug.profile_record_when`, `debug.profile_memory` | `false`, `"start"`, `256` | `HALO_PROFILE_RECORD`, `HALO_PROFILE_RECORD_WHEN`, `HALO_PROFILE_MEMORY` | Profiling builds only (`configure.py --profile`). Record without a command; `"start"` records from the first frame until the first map change, `"game"` records each game outside the main menu. Memory is 4ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“1024 MB. Numbered `profile_<stamp>_<role>.part<n>.json` files remain in `profiles/` after recording. Refer to "Profiling builds" in the main README. |
 
 
 With Mesa drivers, the game sends its GL calls through the GL thread of
@@ -1012,7 +1038,7 @@ Only machines with the invite can find the game:
     leaving.
   So that every player can be named, the host trims the spaces around a
   name and removes characters that draw as nothing. A
-  letter with a mark is typed as the plain letter (`ban jose` for "JosÃƒÂ©").
+  letter with a mark is typed as the plain letter (`ban jose` for "JosÃƒÆ’Ã‚Â©").
   A name with nothing left to type becomes "Player", and a name that another
   player already has gets a number ("Player 2"). The game refuses a profile
   name that is blank, and a multiplayer game refuses a profile whose name was
@@ -1258,6 +1284,7 @@ Other changes:
 | `cseries/errors.c` | `debug.txt` stays open between lines. |
 | `networking/`, `game/`, `interface/`, `bungie_net/network/` and the pools of objects, effects and sounds | The system link limits and the memory for them. |
 | `game/`, `objects/`, `units/`, `networking/` | The distributed netcode. Refer to `NETCODE.md`. |
+| `camera/director.c`, `game/players.c` | The third-person camera on foot in a campaign and co-op (`game/third_person.c`): the director chooses it over the first-person camera while it is on, and free look holds the first player's facing and aim. |
 | `cache/cache_files.c` | When a map's tags load and unload, the port finds the bitmaps that the high-res HUD replaces (`game/hud_hires_tags.c`), adds the tags of the menus to the menus' map (`game/menu_tags.c`), and plays the mods' tags (`game/mods.c`). |
 | `cache/xbox_sound_cache.c`, `cache/xbox_texture_cache.c` | The samples of a mod's sound are copied from memory, and the pixels of a mod's bitmap read from its file and laid out for the hardware, at once (`game/mod_sounds.c`, `game/mod_bitmaps.c`); a mod's linear bitmap need not have rows of whole steps of the pitch. |
 | `hs/hs.c` | The console's `mods_reload`, `mods_enable` and `mods_list`, which a client may run too. |
