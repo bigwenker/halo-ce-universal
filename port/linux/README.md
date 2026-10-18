@@ -1444,8 +1444,17 @@ FOV/visibility, camouflage and shield passes retain their existing pipelines.
 Missing, malformed or incompatible FP files retain stock arms while the custom
 body continues to work. A pack need not supply an FP mesh.
 
-The first map load generates `generated/retarget-body-v2.cache` and, when FP
-arms are provided, `generated/retarget-fp-v2.cache` in each pack. Each
+Before exporting from Blender, run `tools/blender_prepare_custom_model.py`
+with the export rig selected in Object Mode and Rest Position. The Halo 8200
+exporter omits the armature object's transform from bones while applying it
+to the mesh. The script applies transforms to the armature only and preserves
+mesh/marker placement; never apply all transforms to the marker Empties.
+It does not save the .blend or rescale authored animation actions. A JMS must
+describe bones and vertices in the same model space: the runtime cannot
+recover an armature object transform that was omitted from the file.
+
+The first map load generates `generated/retarget-body-v3.cache` and, when FP
+arms are provided, `generated/retarget-fp-v3.cache` in each pack. Each
 caches rest-pose corrections, not animation clips: ordinary animation blending,
 aiming and overlays still run live. SHA-256 covers the parsed source and target
 skeletons (names, hierarchy, rest translations and normalized rotations) and
@@ -1457,10 +1466,20 @@ Writes replace only that generated cache atomically. Read-only packs work
 without saving the generated data. Authored animation files are not overwritten;
 loading replacement animation sets is not part of this cosmetic mesh format.
 
+Joint-local motion is transferred through bone directions measured from the
+parsed rest skeleton, rather than copying each joint's world rotation. This
+also handles exports that move joints while retaining Chief's bone axes.
+The complete hierarchy and custom inverse binds are used for skinning.
+
 JMS attachment markers are retained for visual contact alignment; missing
 markers use Chief's bone-local offsets. A separate two-bone IK step follows the
 existing weapon/vehicle contact rules to bring hands/feet to their original
-gameplay attachments, with reach clamping rather than stretching. Extreme
+gameplay attachments. The solver transports a stable bend plane, limits
+flexion to 2-160 degrees, and lets arm clavicles share reach with at most
+20 degrees of rotation. Off-chain descendants, including FP fingers, follow
+their nearest corrected joint. First-person hand markers use this same path;
+without markers they use the original wrist contact. Reach is clamped rather
+than stretching bones. Extreme
 proportions can still leave a gap at unreachable grips; incorrect skin weights
 still require authoring fixes. First-person legs' torso fold is reapplied after
 retargeting. Simulation poses, gameplay markers and network packets are not

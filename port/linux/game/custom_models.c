@@ -63,6 +63,7 @@ struct custom_asset
     unsigned char skeleton_key[32];
     struct model_marker markers[256];struct model_marker_instance marker_instances[256];
     short limb_nodes[4][3];
+    short clavicle_nodes[2];
     unsigned int contact_changes;
     struct halo_custom_matrix source_contact[4],target_contact_inverse[4];
     struct custom_shader shader[HALO_CUSTOM_MATERIALS];
@@ -298,20 +299,35 @@ static boolean asset_skeleton(struct custom_asset *a,short index,struct halo_cus
         static char const *arms[2][3]={{"frame l upperarm","frame l forearm","frame l wriste"},{"frame r upperarm","frame r forearm","frame r wriste"}};
         for(limb=0;limb<2;limb++)for(bone=0;bone<3;bone++)
         {for(i=0;i<count;i++)if(!strcmp(source[i].name,arms[limb][bone]))break;a->limb_nodes[limb][bone]=i<count ? (short)i:NONE;}
-        return TRUE;
     }
     for(limb=0;limb<4;limb++)
     {
-        for(bone=0;bone<3;bone++)
+        if(a->first_person && limb>=2)break;
+        if(!a->first_person)for(bone=0;bone<3;bone++)
         {for(i=0;i<count;i++)if(!strcmp(source[i].name,limbs[limb][bone]))break;if(i==count)return FALSE;a->limb_nodes[limb][bone]=(short)i;}
+        if(limb<2)
+        {
+            a->clavicle_nodes[limb]=NONE;i=a->limb_nodes[limb][0];
+            if(i>=0 && source[i].parent>=0 && strstr(source[source[i].parent].name,"clavicle"))a->clavicle_nodes[limb]=(short)source[i].parent;
+        }
         hand=a->limb_nodes[limb][2];
-        if(!contact_matrix(stock,markers[limb],&a->source_contact[limb],&node))return FALSE;
-        halo_custom_matrix_inverse(&a->retarget.source_inverse[node],&bind);
-        halo_custom_matrix_multiply(&bind,&a->source_contact[limb],&a->source_contact[limb]);
-        halo_custom_matrix_multiply(&a->retarget.source_inverse[hand],&a->source_contact[limb],&a->source_contact[limb]);
-        if(!contact_matrix(&a->model,markers[limb],&contact,&node))return FALSE;
-        halo_custom_matrix_multiply(&a->retarget.target[node],&contact,&contact);
-        halo_custom_matrix_multiply(&a->retarget.target_inverse[hand],&contact,&contact);
+        if(hand==NONE)continue;
+        memset(&a->source_contact[limb],0,sizeof(a->source_contact[limb]));a->source_contact[limb].scale=1;
+        for(i=0;i<3;i++)a->source_contact[limb].v[i][i]=1;
+        if(contact_matrix(stock,markers[limb],&contact,&node))
+        {
+            halo_custom_matrix_inverse(&a->retarget.source_inverse[node],&bind);
+            halo_custom_matrix_multiply(&bind,&contact,&contact);
+            halo_custom_matrix_multiply(&a->retarget.source_inverse[hand],&contact,&a->source_contact[limb]);
+        }
+        else if(!a->first_person)return FALSE;
+        contact=a->source_contact[limb];
+        if(contact_matrix(&a->model,markers[limb],&contact,&node))
+        {
+            halo_custom_matrix_multiply(&a->retarget.target[node],&contact,&contact);
+            halo_custom_matrix_multiply(&a->retarget.target_inverse[hand],&contact,&contact);
+        }
+        else contact=a->source_contact[limb];
         for(i=0;i<12;i++)if(fabsf(((float *)a->source_contact[limb].v)[i]-((float *)contact.v)[i])>1.e-5f)a->contact_changes|=1u<<limb;
         halo_custom_matrix_inverse(&contact,&a->target_contact_inverse[limb]);
     }
@@ -576,7 +592,7 @@ boolean custom_models_render_nodes(long index,long model,real_matrix4x3 const *s
         short const *nodes=a->limb_nodes[limb];
         halo_custom_matrix_multiply(&input[nodes[2]],&a->source_contact[limb],&goal);
         halo_custom_matrix_multiply(&goal,&a->target_contact_inverse[limb],&goal);
-        halo_custom_retarget_arm(&output[nodes[0]],&output[nodes[1]],&output[nodes[2]],&goal);
+        halo_custom_retarget_contact(&a->retarget,input,output,limb<2 ? a->clavicle_nodes[limb]:NONE,nodes[0],nodes[1],nodes[2],&goal);
     }
     if(legs)for(i=0;i<19;i++)
     {
@@ -598,12 +614,17 @@ long custom_models_first_person_model(long unit,long original)
 boolean custom_models_first_person_nodes(long model,real_matrix4x3 *nodes)
 {
     struct custom_asset *asset=NULL;struct halo_custom_matrix input[HALO_CUSTOM_MAX_NODES],output[HALO_CUSTOM_MAX_NODES];
-    short i,limb;long bytes;
+    struct halo_custom_matrix goal;short i,limb;long bytes;
     for(i=1;i<HALO_CUSTOM_MODELS;i++)if(arms_assets[i].ready && arms_assets[i].tag==model){asset=&arms_assets[i];break;}
     if(!asset)return FALSE;
     bytes=asset->retarget.count*sizeof(real_matrix4x3);memcpy(input,nodes,bytes);
     if(!halo_custom_retarget_pose(&asset->retarget,input,output))return FALSE;
-    if(!asset->retarget.identical)for(limb=0;limb<2;limb++)
-        halo_custom_retarget_grip(&asset->retarget,input,output,asset->limb_nodes[limb][0],asset->limb_nodes[limb][1],asset->limb_nodes[limb][2]);
+    if(!asset->retarget.identical || asset->contact_changes)for(limb=0;limb<2;limb++)
+    {
+        short const *nodes=asset->limb_nodes[limb];if(nodes[2]==NONE)continue;
+        halo_custom_matrix_multiply(&input[nodes[2]],&asset->source_contact[limb],&goal);
+        halo_custom_matrix_multiply(&goal,&asset->target_contact_inverse[limb],&goal);
+        halo_custom_retarget_contact(&asset->retarget,input,output,asset->clavicle_nodes[limb],nodes[0],nodes[1],nodes[2],&goal);
+    }
     memcpy(nodes,output,bytes);return TRUE;
 }

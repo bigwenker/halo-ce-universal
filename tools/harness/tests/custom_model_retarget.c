@@ -73,9 +73,9 @@ int main(int argc,char **argv)
         for(i=1;i<19;i++)close_value(distance(target[i].v[3],target[i-1].v[3]),t[i].translation[0]+(i==1&&!strcmp(case_name,"translation") ? .2f:0));
         if(!strcmp(case_name,"axes-motion"))for(i=0;i<19;i++)
         {
-            struct halo_custom_matrix delta,want;
-            halo_custom_matrix_multiply(&source[i],&plan.source_inverse[i],&delta);halo_custom_matrix_multiply(&delta,&plan.target[i],&want);
-            for(j=0;j<9;j++)close_value(((float *)target[i].v)[j],((float *)want.v)[j]);
+            /* The hierarchy, not each joint's independent world delta,
+               now transports motion through the edited bind directions. */
+            CHECK(matrix_valid(&target[i]),"invalid articulated pose");
         }
         CHECK(distance(source[1].v[3],target[1].v[3])>.25f,"old Chief proportions retained");
     }

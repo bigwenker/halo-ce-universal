@@ -18,7 +18,7 @@ static int retarget_path(int index,int first_person,char path[4096],int director
 {
     if(index<=0 || index>=halo_custom_models_count())return 0;
     return SDL_snprintf(path,4096,"%s/%s/generated%s",root,catalogue[index].id,
-        directory ? "" : first_person ? "/retarget-fp-v2.cache" : "/retarget-body-v2.cache")<4096;
+        directory ? "" : first_person ? "/retarget-fp-v3.cache" : "/retarget-body-v3.cache")<4096;
 }
 int halo_custom_retarget_cache_load(int index,int first_person,unsigned char const key[32],struct halo_custom_retarget *plan)
 {
