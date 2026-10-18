@@ -1419,17 +1419,41 @@ material always uses `armor.png`/`armor.bmp`. For example, `face_d.bmp` uses
 `textures/face_d.png` or `textures/face_d.bmp`. Material order may differ between
 LODs, but their names and texture mappings must match the superhigh file.
 Their 19 bone names must match Chief's exactly, with no missing or duplicate
-names. Source bone order, hierarchy and rest transforms may differ; vertex
-weights are remapped by name to Chief's existing animation rig. This retains
-Chief's in-game bone motion, collision and attachment points rather than
-installing a custom animation rig. Source hierarchies must remain valid and
-acyclic. Authoring checksums and source region labels are normalized. Images may be PNGs or paletted 8-bit, RGB 24-bit or RGBA 32-bit BMPs (including top-down BMPs), and are
+names. Source bone order and rest transforms may differ. The named parent-child
+relationships must still match Chief's humanoid hierarchy. Weights are remapped
+by name. Rendering retargets Chief's final blended animation onto the pack's
+rest pose, retaining its limb proportions and using its own inverse bind
+matrices. Superhigh defines that rest pose. If another LOD has an older/different
+skeleton, its geometry falls back to superhigh rather than mixing bind poses;
+the source files are never rewritten. Authoring checksums and source region
+labels are normalized. Images may be PNGs or paletted 8-bit, RGB 24-bit or RGBA 32-bit BMPs (including top-down BMPs), and are
 resampled to power-of-two dimensions in memory. Assets are bounded by file,
 vertex, triangle and image limits and a shared 128 MiB residency allowance.
 A source JMS may contain up to 196,605 vertices and 65,535 triangles. Each
 material is compacted into its own ordinary geometry part, with at most
 65,535 referenced vertices per material. Invalid or incomplete models fall
 back to Chief; source meshes, weights and face winding are not altered.
+
+The first map load generates `generated/retarget-v1.cache` in each pack. It
+caches rest-pose corrections, not animation clips: ordinary animation blending,
+aiming and overlays still run live. SHA-256 covers the parsed source and target
+skeletons (names, hierarchy, rest translations and normalized rotations) and
+retargeter version. Geometry, materials, marker edits, whitespace and authoring
+checksums do not trigger regeneration. Bone changes or a changed upstream rig
+do. The cache has a versioned generated-file signature, payload digest and
+bounded hierarchy/matrix validation; an invalid/missing cache is regenerated.
+Writes replace only that generated cache atomically. Read-only packs work
+without saving the generated data. Authored animation files are not overwritten;
+loading replacement animation sets is not part of this cosmetic mesh format.
+
+JMS attachment markers are retained for visual contact alignment; missing
+markers use Chief's bone-local offsets. A separate two-bone IK step follows the
+existing weapon/vehicle contact rules to bring hands/feet to their original
+gameplay attachments, with reach clamping rather than stretching. Extreme
+proportions can still leave a gap at unreachable grips; incorrect skin weights
+still require authoring fixes. First-person legs' torso fold is reapplied after
+retargeting. Simulation poses, gameplay markers and network packets are not
+modified. This preserves hit detection, camera behavior and upstream peers.
 
 `colorable=false` retains the texture's authored colors. `colorable=true` uses
 Chief's ordinary color-change channel C and the saved profile RGB (or the normal

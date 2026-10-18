@@ -6,9 +6,12 @@ struct halo_custom_model_info { char id[32], name[96], preview[128]; int colorab
 struct halo_custom_node { char name[32]; int child, sibling, parent; float rotation[4], translation[3]; };
 struct halo_custom_vertex { float position[3], normal[3], uv[2], weight; int node[2]; };
 struct halo_custom_material { char name[96], texture[96]; };
+struct halo_custom_marker { char name[32]; int node; float rotation[4],translation[3]; };
 struct halo_custom_mesh
 {
     struct halo_custom_node nodes[19];
+    int marker_count;
+    struct halo_custom_marker markers[256];
     int vertex_count, triangle_count, material_count;
     struct halo_custom_material materials[HALO_CUSTOM_MATERIALS];
     struct halo_custom_vertex *vertices;

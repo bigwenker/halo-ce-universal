@@ -1024,7 +1024,18 @@ void render_model(
 	/* port: choose the cosmetic before any part, shadow or effect is drawn. */
 	struct model *model;
 	boolean full_detail;
+	/* port: a cosmetic rig receives its own render pose and inverse binds;
+	   object matrices remain untouched for simulation and attachments. */
+	long original_model_index = model_index;
+	real_matrix4x3 custom_node_matrices[19];
 	model_index = custom_models_render_model(unique_identifier, model_index);
+	if (node_matrices && model_index != original_model_index)
+	{
+		if (custom_models_render_nodes(unique_identifier, model_index, node_matrices, custom_node_matrices))
+			node_matrices = custom_node_matrices;
+		else
+			model_index = original_model_index;
+	}
 	model = model_definition_get(model_index);
 	/* port: retain real projected size for effects and debug bounds. */
 	full_detail = render_lod_disabled() &&

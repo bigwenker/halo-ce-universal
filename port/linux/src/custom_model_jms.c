@@ -59,7 +59,7 @@ void halo_custom_mesh_dispose(struct halo_custom_mesh *m)
 int halo_custom_mesh_parse(char const *data, unsigned int size, struct halo_custom_mesh *m)
 {
     struct reader r;
-    int i,j,n,regions,parents[19]; char name[512];
+    int i,j,regions,parents[19]; char name[512];
     memset(m,0,sizeof(*m));
     if (!data || !size || size>16u*1024u*1024u || memchr(data,0,size)) return 0;
     r.at=data;r.end=data+size;r.failed=0;
@@ -102,12 +102,14 @@ int halo_custom_mesh_parse(char const *data, unsigned int size, struct halo_cust
         for(j=0;j<i;j++)if(!strcmp(material->name,m->materials[j].name))r.failed=1;
         material_texture(material->name,name,material->texture);
     }
-    n=integer(&r,0,256);
-    for(i=0;i<n;i++)
+    m->marker_count=integer(&r,0,256);
+    for(i=0;i<m->marker_count;i++)
     {
-        line(&r,name,sizeof(name));integer(&r,-1,31);integer(&r,-1,18);
-        for(j=0;j<4;j++)real_value(&r,-1.001f,1.001f);
-        for(j=0;j<3;j++)real_value(&r,-10000.f,10000.f);
+        struct halo_custom_marker *marker=&m->markers[i];float norm=0;
+        line(&r,marker->name,sizeof(marker->name));integer(&r,-1,31);marker->node=integer(&r,-1,18);
+        for(j=0;j<4;j++){marker->rotation[j]=real_value(&r,-1.001f,1.001f);norm+=marker->rotation[j]*marker->rotation[j];}
+        if(norm<.999f || norm>1.001f)r.failed=1;
+        for(j=0;j<3;j++)marker->translation[j]=real_value(&r,-10000.f,10000.f)/100.f;
         real_value(&r,0,10000.f);
     }
     regions=integer(&r,1,8);

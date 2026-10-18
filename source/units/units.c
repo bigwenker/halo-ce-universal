@@ -697,6 +697,7 @@ symbols in this file:
 #include "network_coop.h" /* port: port/linux/game/network_coop.c */
 #include "coop_scripts.h" /* port: port/linux/game/coop_scripts.c */
 #include "coop_enemies.h" /* port: port/linux/game/coop_enemies.c */
+#include "custom_models.h" /* port: cosmetic retargeting uses original IK gates */
 
 /* port: the control and animation impulses the host's actors give their
 units go to the clients' copies (port/linux/game/network_actors.c) */
@@ -958,6 +959,8 @@ static boolean unit_animation_weapon_ik(
 	struct unit_animation *animation);
 static boolean unit_animation_vehicle_ik(
 	struct unit_animation *animation);
+static boolean unit_grenade_throw_releases_vehicle_ik(long unit_index); /* port: shared cosmetic IK gates */
+static boolean unit_grenade_throw_ik_release(long unit_index, boolean record); /* port: render queries never write timers */
 static boolean unit_animation_busy(struct unit_animation *animation);
 
 static boolean unit_set_or_test_seat_and_weapon_label(
@@ -8104,6 +8107,75 @@ static boolean unit_animation_weapon_ik(
 	return result;
 }
 
+/* port: the cosmetic retargeter uses the same contact gates and IK points
+   as Halo. This only describes visual contacts; no simulation pose changes. */
+unsigned int unit_custom_model_ik(long unit_index)
+{
+	struct unit_datum *unit = unit_get(unit_index);
+	struct unit_definition *definition = unit_definition_get(unit->definition_index);
+	struct animation_graph *graph;
+	struct animation_graph_unit_seat *seat;
+	struct animation_graph_weapon_class *weapon;
+	struct tag_block *points;
+	unsigned int result = 0;
+	long child;
+	short i, pass, steps = 0;
+	static char const *names[4] = { "left hand", "right hand", "left foot", "right foot" };
+
+	/* Items actually attached to a hand (weapon or unreleased grenade)
+	   remain at their gameplay transform, so the cosmetic hand follows. */
+	child = unit->object.first_child_object_index;
+	while (child != NONE && steps++ < 64)
+	{
+		struct object_datum *item = object_try_and_get(child);
+		if (!item || item->object.parent_object_index != unit_index)
+			break;
+		if (item->object.type == _object_type_weapon || item->object.type == _object_type_projectile)
+		{
+			struct model *model = model_definition_get(definition->object.model.index);
+			short node = item->object.parent_node_index;
+			if (node >= 0 && node < model->nodes.count)
+			{
+				char const *name = TAG_BLOCK_GET_ELEMENT(&model->nodes, node, struct model_node)->name;
+				if (!strcmp(name, "bip01 l hand")) result |= 1;
+				if (!strcmp(name, "bip01 r hand")) result |= 2;
+			}
+		}
+		child = item->object.next_object_index;
+	}
+	if (definition->object.animation_graph.index == NONE)
+		return result;
+	graph = animation_graph_definition_get(definition->object.animation_graph.index);
+	if (unit->unit.animation.seat_index < 0 || unit->unit.animation.seat_index >= graph->unit_seats.count)
+		return result;
+	seat = TAG_BLOCK_GET_ELEMENT(&graph->unit_seats, unit->unit.animation.seat_index, struct animation_graph_unit_seat);
+	for (pass = 0; pass < 2; pass++)
+	{
+		if (!pass)
+		{
+			if (unit->object.parent_object_index == NONE || !unit_animation_vehicle_ik(&unit->unit.animation) || unit_grenade_throw_ik_release(unit_index, FALSE))
+				continue;
+			points = &seat->ik_points;
+		}
+		else
+		{
+			if (unit_get_current_weapon_index(unit_index) == NONE || !unit_animation_weapon_ik(&unit->unit.animation) ||
+				unit->unit.animation.weapon_index < 0 || unit->unit.animation.weapon_index >= seat->weapon_classes.count)
+				continue;
+			weapon = TAG_BLOCK_GET_ELEMENT(&seat->weapon_classes, unit->unit.animation.weapon_index, struct animation_graph_weapon_class);
+			points = &weapon->ik_points;
+		}
+		for (i = 0; i < points->count; i++)
+		{
+			struct animation_graph_ik_point *point = TAG_BLOCK_GET_ELEMENT(points, i, struct animation_graph_ik_point);
+			short name;
+			for (name = 0; name < 4; name++)
+				if (!strcmp(point->marker_name, names[name])) result |= 1u << name;
+		}
+	}
+	return result;
+}
+
 static boolean unit_animation_vehicle_ik(
 	struct unit_animation *animation)
 {
@@ -10962,6 +11034,12 @@ grips would otherwise snap */
 static boolean unit_grenade_throw_releases_vehicle_ik(
 	long unit_index)
 {
+	/* port: simulation records releases; cosmetic render queries only read. */
+	return unit_grenade_throw_ik_release(unit_index, TRUE);
+}
+
+static boolean unit_grenade_throw_ik_release(long unit_index, boolean record)
+{
 	struct unit_datum *unit = unit_get(unit_index);
 	long absolute_index = DATUM_INDEX_TO_ABSOLUTE_INDEX(unit_index);
 	long now = game_time_get();
@@ -10980,7 +11058,7 @@ static boolean unit_grenade_throw_releases_vehicle_ik(
 	}
 	if (releasing)
 	{
-		grenade_throw_ik_release_times[absolute_index] = now + 1;
+		if (record) grenade_throw_ik_release_times[absolute_index] = now + 1; /* port: no writes during rendering */
 		return TRUE;
 	}
 	if (grenade_throw_ik_release_times[absolute_index] == 0)

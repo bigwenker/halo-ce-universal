@@ -1,6 +1,7 @@
 /* User-authored assets beside the executable; game tags are built by
    game/custom_models.c. Missing or malformed assets always retain Chief. */
 #include "halo_custom_models.h"
+#include "halo_custom_retarget.h"
 #include "platform.h"
 #include "tomlc17.h"
 #include <SDL3/SDL.h>
@@ -12,6 +13,30 @@
 static struct halo_custom_model_info catalogue[HALO_CUSTOM_MODELS];
 static int model_count;
 static char root[4096];
+
+static int retarget_path(int index,char path[4096],int directory)
+{
+    if(index<=0 || index>=halo_custom_models_count())return 0;
+    return SDL_snprintf(path,4096,"%s/%s/generated%s",root,catalogue[index].id,
+        directory ? "" : "/retarget-v1.cache")<4096;
+}
+int halo_custom_retarget_cache_load(int index,unsigned char const key[32],struct halo_custom_retarget *plan)
+{
+    char path[4096];unsigned char bytes[HALO_RETARGET_CACHE_BYTES];size_t size;FILE *f;int ok;
+    if(!retarget_path(index,path,0) || !(f=fopen(path,"rb")))return 0;
+    size=fread(bytes,1,sizeof(bytes),f);ok=!ferror(f) && feof(f);fclose(f);
+    return ok && halo_custom_retarget_decode(bytes,(unsigned int)size,key,plan);
+}
+void halo_custom_retarget_cache_save(int index,unsigned char const key[32],struct halo_custom_retarget const *plan)
+{
+    char path[4096],temporary[4096],directory[4096];unsigned char bytes[HALO_RETARGET_CACHE_BYTES];
+    FILE *f;int size,ok;
+    if(!retarget_path(index,path,0) || !retarget_path(index,directory,1) || !SDL_CreateDirectory(directory) ||
+        SDL_snprintf(temporary,sizeof(temporary),"%s.%llu.tmp",path,(unsigned long long)SDL_GetTicksNS())>=(int)sizeof(temporary))return;
+    size=halo_custom_retarget_encode(plan,key,bytes);f=fopen(temporary,"wb");if(!f)return;
+    ok=fwrite(bytes,1,size,f)==(size_t)size;if(fclose(f))ok=0;
+    if(!ok || !SDL_RenamePath(temporary,path))SDL_RemovePath(temporary);
+}
 
 int halo_custom_model_id_valid(char const *id)
 {
