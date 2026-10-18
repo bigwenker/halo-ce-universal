@@ -322,7 +322,7 @@ static const struct config_setting config_settings[] =
 	{ "controls.team_chat", _config_string, "\"U\"", "HALO_KEY_TEAM_CHAT", _environment_value, _platform_all,
 		"Network games' text chat: type a line to your team." },
 	{ "controls.third_person", _config_string, "\"F5\"", "HALO_KEY_THIRD_PERSON", _environment_value, _platform_all,
-		"Cycle first person, third person and free look in campaign and co-op." },
+		"Cycle first person, rear view, front view and free look in campaign and co-op." },
 	{ "controls.camera_zoom_in", _config_string, "\"=\"", "HALO_KEY_CAMERA_ZOOM_IN", _environment_value, _platform_all,
 		"Move the third-person camera nearer, one step per press." },
 	{ "controls.camera_zoom_out", _config_string, "\"-\"", "HALO_KEY_CAMERA_ZOOM_OUT", _environment_value, _platform_all,

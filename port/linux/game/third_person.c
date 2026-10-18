@@ -2,7 +2,7 @@
 THIRD_PERSON.C
 
 A third-person camera on foot, over the right shoulder. controls.third_person
-(F5) cycles first person, third person and free look for the first local
+(F5) cycles first person, rear view, front view and free look for the first local
 player, in a campaign (co-op too), never in competitive multiplayer.
 
 - The camera sits behind the player's head, a little to the right and up,
@@ -11,7 +11,9 @@ player, in a campaign (co-op too), never in competitive multiplayer.
   to THIRD_PERSON_FURTHEST). The wheel still changes weapons. The level and
   its objects push it in, as the game's own vehicle cameras are
   (observer.c's penetration check).
-- Press F5 again to look freely: the player's facing, aim and head direction
+- The front view looks back at the player; input still turns and moves the
+  player normally.
+- Press F5 a third time to look freely: the player's facing, aim and head direction
   stay as they were at entry. The mouse turns the camera alone all the way
   round. Press F5 again to return to first person.
 - On foot only: in a vehicle its own cameras, dead the game's dead camera, in
@@ -54,6 +56,7 @@ enum
 {
 	_third_person_first,
 	_third_person_follow,
+	_third_person_front,
 	_third_person_free,
 	NUMBER_OF_THIRD_PERSON_MODES
 };
@@ -154,7 +157,17 @@ void third_person_camera_update(
 	player_control_get_facing_direction(local_player_index, &forward);
 	if (normalize3d(&forward) <= 0.f)
 		return;
+	if (third_person_mode == _third_person_front)
+	{
+		/* yaw + pi and pitch negated: look back from the opposite side.
+		Only the observer changes; the player's input and facing do not. */
+		forward.i = -forward.i;
+		forward.j = -forward.j;
+		forward.k = -forward.k;
+	}
 	csmemset(command, 0, sizeof(*command));
+	/* Keep focus distance and obstruction checks in observer_postcheck:
+	walls shorten either view instead of hiding the player. */
 	command->flags = FLAG(_observer_command_valid_bit);
 	unit_get_camera_position(unit_index, &command->focus_position);
 	/* (forward, right, up: observer_update's frame, by the heading) */

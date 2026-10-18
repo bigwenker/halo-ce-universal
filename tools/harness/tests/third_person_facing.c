@@ -42,7 +42,7 @@ static long player_control_get_unit_index(short n){return player.unit_index;}
 static short director_desired_perspective(long n,director_perspective *p){*p=following;return following;}
 static void director_set_camera(short n,director_camera_update_proc proc,boolean transition){director.camera_proc=proc;}
 #include "under_test.inc"
-static void begin_free_look(void){key=1;third_person_camera_wanted(0);key=1;third_person_camera_wanted(0);third_person_camera_wanted(0);}
+static void begin_free_look(void){int n;for(n=0;n<3;n++){key=1;third_person_camera_wanted(0);}}
 static real_euler_angles2d action_facing(real yaw,short local)
 {
  real_euler_angles2d facing={yaw,0};

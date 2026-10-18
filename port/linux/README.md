@@ -217,7 +217,7 @@ gamepads' only.
 | type a chat line to your team | U |
 | while typing: complete a command or player name (reverse with Shift) | Tab |
 | while typing: cycle everyone, team and vehicle channels | Ctrl+Tab (or empty Tab) |
-| cycle first person, third person, free look (campaign and co-op) | F5 |
+| cycle first person, rear view, front view, free look (campaign and co-op) | F5 |
 | third-person camera nearer / further | = / - |
 
 Always: \` opens the developer console, F12 releases or captures the mouse,
@@ -233,7 +233,7 @@ movement after a short pause changes it again.
 ### Third-person camera
 
 In campaign and co-op, F5 (`controls.third_person`) cycles first person,
-third person, free look, then first person for the first local player.
+rear view, front view, free look, then first person for the first local player.
 Competitive multiplayer retains its normal camera. Controls Setup > Camera
 can rebind the mode and distance keys.
 
@@ -244,6 +244,10 @@ Press = (`controls.camera_zoom_in`) to move the camera nearer, or -
 (from about 0.75 m to 3.7 m). The wheel still changes weapons. The level
 and objects push the camera in, as the game's vehicle cameras are.
 
+- Front view moves to the opposite side and looks back, with yaw turned
+  180 degrees and pitch negated. Player facing, movement, mouse sensitivity,
+  FOV and the chosen camera distance retain their normal behavior. Walls
+  shorten the camera distance through the same collision checks as rear view.
 - Free look holds the player's facing, aim and head direction at entry
   while the mouse turns the camera alone. F5 returns to first person and
   releases the held directions.
