@@ -26,7 +26,7 @@ def test_parser(tmp_path,case):
     elif case=='bad_index':data=data.replace('0 1 2\n','0 1 65535\n')
     elif case=='bad_count':data=data.replace('\ncyborg\n3\n','\ncyborg\n2147483647\n')
     elif case=='cycle':data=data.replace('bone 18\n-1\n-1','bone 18\n0\n-1')
-    elif case=='material':data=data.replace('\narmor\n','\nvisor\n')
+    elif case=='material':data=data.replace('\narmor\n','\n../visor\n')
     elif case=='trailing':data+='garbage\n'
     elif case=='nul':data=data.replace('armor','ar\0or')
     path=tmp_path/'model.jms';path.write_bytes(data.encode())
@@ -59,3 +59,36 @@ def test_native_face_winding_preserves_normals(tmp_path,reverse):
     # the stock compiled Chief); an intentionally reversed input stays so.
     cross_z=(b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0])
     assert cross_z==(1 if reverse else -1),out
+
+@pytest.mark.parametrize('bad',[None,'index','duplicate','count'])
+def test_material_assignments(tmp_path,bad):
+    data=fixture().replace('1\narmor\n<none>\n','2\nbody\nC:\\author\\body_d.bmp\nface.bmp\n<none>\n')
+    data=data.rsplit('1\n0\n0\n0 1 2\n',1)[0]+'2\n0\n0\n0 1 2\n0\n1\n2 1 0\n'
+    if bad=='index':data=data.replace('0\n1\n2 1 0','0\n2\n2 1 0')
+    if bad=='duplicate':data=data.replace('face.bmp','body')
+    if bad=='count':data=data.replace('2\nbody\n','33\nbody\n')
+    path=tmp_path/'materials.jms';path.write_text(data)
+    status,output=run(executable(),str(path))
+    assert status==(1 if bad else 0),output
+    if not bad:
+        assert 'm 0 body body_d' in output and 'm 1 face.bmp face' in output
+        assert 'p 0 3 1' in output and 'p 1 3 1' in output
+        assert 'a 0 0' in output and 'a 1 1' in output
+
+@pytest.mark.parametrize('materials',[1,2])
+def test_large_mesh_compacts_each_material(tmp_path,materials):
+    data=fixture();header=data[:data.index('\ncyborg\n3\n')]+ '\ncyborg\n65538\n'
+    if materials==2:header=header.replace('1\narmor\n<none>\n','2\narmor\n<none>\nface\n<none>\n')
+    vertex='0\n0 0 0\n0 0 1\n-1\n0\n0 0\n0\n'
+    triangles=''.join(f'0\n{i%materials}\n{i*3} {i*3+1} {i*3+2}\n' for i in range(21846))
+    path=tmp_path/'large.jms';path.write_text(header+vertex*65538+'21846\n'+triangles)
+    status,output=run(executable(),str(path))
+    assert status==(0 if materials==2 else 2),output[-1000:]
+    if materials==2:assert 'p 0 32769 10923' in output and 'p 1 32769 10923' in output
+
+
+def test_legacy_armor_ignores_author_machine_bitmap_hint(tmp_path):
+    data=fixture().replace('<none>','C:\\author\\old_sm')
+    path=tmp_path/'legacy.jms';path.write_text(data)
+    status,output=run(executable(),str(path))
+    assert status==0 and 'm 0 armor armor' in output

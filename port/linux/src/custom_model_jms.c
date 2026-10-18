@@ -1,5 +1,4 @@
-/* Strict, bounded JMS 8200 reader for the Chief skeleton and one armor
-   material. These are authoring inputs, never packets or executable tags. */
+/* Strict, bounded JMS 8200 reader for the Chief skeleton and named materials. These are authoring inputs, never packets or executable tags. */
 #include "halo_custom_models.h"
 #include <stdlib.h>
 #include <string.h>
@@ -34,8 +33,29 @@ static void line(struct reader *r, char *text, size_t capacity)
     text[n]=0;
     if (!n) r->failed=1;
 }
+/* Only local texture leaves are resolved; authoring-machine directories are
+   never opened. Material labels stay separate from their bitmap hints. */
+int halo_custom_texture_name_valid(char const *name)
+{
+    size_t i,n=name ? strlen(name) : 0;
+    if(!n || n>=96 || strstr(name,"..") || name[0]=='.')return 0;
+    for(i=0;i<n;i++)if(!((name[i]>='a' && name[i]<='z') || (name[i]>='A' && name[i]<='Z') ||
+        (name[i]>='0' && name[i]<='9') || name[i]=='_' || name[i]=='-' || name[i]=='.' || name[i]==' '))return 0;
+    return name[n-1]!='.' && name[n-1]!=' ';
+}
+static void material_texture(char const *name,char const *hint,char texture[96])
+{
+    char const *leaf=hint,*p;
+    size_t n;
+    for(p=hint;*p;p++)if(*p=='/' || *p=='\\')leaf=p+1;
+    /* Preserve the original armor.png convention despite stale JMS hints. */
+    if(!strcmp(name,"armor") || !halo_custom_texture_name_valid(leaf))leaf=name;
+    strcpy(texture,leaf);n=strlen(texture);
+    if(n>4 && (!strcmp(texture+n-4,".png") || !strcmp(texture+n-4,".bmp") ||
+        !strcmp(texture+n-4,".PNG") || !strcmp(texture+n-4,".BMP")))texture[n-4]=0;
+}
 void halo_custom_mesh_dispose(struct halo_custom_mesh *m)
-{free(m->vertices);free(m->triangles);memset(m,0,sizeof(*m));}
+{free(m->vertices);free(m->triangles);free(m->triangle_materials);memset(m,0,sizeof(*m));}
 int halo_custom_mesh_parse(char const *data, unsigned int size, struct halo_custom_mesh *m)
 {
     struct reader r;
@@ -73,9 +93,15 @@ int halo_custom_mesh_parse(char const *data, unsigned int size, struct halo_cust
         if(steps>19 || (i && parents[i]==-1))r.failed=1;
     }
     if(m->nodes[0].sibling!=-1)r.failed=1;
-    if(integer(&r,1,1)!=1)r.failed=1;
-    line(&r,name,sizeof(name));if(strcmp(name,"armor"))r.failed=1;
-    line(&r,name,sizeof(name)); /* bitmap hint is replaced by textures/armor.png */
+    m->material_count=integer(&r,1,HALO_CUSTOM_MATERIALS);
+    for(i=0;i<m->material_count;i++)
+    {
+        struct halo_custom_material *material=&m->materials[i];
+        line(&r,material->name,sizeof(material->name));line(&r,name,sizeof(name));
+        if(!halo_custom_texture_name_valid(material->name))r.failed=1;
+        for(j=0;j<i;j++)if(!strcmp(material->name,m->materials[j].name))r.failed=1;
+        material_texture(material->name,name,material->texture);
+    }
     n=integer(&r,0,256);
     for(i=0;i<n;i++)
     {
@@ -86,7 +112,7 @@ int halo_custom_mesh_parse(char const *data, unsigned int size, struct halo_cust
     }
     regions=integer(&r,1,8);
     for(i=0;i<regions;i++)line(&r,name,sizeof(name));
-    m->vertex_count=integer(&r,3,65535);
+    m->vertex_count=integer(&r,3,196605);
     if(r.failed)goto fail;
     m->vertices=calloc(m->vertex_count,sizeof(*m->vertices));
     if(!m->vertices)goto fail;
@@ -105,18 +131,53 @@ int halo_custom_mesh_parse(char const *data, unsigned int size, struct halo_cust
     m->triangle_count=integer(&r,1,65535);
     if(r.failed)goto fail;
     m->triangles=malloc((size_t)m->triangle_count*3*sizeof(*m->triangles));
-    if(!m->triangles)goto fail;
+    m->triangle_materials=malloc((size_t)m->triangle_count*sizeof(*m->triangle_materials));
+    if(!m->triangles || !m->triangle_materials)goto fail;
     for(i=0;i<m->triangle_count;i++)
     {
-        integer(&r,0,regions-1);integer(&r,0,0);
+        integer(&r,0,regions-1);m->triangle_materials[i]=(unsigned short)integer(&r,0,m->material_count-1);
         /* port: JMS faces wind opposite native model buffers. Reverse the
            face, preserving its authored normals and per-vertex attributes. */
-        m->triangles[i*3]=(unsigned short)integer(&r,0,m->vertex_count-1);
-        m->triangles[i*3+2]=(unsigned short)integer(&r,0,m->vertex_count-1);
-        m->triangles[i*3+1]=(unsigned short)integer(&r,0,m->vertex_count-1);
+        m->triangles[i*3]=(unsigned int)integer(&r,0,m->vertex_count-1);
+        m->triangles[i*3+2]=(unsigned int)integer(&r,0,m->vertex_count-1);
+        m->triangles[i*3+1]=(unsigned int)integer(&r,0,m->vertex_count-1);
     }
     space(&r);
     if(r.failed || r.at!=r.end)goto fail;
     return 1;
 fail:halo_custom_mesh_dispose(m);return 0;
+}
+
+/* A JMS can exceed a 16-bit vertex buffer across materials. Compact only
+   each material's referenced vertices, keeping the engine's part limits. */
+int halo_custom_mesh_material(struct halo_custom_mesh const *mesh,int material,struct halo_custom_mesh *part)
+{
+    int *remap;
+    int i,j,count=0;
+    memset(part,0,sizeof(*part));
+    if(material<0 || material>=mesh->material_count)return 0;
+    for(i=0;i<mesh->triangle_count;i++)if(mesh->triangle_materials[i]==material)count++;
+    if(!count)return 1;
+    remap=malloc((size_t)mesh->vertex_count*sizeof(*remap));
+    part->vertices=malloc((size_t)(mesh->vertex_count<65535 ? mesh->vertex_count : 65535)*sizeof(*part->vertices));
+    part->triangles=malloc((size_t)count*3*sizeof(*part->triangles));
+    if(!remap || !part->vertices || !part->triangles)goto fail;
+    for(i=0;i<mesh->vertex_count;i++)remap[i]=-1;
+    for(i=0;i<mesh->triangle_count;i++)if(mesh->triangle_materials[i]==material)
+    {
+        for(j=0;j<3;j++)
+        {
+            unsigned int old=mesh->triangles[i*3+j];
+            if(old>=(unsigned int)mesh->vertex_count)goto fail;
+            if(remap[old]<0)
+            {
+                if(part->vertex_count==65535)goto fail;
+                remap[old]=part->vertex_count;part->vertices[part->vertex_count++]=mesh->vertices[old];
+            }
+            part->triangles[part->triangle_count*3+j]=(unsigned int)remap[old];
+        }
+        part->triangle_count++;
+    }
+    free(remap);return 1;
+fail:free(remap);halo_custom_mesh_dispose(part);return 0;
 }

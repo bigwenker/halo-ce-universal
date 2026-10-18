@@ -11,7 +11,8 @@ def executable():
     source=read('port/linux/src/custom_model_files.c')
     formats='\n'.join(re.findall(r'^#define STBI_ONLY_.*$',read('port/linux/src/spray_image.c'),re.M))
     decoder=formats+'\n#define STBI_NO_STDIO\n#define STBI_NO_LINEAR\n#define STBI_NO_HDR\n#define STBI_MAX_DIMENSIONS 4096\n#define STB_IMAGE_IMPLEMENTATION\n#include "'+str(ROOT/'port/third_party/stb/stb_image.h')+'"\n'
-    code=decoder+'\n'+'\n'.join(function(source,n) for n in ('read_bounded','custom_image_u32','custom_bmp_dimensions','halo_custom_image_dispose','halo_custom_image_load'))
+    code=decoder+'\n'+'\n'.join(function(source,n) for n in ('read_bounded','custom_image_u32','custom_bmp_dimensions','halo_custom_image_dispose','custom_image_load_path','halo_custom_image_load','halo_custom_material_image_load'))
+    code=function(read('port/linux/src/custom_model_jms.c'),'halo_custom_texture_name_valid')+'\n'+code
     return build('custom_model_images',(('halo_custom_models.h',read('port/linux/include/halo_custom_models.h')),('images.inc',code)))
 
 def bmp(width,height,bits,top_down=False):
@@ -66,3 +67,15 @@ def test_bad_bmp(tmp_path,bad):
     else:data[:2]=b'NO'
     path.write_bytes(data)
     assert subprocess.run([str(executable()),str(tmp_path),'1'],capture_output=True).returncode==1
+
+@pytest.mark.parametrize('texture,mask',[('Cloth_d',False),('face_d',False),('Hair_d2',True)])
+def test_material_texture(tmp_path,texture,mask):
+    folder=tmp_path/'model/textures';folder.mkdir(parents=True)
+    name=texture+('_mask' if mask else '')+'.bmp';(folder/name).write_bytes(bmp(3,2,8)[0])
+    result=subprocess.run([str(executable()),str(tmp_path),'2' if mask else '1',texture],capture_output=True,text=True)
+    assert result.returncode==0,result.stderr
+    assert result.stdout.startswith('4 2 ')
+
+@pytest.mark.parametrize('texture',['../secret','a/b','a\\b','C:drive','..',''])
+def test_unsafe_material_texture(tmp_path,texture):
+    assert subprocess.run([str(executable()),str(tmp_path),'1',texture],capture_output=True).returncode==1

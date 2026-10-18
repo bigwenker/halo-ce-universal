@@ -133,15 +133,12 @@ static int custom_bmp_dimensions(void const *data,unsigned int size,int *width,i
     *width=(int)w;*height=(int)h;return 1;
 }
 void halo_custom_image_dispose(struct halo_custom_image *image) { free(image->pixels); memset(image,0,sizeof(*image)); }
-int halo_custom_image_load(int index, int kind, struct halo_custom_image *image)
+static int custom_image_load_path(char *path,int kind,struct halo_custom_image *image)
 {
-    char path[4096]; unsigned int size; void *data;
+    unsigned int size;void *data;
     unsigned char *pixels;
     int width,height,channels,w,h,x,y;
     memset(image,0,sizeof(*image));
-    if (index<=0 || index>=halo_custom_models_count()) return 0;
-    if (SDL_snprintf(path,sizeof(path),"%s/%s/%s",root,catalogue[index].id,
-        kind==0 ? catalogue[index].preview : kind==1 ? "textures/armor.png" : "textures/armor_mask.png")>=(int)sizeof(path)) return 0;
     data=read_bounded(path,16u*1024u*1024u,&size);
     /* PNG takes precedence; BMP is the fallback for a missing texture. */
     if (!data && kind!=0)
@@ -169,4 +166,22 @@ int halo_custom_image_load(int index, int kind, struct halo_custom_image *image)
     stbi_image_free(pixels);
     if (!image->pixels) return 0;
     image->width=w;image->height=h; return 1;
+}
+
+int halo_custom_image_load(int index,int kind,struct halo_custom_image *image)
+{
+    char path[4096];
+    memset(image,0,sizeof(*image));
+    if(index<=0 || index>=halo_custom_models_count() || kind<0 || kind>2)return 0;
+    if(SDL_snprintf(path,sizeof(path),"%s/%s/%s",root,catalogue[index].id,
+        kind==0 ? catalogue[index].preview : kind==1 ? "textures/armor.png" : "textures/armor_mask.png")>=(int)sizeof(path))return 0;
+    return custom_image_load_path(path,kind,image);
+}
+int halo_custom_material_image_load(int index,char const *texture,int mask,struct halo_custom_image *image)
+{
+    char path[4096];
+    memset(image,0,sizeof(*image));
+    if(index<=0 || index>=halo_custom_models_count() || !halo_custom_texture_name_valid(texture))return 0;
+    if(SDL_snprintf(path,sizeof(path),"%s/%s/textures/%s%s.png",root,catalogue[index].id,texture,mask ? "_mask" : "")>=(int)sizeof(path))return 0;
+    return custom_image_load_path(path,1,image);
 }

@@ -55,14 +55,15 @@ typedef char custom_shader_size[sizeof(struct custom_shader)==0x174 ? 1:-1];
 struct custom_asset
 {
     struct model model;
-    struct custom_shader shader;
-    struct custom_shader_ref shader_ref;
-    struct custom_geometry geometry[5];struct custom_part parts[5];
+    struct custom_shader shader[HALO_CUSTOM_MATERIALS];
+    struct custom_shader_ref shader_ref[HALO_CUSTOM_MATERIALS];
+    struct custom_geometry geometry[5];struct custom_part parts[5][HALO_CUSTOM_MATERIALS];
     struct model_region region;struct model_region_permutation permutation;
-    struct bitmap_group bitmap_groups[2];struct bitmap_group_sequence sequences[2];
-    struct bitmap_data *bitmaps[2];
-    void *vertex_data[5],*index_data[5];
-    char names[4][128],id[32];long tag;
+    struct bitmap_group bitmap_groups[HALO_CUSTOM_MATERIALS][2];struct bitmap_group_sequence sequences[HALO_CUSTOM_MATERIALS][2];
+    struct bitmap_data *bitmaps[HALO_CUSTOM_MATERIALS][2];
+    void *vertex_data[5][HALO_CUSTOM_MATERIALS],*index_data[5][HALO_CUSTOM_MATERIALS];
+    char names[1+HALO_CUSTOM_MATERIALS*3][128],id[32];long tag;
+    short material_count;struct halo_custom_material materials[HALO_CUSTOM_MATERIALS];
     boolean ready;unsigned long memory_bytes;
 };
 static struct custom_asset assets[HALO_CUSTOM_MODELS];
@@ -121,16 +122,23 @@ boolean custom_models_profile_write(long profile,char const *id)
     if(ok)custom_models_selection_changed();
     return ok;
 }
+static struct bitmap_data *bitmap_from_image(struct halo_custom_image *image)
+{
+    struct bitmap_data *bitmap=bitmap_2d_new((short)image->width,(short)image->height,0,11);
+    if(bitmap && bitmap->base_address)
+    {memcpy(bitmap->base_address,image->pixels,image->width*image->height*4);bitmap_rebuild(bitmap);}
+    halo_custom_image_dispose(image);
+    return bitmap;
+}
 static struct bitmap_data *image_bitmap(short index,short kind)
 {
     struct halo_custom_image image;
-    struct bitmap_data *bitmap;
-    if(!halo_custom_image_load(index,kind,&image))return NULL;
-    bitmap=bitmap_2d_new((short)image.width,(short)image.height,0,11);
-    if(bitmap && bitmap->base_address)
-    {memcpy(bitmap->base_address,image.pixels,image.width*image.height*4);bitmap_rebuild(bitmap);}
-    halo_custom_image_dispose(&image);
-    return bitmap;
+    return halo_custom_image_load(index,kind,&image) ? bitmap_from_image(&image) : NULL;
+}
+static struct bitmap_data *material_bitmap(short index,char const *texture,boolean mask)
+{
+    struct halo_custom_image image;
+    return halo_custom_material_image_load(index,texture,mask,&image) ? bitmap_from_image(&image) : NULL;
 }
 void custom_models_preview_forget(void)
 {
@@ -149,39 +157,44 @@ struct bitmap_data *custom_models_preview_bitmap(char const *name,struct bitmap_
     }
     return preview_bitmap ? preview_bitmap : original;
 }
-static boolean skeleton_matches(struct halo_custom_mesh const *mesh,struct model const *stock)
+/* Chief's animation rig remains authoritative. Bind exported vertex weights
+   by bone name, independent of source order, hierarchy or rest transforms. */
+static boolean skeleton_remap(struct halo_custom_mesh *mesh,struct model const *stock)
 {
-    short i,j;
-    if(stock->nodes.count!=19)return FALSE;
-    for(i=0;i<19;i++)
+    short map[HALO_CUSTOM_MODEL_NODES];
+    short i,j,k;
+    long vertex;
+    if(stock->nodes.count!=HALO_CUSTOM_MODEL_NODES)return FALSE;
+    for(i=0;i<HALO_CUSTOM_MODEL_NODES;i++)
     {
-        struct model_node const *node=(struct model_node const *)stock->nodes.address+i;
-        struct halo_custom_node const *other=&mesh->nodes[i];
-        real const *translation=&node->default_translation.x;
-        real const *rotation=&node->default_rotation.v.i;
-        real dot=0;
-        if(strcmp(node->name,other->name) || node->parent_node_index!=other->parent)return FALSE;
-        for(j=0;j<3;j++)if(fabs(translation[j]-other->translation[j])>.001f)return FALSE;
-        for(j=0;j<4;j++)dot+=rotation[j]*other->rotation[j];
-        if(fabs(dot)<.9999f)return FALSE;
+        for(j=0;j<HALO_CUSTOM_MODEL_NODES;j++)
+            if(!strcmp(mesh->nodes[i].name,((struct model_node const *)stock->nodes.address)[j].name))break;
+        if(j==HALO_CUSTOM_MODEL_NODES)return FALSE;
+        for(k=0;k<i;k++)if(map[k]==j)return FALSE;
+        map[i]=j;
+    }
+    for(vertex=0;vertex<mesh->vertex_count;vertex++)
+    {
+        struct halo_custom_vertex *v=&mesh->vertices[vertex];
+        if(v->node[0]<0 || v->node[0]>=HALO_CUSTOM_MODEL_NODES || v->node[1]<-1 || v->node[1]>=HALO_CUSTOM_MODEL_NODES)return FALSE;
+        v->node[0]=map[v->node[0]];
+        if(v->node[1]>=0)v->node[1]=map[v->node[1]];
     }
     return TRUE;
 }
-static boolean geometry_make(struct custom_asset *asset,short index,short lod,struct model *stock)
+static boolean geometry_part_make(struct custom_asset *asset,short lod,short slot,short shader,struct halo_custom_mesh const *mesh)
 {
-    struct halo_custom_mesh mesh;
     struct model_vertex_uncompressed *vertices;
     struct model_vertex_compressed *compressed;
-    struct custom_part *part=&asset->parts[lod];
-    long i;unsigned long bytes;
-    if(!halo_custom_mesh_load(index,lod,&mesh))return FALSE;
-    bytes=3*(mesh.vertex_count*sizeof(*compressed)+mesh.triangle_count*6);
-    if(!skeleton_matches(&mesh,stock) || bytes>0x8000000UL-geometry_bytes){halo_custom_mesh_dispose(&mesh);return FALSE;}
-    vertices=zero_allocate(mesh.vertex_count*sizeof(*vertices));compressed=malloc(mesh.vertex_count*sizeof(*compressed));
-    if(!vertices || !compressed){if(vertices)free(vertices);if(compressed)free(compressed);halo_custom_mesh_dispose(&mesh);return FALSE;}
-    for(i=0;i<mesh.vertex_count;i++)
+    struct custom_part *part=&asset->parts[lod][slot];
+    unsigned short *indices;
+    long i;unsigned long bytes=3*(mesh->vertex_count*sizeof(*compressed)+mesh->triangle_count*6);
+    if(bytes>0x8000000UL-geometry_bytes)return FALSE;
+    vertices=zero_allocate(mesh->vertex_count*sizeof(*vertices));compressed=malloc(mesh->vertex_count*sizeof(*compressed));
+    if(!vertices || !compressed){if(vertices)free(vertices);if(compressed)free(compressed);return FALSE;}
+    for(i=0;i<mesh->vertex_count;i++)
     {
-        struct halo_custom_vertex *v=&mesh.vertices[i];
+        struct halo_custom_vertex *v=&mesh->vertices[i];
         struct model_vertex_uncompressed *out=&vertices[i];
         real length;
         memcpy(&out->position,v->position,12);memcpy(&out->normal,v->normal,12);
@@ -194,30 +207,52 @@ static boolean geometry_make(struct custom_asset *asset,short index,short lod,st
         out->tangent.i/=length;out->tangent.j/=length;out->tangent.k/=length;
         cross_product3d(&out->normal,&out->tangent,&out->binormal);
     }
-    rasterizer_geometry_compress_vertices(_rasterizer_vertex_type_model_uncompressed,mesh.vertex_count,compressed,
-        mesh.vertex_count*sizeof(*compressed),vertices,mesh.vertex_count*sizeof(*vertices));
-    part->previous=part->next=NONE;part->centroid_weight[0]=1.f;
-    asset->geometry[lod].parts.count=1;asset->geometry[lod].parts.address=part;
-    asset->vertex_data[lod]=compressed;
-    asset->index_data[lod]=malloc(mesh.triangle_count*6);
-    if(!asset->index_data[lod]){free(vertices);halo_custom_mesh_dispose(&mesh);return FALSE;}
-    memcpy(asset->index_data[lod],mesh.triangles,mesh.triangle_count*6);
-    if(!rasterizer_vertex_buffer_new(&part->vertex_buffer,_rasterizer_vertex_type_model_compressed,mesh.vertex_count,compressed,mesh.vertex_count*sizeof(*compressed)) ||
-        !rasterizer_triangle_buffer_new(&part->triangle_buffer,_triangle_buffer_type_triangles,mesh.triangle_count,asset->index_data[lod]))
-    {free(vertices);halo_custom_mesh_dispose(&mesh);return FALSE;}
+    rasterizer_geometry_compress_vertices(_rasterizer_vertex_type_model_uncompressed,mesh->vertex_count,compressed,
+        mesh->vertex_count*sizeof(*compressed),vertices,mesh->vertex_count*sizeof(*vertices));
+    part->shader=shader;part->previous=part->next=NONE;part->centroid_weight[0]=1.f;
+    asset->vertex_data[lod][slot]=compressed;
+    indices=malloc(mesh->triangle_count*6);asset->index_data[lod][slot]=indices;
+    if(!indices){free(vertices);return FALSE;}
+    for(i=0;i<mesh->triangle_count*3;i++)indices[i]=(unsigned short)mesh->triangles[i];
+    if(!rasterizer_vertex_buffer_new(&part->vertex_buffer,_rasterizer_vertex_type_model_compressed,mesh->vertex_count,compressed,mesh->vertex_count*sizeof(*compressed)) ||
+        !rasterizer_triangle_buffer_new(&part->triangle_buffer,_triangle_buffer_type_triangles,mesh->triangle_count,indices))
+    {free(vertices);return FALSE;}
     geometry_bytes+=bytes;asset->memory_bytes+=bytes;
-    free(vertices);halo_custom_mesh_dispose(&mesh);return TRUE;
+    free(vertices);return TRUE;
+}
+static boolean geometry_make(struct custom_asset *asset,short index,short lod,struct model *stock)
+{
+    struct halo_custom_mesh mesh,part;
+    short material,shader,slot;
+    if(!halo_custom_mesh_load(index,lod,&mesh))return FALSE;
+    if(!skeleton_remap(&mesh,stock)){halo_custom_mesh_dispose(&mesh);return FALSE;}
+    asset->geometry[lod].parts.address=asset->parts[lod];
+    for(material=0;material<mesh.material_count;material++)
+    {
+        for(shader=0;shader<asset->material_count;shader++)
+            if(!strcmp(mesh.materials[material].name,asset->materials[shader].name) &&
+                !strcmp(mesh.materials[material].texture,asset->materials[shader].texture))break;
+        if(shader==asset->material_count || !halo_custom_mesh_material(&mesh,material,&part))
+        {halo_custom_mesh_dispose(&mesh);return FALSE;}
+        if(!part.triangle_count){halo_custom_mesh_dispose(&part);continue;}
+        slot=(short)asset->geometry[lod].parts.count++;
+        if(!geometry_part_make(asset,lod,slot,shader,&part))
+        {halo_custom_mesh_dispose(&part);halo_custom_mesh_dispose(&mesh);return FALSE;}
+        halo_custom_mesh_dispose(&part);
+    }
+    halo_custom_mesh_dispose(&mesh);return TRUE;
 }
 static void asset_dispose(struct custom_asset *asset)
 {
-    short i;
-    for(i=0;i<5;i++)
+    short i,j;
+    for(i=0;i<5;i++)for(j=0;j<HALO_CUSTOM_MATERIALS;j++)
     {
-        if(asset->parts[i].vertex_buffer.hardware_format)rasterizer_vertex_buffer_delete(&asset->parts[i].vertex_buffer);
-        if(asset->parts[i].triangle_buffer.hardware_format)rasterizer_triangle_buffer_delete(&asset->parts[i].triangle_buffer);
-        if(asset->vertex_data[i])free(asset->vertex_data[i]);if(asset->index_data[i])free(asset->index_data[i]);
+        struct custom_part *part=&asset->parts[i][j];
+        if(part->vertex_buffer.hardware_format)rasterizer_vertex_buffer_delete(&part->vertex_buffer);
+        if(part->triangle_buffer.hardware_format)rasterizer_triangle_buffer_delete(&part->triangle_buffer);
+        if(asset->vertex_data[i][j])free(asset->vertex_data[i][j]);if(asset->index_data[i][j])free(asset->index_data[i][j]);
     }
-    for(i=0;i<2;i++)if(asset->bitmaps[i])bitmap_delete(asset->bitmaps[i]);
+    for(i=0;i<HALO_CUSTOM_MATERIALS;i++)for(j=0;j<2;j++)if(asset->bitmaps[i][j])bitmap_delete(asset->bitmaps[i][j]);
     geometry_bytes-=asset->memory_bytes;
     memset(asset,0,sizeof(*asset));
 }
@@ -230,68 +265,81 @@ static void tag_set(long at,long group,void *definition,char *name)
 }
 static void reference_set(struct tag_reference *reference,long group,long index)
 {memset(reference,0,sizeof(*reference));reference->group_tag=group;reference->index=index;reference->name="";}
-static boolean asset_make(short index,struct model *stock,long first)
+static boolean material_make(struct custom_asset *asset,short index,short material,long stock_shader,long first)
 {
-    struct custom_asset *asset=&assets[index];short i;long stock_shader;
     struct halo_custom_model_info const *info=halo_custom_model_info(index);
-    stock_shader=tag_loaded('soso',"characters\\cyborg\\shaders\\armor");
-    if(stock_shader==NONE)stock_shader=tag_loaded('soso',"characters\\cyborg_mp\\shaders\\armor");
-    if(stock_shader==NONE)return FALSE;
-    asset->bitmaps[0]=image_bitmap(index,1);
-    if(!asset->bitmaps[0])return FALSE;
-    if(info->colorable)asset->bitmaps[1]=image_bitmap(index,2);
-    if(!asset->bitmaps[1])
+    struct custom_shader *shader=&asset->shader[material];
+    long i,base=first+1+material*3;
+    char const *texture=asset->materials[material].texture;
+    asset->bitmaps[material][0]=material_bitmap(index,texture,FALSE);
+    if(!asset->bitmaps[material][0])return FALSE;
+    if(info->colorable)asset->bitmaps[material][1]=material_bitmap(index,texture,TRUE);
+    if(!asset->bitmaps[material][1])
     {
-        asset->bitmaps[1]=bitmap_2d_new(4,4,0,11);
-        if(!asset->bitmaps[1])return FALSE;
-        for(i=0;i<16;i++)((pixel32 *)asset->bitmaps[1]->base_address)[i]=info->colorable ? 0xFF0000FFUL : 0xFF000000UL;
-        bitmap_rebuild(asset->bitmaps[1]);
+        asset->bitmaps[material][1]=bitmap_2d_new(4,4,0,11);
+        if(!asset->bitmaps[material][1])return FALSE;
+        for(i=0;i<16;i++)((pixel32 *)asset->bitmaps[material][1]->base_address)[i]=info->colorable ? 0xFF0000FFUL : 0xFF000000UL;
+        bitmap_rebuild(asset->bitmaps[material][1]);
     }
     else
     {
-        long p,count=asset->bitmaps[1]->width*asset->bitmaps[1]->height;
+        long p,count=asset->bitmaps[material][1]->width*asset->bitmaps[material][1]->height;
         for(p=0;p<count;p++)
-        {pixel32 *pixel=(pixel32 *)asset->bitmaps[1]->base_address+p;*pixel=0xFF000000UL|((*pixel>>16)&255);}
-        bitmap_rebuild(asset->bitmaps[1]);
+        {pixel32 *pixel=(pixel32 *)asset->bitmaps[material][1]->base_address+p;*pixel=0xFF000000UL|((*pixel>>16)&255);}
+        bitmap_rebuild(asset->bitmaps[material][1]);
     }
     for(i=0;i<2;i++)
     {
-        unsigned long bytes=asset->bitmaps[i]->width*asset->bitmaps[i]->height*12UL;
+        unsigned long bytes=asset->bitmaps[material][i]->width*asset->bitmaps[material][i]->height*12UL;
         if(bytes>0x8000000UL-geometry_bytes)return FALSE;
         geometry_bytes+=bytes;asset->memory_bytes+=bytes;
     }
+    memcpy(shader,tag_get('soso',stock_shader),sizeof(*shader));
+    shader->flags=4;shader->type=0;shader->translucency=0;
+    shader->color_source=info->colorable ? 3 : 0;
+    shader->illumination_source=0;shader->illumination_flags=0;
+    memset(&shader->illumination_lower,0,sizeof(shader->illumination_lower));memset(&shader->illumination_upper,0,sizeof(shader->illumination_upper));
+    shader->u_scale=shader->v_scale=1.f;shader->detail_scale=shader->detail_v_scale=1.f;
+    shader->perpendicular_brightness=shader->parallel_brightness=0;
+    reference_set(&shader->base_map,'bitm',0x6F000000L|(base+1));
+    reference_set(&shader->multipurpose,'bitm',0x6F000000L|(base+2));
+    reference_set(&shader->detail,'bitm',NONE);reference_set(&shader->cubemap,'bitm',NONE);
+    memset(shader->animation,0,sizeof(shader->animation));
+    reference_set(&asset->shader_ref[material].shader,'soso',0x6F000000L|base);
+    snprintf(asset->names[1+material*3],128,"custom_models\\%s\\%s",info->id,asset->materials[material].name);
+    tag_set(base,'soso',shader,asset->names[1+material*3]);
+    for(i=0;i<2;i++)
+    {
+        asset->bitmap_groups[material][i].sequences.count=1;asset->bitmap_groups[material][i].sequences.address=&asset->sequences[material][i];
+        asset->sequences[material][i].bitmap_count=1;
+        asset->bitmap_groups[material][i].bitmaps.count=1;asset->bitmap_groups[material][i].bitmaps.address=asset->bitmaps[material][i];
+        snprintf(asset->names[2+material*3+i],128,"custom_models\\%s\\%s_%s",info->id,texture,i ? "mask" : "bitmap");
+        tag_set(base+1+i,'bitm',&asset->bitmap_groups[material][i],asset->names[2+material*3+i]);
+    }
+    return TRUE;
+}
+static boolean asset_make(short index,struct model *stock,long first)
+{
+    struct custom_asset *asset=&assets[index];short i;long stock_shader;
+    struct halo_custom_mesh mesh;
+    struct halo_custom_model_info const *info=halo_custom_model_info(index);
+    stock_shader=tag_loaded('soso',"characters\\cyborg\\shaders\\armor");
+    if(stock_shader==NONE)stock_shader=tag_loaded('soso',"characters\\cyborg_mp\\shaders\\armor");
+    if(stock_shader==NONE || !halo_custom_mesh_load(index,4,&mesh))return FALSE;
+    if(!skeleton_remap(&mesh,stock)){halo_custom_mesh_dispose(&mesh);return FALSE;}
+    asset->material_count=(short)mesh.material_count;
+    memcpy(asset->materials,mesh.materials,mesh.material_count*sizeof(*mesh.materials));halo_custom_mesh_dispose(&mesh);
+    for(i=0;i<asset->material_count;i++)if(!material_make(asset,index,i,stock_shader,first))return FALSE;
     for(i=0;i<5;i++)if(!geometry_make(asset,index,i,stock))return FALSE;
     asset->model=*stock;
     asset->model.regions.count=1;asset->model.regions.address=&asset->region;
     asset->model.geometries.count=5;asset->model.geometries.address=asset->geometry;
-    asset->model.shaders.count=1;asset->model.shaders.address=&asset->shader_ref;
+    asset->model.shaders.count=asset->material_count;asset->model.shaders.address=asset->shader_ref;
     strcpy(asset->region.name,"cyborg");asset->region.permutations.count=1;asset->region.permutations.address=&asset->permutation;
-    strcpy(asset->permutation.name,"__base");
-    for(i=0;i<5;i++)asset->permutation.geometry_indices[i]=i;
-    memcpy(&asset->shader,tag_get('soso',stock_shader),sizeof(asset->shader));
-    asset->shader.flags=4;asset->shader.type=0;asset->shader.translucency=0;
-    asset->shader.color_source=info->colorable ? 3 : 0;
-    asset->shader.illumination_source=0;asset->shader.illumination_flags=0;
-    memset(&asset->shader.illumination_lower,0,sizeof(asset->shader.illumination_lower));memset(&asset->shader.illumination_upper,0,sizeof(asset->shader.illumination_upper));
-    asset->shader.u_scale=asset->shader.v_scale=1.f;
-    asset->shader.detail_scale=asset->shader.detail_v_scale=1.f;
-    asset->shader.perpendicular_brightness=asset->shader.parallel_brightness=0;
-    reference_set(&asset->shader.base_map,'bitm',0x6F000000L|(first+2));
-    reference_set(&asset->shader.multipurpose,'bitm',0x6F000000L|(first+3));
-    reference_set(&asset->shader.detail,'bitm',NONE);reference_set(&asset->shader.cubemap,'bitm',NONE);
-    memset(asset->shader.animation,0,sizeof(asset->shader.animation));
-    reference_set(&asset->shader_ref.shader,'soso',0x6F000000L|(first+1));
-    for(i=0;i<4;i++)snprintf(asset->names[i],sizeof(asset->names[i]),"custom_models\\%s\\%s",info->id,i==0 ? "model" : i==1 ? "armor" : i==2 ? "bitmap" : "mask");
-    tag_set(first,'mode',&asset->model,asset->names[0]);tag_set(first+1,'soso',&asset->shader,asset->names[1]);
-    for(i=0;i<2;i++)
-    {
-        asset->bitmap_groups[i].sequences.count=1;asset->bitmap_groups[i].sequences.address=&asset->sequences[i];
-        asset->sequences[i].bitmap_count=1;
-        asset->bitmap_groups[i].bitmaps.count=1;asset->bitmap_groups[i].bitmaps.address=asset->bitmaps[i];
-        tag_set(first+2+i,'bitm',&asset->bitmap_groups[i],asset->names[2+i]);
-    }
+    strcpy(asset->permutation.name,"__base");for(i=0;i<5;i++)asset->permutation.geometry_indices[i]=i;
+    snprintf(asset->names[0],128,"custom_models\\%s\\model",info->id);tag_set(first,'mode',&asset->model,asset->names[0]);
     strcpy(asset->id,info->id);asset->tag=0x6F000000L|first;asset->ready=TRUE;
-    platform_log("custom models: loaded %s (five LODs, profile color %s)",info->id,info->colorable ? "enabled" : "disabled");
+    platform_log("custom models: loaded %s (five LODs, %d materials, profile color %s)",info->id,asset->material_count,info->colorable ? "enabled" : "disabled");
     return TRUE;
 }
 void custom_models_loaded(void)
@@ -304,7 +352,7 @@ void custom_models_loaded(void)
     if(stock_model==NONE)return;
     stock=model_definition_get(stock_model);if(stock->nodes.count!=19)return;
     original_table=cache_files_tag_instances(&original_count);
-    total=original_count+(halo_custom_models_count()-1)*4;
+    total=original_count+(halo_custom_models_count()-1)*(1+HALO_CUSTOM_MATERIALS*3);
     if(!original_table || total>=65535 || total==original_count){original_table=NULL;return;}
     new_table=zero_allocate(total*sizeof(*new_table));if(!new_table){original_table=NULL;return;}
     memcpy(new_table,original_table,original_count*sizeof(*new_table));
@@ -313,8 +361,8 @@ void custom_models_loaded(void)
     total=original_count;
     for(i=1;i<halo_custom_models_count();i++)
     {
-        if(asset_make(i,stock,total)){total+=4;cache_files_set_tag_instances(new_table,total);}
-        else {platform_log("custom models: %s is incomplete or has an incompatible Chief skeleton; retaining Chief",halo_custom_model_info(i)->id);asset_dispose(&assets[i]);}
+        if(asset_make(i,stock,total)){total+=1+assets[i].material_count*3;cache_files_set_tag_instances(new_table,total);}
+        else {platform_log("custom models: %s is incomplete or has an missing or invalid Chief bone names; retaining Chief",halo_custom_model_info(i)->id);asset_dispose(&assets[i]);}
     }
 }
 void custom_models_unloaded(void)

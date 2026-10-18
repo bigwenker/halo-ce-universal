@@ -1407,16 +1407,29 @@ load. Restart/reload a map after changing a pack's files.
 A pack needs `info.toml` with `full_name` (string), `colorable` (boolean) and
 `preview` (a PNG filename in the pack's root). IDs use lowercase ASCII letters,
 numbers, underscores and hyphens, at most 31 characters; `master_chief` is reserved.
-Preview PNGs must have width:height 1:2 and are displayed at 128x256. Put the base
+Preview PNG/BMP images must have width:height 1:2 and are displayed at 128x256. Put the base
 texture in `textures/armor.png` (or `armor.bmp`; PNG takes precedence), and five JMS 8200 files in
 `source/characters/cyborg/models/`, named `__base superlow.jms`, `__base low.jms`,
 `__base medium.jms`, `__base high.jms` and `__base superhigh.jms`. The last also
-accepts `.JMS` for existing Blender exports. Each has one material named `armor`.
-Their 19 bones, names, order, parent hierarchy and rest transforms must match
-Chief's; alternate sibling traversal/checksums and source region labels are
-normalized to the validated stock model. Images may be paletted PNGs and are
+accepts `.JMS` for existing Blender exports. Up to 32 named materials retain
+their triangle assignments. Texture bitmap hints resolve only their local
+filename under `textures/`, ignoring author-machine directories, with `.png`
+preferred over `.bmp`. `<none>` uses the material name; the legacy `armor`
+material always uses `armor.png`/`armor.bmp`. For example, `face_d.bmp` uses
+`textures/face_d.png` or `textures/face_d.bmp`. Material order may differ between
+LODs, but their names and texture mappings must match the superhigh file.
+Their 19 bone names must match Chief's exactly, with no missing or duplicate
+names. Source bone order, hierarchy and rest transforms may differ; vertex
+weights are remapped by name to Chief's existing animation rig. This retains
+Chief's in-game bone motion, collision and attachment points rather than
+installing a custom animation rig. Source hierarchies must remain valid and
+acyclic. Authoring checksums and source region labels are normalized. Images may be PNGs or paletted 8-bit, RGB 24-bit or RGBA 32-bit BMPs (including top-down BMPs), and are
 resampled to power-of-two dimensions in memory. Assets are bounded by file,
 vertex, triangle and image limits and a shared 128 MiB residency allowance.
+A source JMS may contain up to 196,605 vertices and 65,535 triangles. Each
+material is compacted into its own ordinary geometry part, with at most
+65,535 referenced vertices per material. Invalid or incomplete models fall
+back to Chief; source meshes, weights and face winding are not altered.
 
 `colorable=false` retains the texture's authored colors. `colorable=true` uses
 Chief's ordinary color-change channel C and the saved profile RGB (or the normal
@@ -1426,8 +1439,8 @@ including black, takes priority. The default is ignored when `colorable=false`
 or the value is not a six-digit RGB hex string. Team colors still take priority
 in team multiplayer. Defaults are resolved from each client's local pack;
 the existing optional model/RGB messages and upstream protocol are unchanged.
-An optional grayscale `textures/armor_mask.png` chooses
-recolorable areas (white changes, black stays); without it the entire armor is
+An optional grayscale `textures/<texture>_mask.png` or `.bmp` chooses
+recolorable areas (white changes, black stays); without it the entire material is
 colorable. Use neutral gray/white base colors for vivid RGB tinting. The mask
 is converted to the Xbox shader's blue channel. The preview
 is an authored image, not an automatically recolored rendering of the model.
