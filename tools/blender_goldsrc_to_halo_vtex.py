@@ -42,6 +42,16 @@ HELPER_PATTERN = re.compile(
     r'bip01 ([lr]) (femoral head|knee|talus|toe|shoulder|elbow|wrist|hand|finger)(?:\d+)?'
 )
 
+# Miyu's source SMD hierarchy places facial/hair controls under Head and
+# every skirt control under Pelvis. Smoothing joints lie at the corresponding
+# hand, elbow, knee or thigh joint; Chief has no separate helper bones.
+HEAD_DETAIL_PATTERN = re.compile(
+    r'(?:bip\d+ )?head (?:eyes|blink|[lr] eyebrow|(?:[lr] )?fakehair)[ a-z0-9-]*'
+)
+SKIRT_PATTERN = re.compile(r'bip\d+ (?:l|r|m|bl|br|bm) leg skirt\d*')
+SMOOTH_PATTERN = re.compile(r'bip\d+ ([lr]) (leg|knee|elbow|wrist)\d*[- ]smooth\d*')
+SMOOTH_TARGETS = {'leg': 'thigh', 'knee': 'calf', 'elbow': 'forearm', 'wrist': 'hand'}
+
 
 def chief_group(name):
     key = re.sub(r'[_\s]+', ' ', re.sub(r'\.\d{3}$', '', name.strip())).casefold()
@@ -49,6 +59,13 @@ def chief_group(name):
         return key
     if key in ALIASES:
         return ALIASES[key]
+    if HEAD_DETAIL_PATTERN.fullmatch(key):
+        return 'bip01 head'
+    if SKIRT_PATTERN.fullmatch(key):
+        return 'bip01 pelvis'
+    match = SMOOTH_PATTERN.fullmatch(key)
+    if match:
+        return 'bip01 ' + match[1] + ' ' + SMOOTH_TARGETS[match[2]]
     match = HELPER_PATTERN.fullmatch(key)
     if match:
         return 'bip01 ' + match[1] + ' ' + HELPERS[match[2]]
