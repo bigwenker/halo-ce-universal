@@ -149,6 +149,8 @@ on the host's word */
 long network_objects_new_object_index(void);
 boolean network_objects_creating_host_object(void);
 boolean network_objects_may_delete(long object_index);
+/* port/linux/game/spawn_menu.c's: the spawn menu makes what was picked */
+boolean spawn_menu_creating_object(void);
 /* port/linux/game/network_coop.c's: the scripts' attaching, on co-op's clients */
 void network_coop_note_attach(long parent_index, char const *parent_marker_name, long child_index,
 	char const *child_marker_name);
@@ -3449,6 +3451,9 @@ long object_new(
 	if (game_engine_running() && definition_index!=NONE
 		/* (the host's object, which the host made as the game type has it) */
 		&& !network_objects_creating_host_object()
+		/* port: (nor the spawn menu's, which makes what was picked:
+		port/linux/game/spawn_menu.c) */
+		&& !spawn_menu_creating_object()
 		)
 	{
 		definition_index = game_engine_remap_object_definition(definition_index);

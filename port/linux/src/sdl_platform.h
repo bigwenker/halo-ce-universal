@@ -135,6 +135,10 @@ void platform_video_window_size(int *width, int *height);
 /* the open scoreboard's pointer, offered (a network game's) or not: TRUE
 while a right click has freed it, with what it did since the last call */
 BOOL platform_scoreboard_pointer(BOOL offered, struct platform_ui_pointer *pointer);
+/* the spawn menu open or not: while it is, the mouse is freed and its
+pointer's motion, clicks and wheel go to the menu; TRUE once the pointer has
+the mouse, with what it did since the last call */
+BOOL platform_spawn_menu_pointer(BOOL open, struct platform_ui_pointer *pointer);
 /* a menu's text field typed into or not (a password's or not): the system's
 on-screen keyboard up while it is, where there is one that text input shows
 (Steam's); each field begun brings it up again */

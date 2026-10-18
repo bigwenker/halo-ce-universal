@@ -287,12 +287,34 @@ otherwise than this build's, as they are checked (tag_schema_models.c:
 gbxmodels, 'mod2', which the game takes as models, 'mode') */
 extern struct tag_schema_group const tag_schema_custom_edition_groups[];
 
+/* a model geometry part's pointers that are not its fields: its vertex and
+index buffers (in the map's tag header, which the part's check finds) and
+their bytes, for whoever moves a map's tags elsewhere (port/linux/game/spawn_tags.c) */
+enum
+{
+	TAG_SCHEMA_MODEL_GEOMETRY_PART_POINTERS = 4,
+};
+
+boolean tag_schema_is_model_geometry_part(
+	struct tag_schema_definition const *definition);
+short tag_schema_model_geometry_part_pointers(
+	void *base,
+	void **pointers[TAG_SCHEMA_MODEL_GEOMETRY_PART_POINTERS]);
+
 /* ---------- prototypes/TAG_VALIDATE.C */
 
 /* the tags at tag_header (tag_data_size bytes read from a map file of
 file_length bytes): FALSE if they cannot be used. Before anything else
 reads them; corrections are made in place */
 boolean tag_validate_tags(
+	void *tag_header,
+	long tag_data_size,
+	long file_length,
+	char const *map_name);
+/* ... as tag_validate_tags, for tags other than the playing map's (another
+map's, loaded for the spawn menu: port/linux/game/spawn_tags.c): what the
+validator keeps of the playing map's, for its structure bsps, is kept */
+boolean tag_validate_tags_aside(
 	void *tag_header,
 	long tag_data_size,
 	long file_length,

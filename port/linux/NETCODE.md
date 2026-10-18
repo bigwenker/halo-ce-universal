@@ -330,8 +330,8 @@ anyway.
 ## Optional features in this fork's integration build
 
 The integration build uses upstream's protocol 28, including its unchanged
-map-sharing messages 83-86. Fork features use private message IDs 240-246
-and 250 instead. They are not part of the upstream PR branches.
+map-sharing messages 83-86. Fork features use private message IDs 240-246,
+250 and 251 instead. They are not part of the upstream PR branches.
 
 A fork host sets an otherwise unused advertisement flag (0x80). Only clients
 that see that flag send the revision-1 capability request, on the authenticated
@@ -342,7 +342,7 @@ negotiated feature. The mask is cleared at every round and whenever a machine
 slot is reused. Stock hosts receive no probes or fork payloads. Stock clients
 receive the unchanged game protocol, including map sharing and voice chat.
 
-Chat, co-op scores/death text, remote kill/suicide requests and sprays require
+Chat, co-op scores/death text, remote kill/suicide requests, sprays and the spawn menu require
 a matching extension-capable host and client. Unsupported commands report that
 the host lacks support. Host-only pickup/vehicle scaling and damage rules still
 use normal object and damage replication. All voice mode still uses the
@@ -353,6 +353,18 @@ host and negotiated fork clients; it cannot enforce a rule in unmodified
 upstream clients. Controller/touch behavior, saved preferences and bullets'
 autoaim are unchanged. A client joining an upstream host retains upstream's
 normal mouse magnetism behavior instead of waiting for a policy it never sends.
+
+The spawn menu (message 251, feature bit 32: port/linux/game/network_spawn.c)
+sends a client's request to the host (the thing and the client's view ray), the
+host's answer, and the host's loads of tags from other maps
+(port/linux/game/spawn_tags.c): which map (with its header checksum), which tag,
+and which places of the tag table, from 16384 on, its tag and those it needs
+took. A client loads the same from its own copy of that map at the same places,
+before the host's objects of those tags, which it asks for again once it has
+them; a client that joins later is told every load so far. A client's hello
+alternates between offering every feature and offering those of revision-1
+hosts before the spawn menu (bits 1-16), which ignore a hello with a bit they do
+not know.
 
 ## Joining a game in progress
 

@@ -213,6 +213,7 @@ gamepads' only.
 | screenshot | F10 |
 | spray image | T |
 | talk in voice chat (hold) | V |
+| open or close the spawn menu | F6 |
 
 Always: \` opens the developer console, F12 releases or captures the mouse,
 F11 changes between fullscreen and window. Screenshot (default F10,
@@ -388,7 +389,7 @@ clients and in `init.txt`, without becoming map-script functions.
 | `input.invert_mouse` | `false` | `HALO_MOUSE_INVERT=1` sets `true` | `true`: the vertical mouse aim is inverted. |
 | `network.block_mouse_aim_assist` | `false` | `HALO_NET_BLOCK_MOUSE_AIM_ASSIST` | Host: Player Options > Aim Assist, Allowed or Block M+KB. Block overrides optional mouse magnetism while mouse/keyboard aims, including on the host, without changing the saved preference. Controllers and touch retain their existing behavior; bullet autoaim is unchanged. |
 | `input.mouse_aim_assist` | `false` | `HALO_MOUSE_AIM_ASSIST` | `true`: the magnetism of the controller also operates for the mouse. `false`: when the mouse moved after the right stick, the view is not slowed or dragged by a target. The autoaim of the bullets operates in both cases. |
-| `controls.<action>` | (the table in "Controls") | `HALO_KEY_<ACTION>` | The keys and mouse buttons of an action, up to two, separated by a comma: `move_forward`, `move_backward`, `strafe_left`, `strafe_right`, `jump`, `crouch`, `fire`, `throw_grenade`, `melee`, `reload`, `zoom`, `switch_weapon`, `switch_grenade`, `action`, `flashlight`, `scoreboard`, `pause`, `screenshot`, `spray`, `push_to_talk`. Keys by their names (`"W"`, `"Space"`, `"Left Ctrl"`, `"F1"`), and `"Mouse Left"`, `"Mouse Right"`, `"Mouse Middle"`, `"Mouse 4"`, `"Mouse 5"`, `"Wheel"` (either way), `"Wheel Up"`, `"Wheel Down"`. |
+| `controls.<action>` | (the table in "Controls") | `HALO_KEY_<ACTION>` | The keys and mouse buttons of an action, up to two, separated by a comma: `move_forward`, `move_backward`, `strafe_left`, `strafe_right`, `jump`, `crouch`, `fire`, `throw_grenade`, `melee`, `reload`, `zoom`, `switch_weapon`, `switch_grenade`, `action`, `flashlight`, `scoreboard`, `pause`, `screenshot`, `spray`, `chat`, `push_to_talk`, `spawn_menu`. Keys by their names (`"W"`, `"Space"`, `"Left Ctrl"`, `"F1"`), and `"Mouse Left"`, `"Mouse Right"`, `"Mouse Middle"`, `"Mouse 4"`, `"Mouse 5"`, `"Wheel"` (either way), `"Wheel Up"`, `"Wheel Down"`. |
 | `game.console_log` | `"important"` | `HALO_CONSOLE_LOG` | What the console shows on the screen. `"important"`: bans, players that the host drops for cheating, the reasons that the game refuses a command, and the asserts that stop the game. `"all"`: all the lines. `"none"`: only the asserts that stop the game. The output of a command always shows. `debug.txt` gets all the lines. |
 | `game.language` | `""` | `HALO_LANGUAGE` | The language of the menus: `ja`, `de`, `fr`, `es` or `it`. Empty: English. |
 | `game.enhanced_animations` | `true` | `HALO_ENHANCED_ANIMATIONS` | `true`: the player bipeds' grenade throws keep their legs moving, blended by speed and direction (crouched throws stay crouched, throws in the air use the jump's legs), Warthog and Scorpion riders stay seated to throw and let go of the grips to throw and reload, and a player turns with the aim while throwing, as while meleeing. `false`: the original animations, which freeze the legs during a throw and stand a rider up. Only in config.toml, not in the menus. |
@@ -430,6 +431,7 @@ clients and in `init.txt`, without becoming map-script functions.
 | `crash_reports.upload` | `"ask"` | `HALO_CRASH_REPORTS` | Windows only. `"yes"`: the game sends a report of each crash to the developers. `"no"`: the game sends no reports. `"ask"`: the game asks at the next crash and writes the answer here. Refer to "Crash reports" in [port/windows/README.md](../windows/README.md#crash-reports). |
 | `debug.update_answer` | `""` | `HALO_UPDATE_ANSWER` | The answer to the update question, for automatic tests: `yes`, `no` or `never`. Empty: the game asks. |
 | `debug.exit_after` | `0.0` | `HALO_EXIT_AFTER` | The game stops after this number of seconds. `0`: never. |
+| `debug.spawn_test` | `""` | `HALO_SPAWN_TEST` | The spawn menu's automated tests: tag paths, separated by commas, each spawned in turn every few seconds where the player looks, as a click on its box would (through the host on a client); `wait` takes a turn without one, `menu` opens or closes the menu, `tab:<n>` shows a tab, `faction:<n>` the NPCs' faction and `shot` saves a screenshot. |
 | `debug.screenshot_directory`, `debug.screenshot_every` | `""`, `0` | `HALO_SCREENSHOT_DIR`, `HALO_SCREENSHOT_EVERY` | The game writes each Nth frame to this folder as a BMP file. |
 | `debug.hidden_window`, `debug.null_renderer` | `false` | `HALO_HIDDEN_WINDOW`, `HALO_NULL_RENDERER` | `true`: no visible window, or no graphics. |
 | `debug.gpu_stats`, `debug.gpu_trace_frame`, `debug.gpu_trace_constants`, `debug.gpu_dump_shaders`, `debug.texture_dump_directory`, `debug.texture_log`, `debug.gl_debug`, `debug.texture_no_cache` | off | `HALO_GPU_STATS`, `HALO_GPU_TRACE`, `HALO_GPU_TRACE_CONSTANTS`, `HALO_GPU_DUMP_SHADERS`, `HALO_TEXTURE_DUMP`, `HALO_TEXTURE_LOG`, `HALO_GL_DEBUG`, `HALO_TEXTURE_NO_CACHE` | Tools to find problems in the graphics: counts for each frame, all the GL state of one frame, the GLSL code, the textures. |
@@ -1183,6 +1185,10 @@ Other changes:
 | `structures/structure_render.c` | The structure's visible surfaces are put in order by a radix sort, not `qsort_4byte`: the same order. |
 | `cache/cache_files.c`, `networking/network_client_manager.c`, `networking/network_server_manager.c`, `networking/network_server_message_handler.c`, `main/main.c`, `interface/interface.c` | Map sharing (`game/map_share.c`): a client that does not have the game's Custom Edition map asks the host for it instead of leaving, is not given time to precache it until it has it, and adds its players to a game in progress only then; the host gives the game's map its own name and its version (its hash's start), takes the requests from any machine in the game, lobby too, and does not drop a machine that downloads; the transfers run each frame, and their progress is drawn over the screen. |
 | `game/players.c` | The main menu's scene ticks with no player updates queued (`game/game_time.c`), so finding none there is not the fatal error it is in a game (a debug build stopped at the main menu; a release build logged it every tick). |
+| `main/main.c`, `interface/interface.c` | The spawn menu (`game/spawn_menu.c`, "Spawn menu"): opened, closed and its picks spawned each frame of a game in progress, after the chat; drawn over the screen beneath the console and the chat. |
+| `cache/cache_files.c`, `cache/cache_files_windows.c` | The spawn menu's tags loaded from other maps (`game/spawn_tags.c`): started afresh as a map's tags load, let go after the texture and sound caches as they unload, and their bitmaps' and sounds' reads served from their maps. |
+| `objects/objects.c` | An object the spawn menu makes is what was picked: a game type does not swap it for another. |
+| `saved games/game_state.c` | A checkpoint keeps the spawn menu's loads with it, and a saved game makes them again as it loads ("Spawn menu"). |
 | `cutscene/cinematics.c` | A scenario's titles (some Custom Edition maps show their name for the whole game) are not drawn over a menu, as the letterbox is not: the screen's overlays are drawn after the players' menus. |
 | `tag_files/tag_groups.h` | `TAG_BLOCK_GET_ELEMENT` returns an element in the block without a call, and calls `tag_block_get_element_with_size` for anything else. |
 | `input/input_xbox.c`, `physics/collision_usage.c` | The clock is read only for a button held, and for collision tests only when their times are shown: a read of the clock is slow in a browser. |
@@ -1211,6 +1217,82 @@ each of the browser's frames, the cache thread starts at a function of
 `CreateThread`'s type, `debug.txt`'s lines go to the page's log) and the
 declarations given their definitions' types, which WebAssembly needs, are
 listed in "Game source changes" in [../web/README.md](../web/README.md).
+
+### Spawn menu (fork feature)
+
+F6 (`controls.spawn_menu`, Settings > Controls Setup > Other, with Chat and
+Push to Talk) opens the spawn menu over the game, and F6 again closes it;
+the pause key (Escape) closes it too, without pausing. Its tabs are Weapons,
+Ammo (ammunition and grenades), Equipment (powerups and the health pack),
+NPCs (actor variants, placed with their AI; not the Flood's swarms, nor a
+vehicle's pilot) and Vehicles. The NPCs are shown a faction at a time, each
+with a tab of its own beneath: UNSC, Covenant, Flood and Forerunner (the
+sentinels and the monitor), by their unit's team. Each is a grid of boxes with the name of the
+thing, in as many lines as it takes; a weapon's box and its ammunition's
+show the weapon's pickup icon, and a grenade's its own.
+
+The things are every map's, not only the playing one's: a Scorpion can be
+spawned on The Silent Cartographer. The menu lists only what a player can
+use: weapons a player can carry (with a first person view and a HUD: not a
+vehicle's gun or a character's, nor the energy sword, which the Xbox game
+gives only the Elites), all the equipment, and the vehicles a player can
+drive (not the cutscenes' props).
+
+While the menu is open the mouse is freed and moves a pointer, so the view
+does not turn (nor does a gamepad's right stick); the keyboard still moves
+the player. A left click on a box spawns one of that thing on the surface
+the centre of the view is on (up to 1000 feet away), raised off it by about
+the thing's size; NPCs and vehicles face the player. The menu stays open,
+and every click spawns another: there is no limit but the game's own memory
+for objects. A game type's weapon, vehicle and equipment settings do not
+change what is spawned. The line at the bottom says what the click did. The
+wheel scrolls a tab with more boxes than fit, and a click on a tab shows it.
+
+How the other maps' things get there:
+
+- The first time the game plays, it reads the tags of every Xbox map in
+  `maps/` (not `ui.map`), a little each frame, faster while the menu is
+  open (the menu's header says how far it is). Halo's maps are compressed,
+  so this inflates each of them once: about ten seconds in all. What each
+  map has is kept in `z:\spawn\catalog.txt` in the save folder, read again
+  while the maps are the same files.
+- A thing the playing map has is spawned from it. Any other is loaded from
+  the smallest map that has it: that map is decompressed once into
+  `z:\spawn\<map>.map` (20 to 270 MB each; a second or two, then kept), and
+  its tags read into memory of their own, moved there and checked as a
+  map's tags are as they load. The thing's tag and every tag it needs are
+  added to the playing map's tag table, from place 16384 on (the same
+  places on every machine), all of them that map's versions, so that they
+  fit together; only a map's own tags (its scenario, structure bsps, globals
+  and HUD globals) are the playing map's. Their bitmaps and sounds are read
+  from that map's copy. A thing loaded once is spawned again at once.
+- They are let go with the playing map.
+
+In a network game, every machine with this version can use the menu. The
+host spawns: a client's click asks it, with where the client's view looks,
+and it spawns there (the line at the bottom says what came of it). The
+host tells every client of the tags it loads from other maps, before the
+objects that need them, and a client loads the same, from its own copy of
+that map (of the same checksum), at the same places; a client that joins
+later is told of all of them. This is a fork extension (a message of its
+own, offered only to machines that took it, as sprays are): the network
+version is unchanged, so players of other versions still play together,
+but the menu is only for the host's players when the host has this
+version, and a machine of another version does not see what was loaded
+from other maps. A client of a host without it cannot spawn at all: only
+the host makes the game's objects and runs its AI, the host has nothing a
+client can ask that makes one, and an object a client made itself would be
+gone at once (a client deletes what the host has not told it of), so the
+menu says the host has none. Every machine needs the maps the things come from; one
+that lacks one, or has another version of it, does not see them either.
+
+A saved game keeps the loads it needs: each checkpoint writes them to
+`z:\spawn\saved_<map>.txt`, and a saved game loaded in a game that has not
+made them (a campaign resumed after the game restarted) makes them again
+first, at the same places. If one cannot be made (its map is gone), the
+objects that need it are deleted and the level starts over.
+
+There is no spawn menu on Android, which has no pointer for it.
 
 ### Image sprays (fork feature)
 

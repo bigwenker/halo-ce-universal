@@ -102,6 +102,7 @@ symbols in this file:
 #include "game_state.h"
 #include "halo_spray.h"
 #include "coop_vehicles.h" /* port: checkpoint the co-op vehicle home table */
+#include "spawn_tags.h" /* port: port/linux/game/spawn_tags.c */
 #include "game.h"
 #include "tag_files.h"
 #include "cache_files.h"
@@ -185,6 +186,8 @@ static game_state_before_save_proc before_save_procs[] =
 {
 	dummy,
 	coop_vehicles_before_save,
+	/* port: the spawn menu's loads from other maps, kept with the saved game */
+	spawn_tags_before_save,
 };
 
 static game_state_before_load_proc before_load_procs[] =
@@ -214,7 +217,9 @@ static game_state_after_load_proc after_load_procs[] =
 	player_control_fix_for_loaded_game_state,
 	director_initialize_for_saved_game,
 	scripted_hud_messages_clear,
-	coop_vehicles_after_load
+	coop_vehicles_after_load,
+	/* port: and made again in a game that has not made them */
+	spawn_tags_after_load
 };
 
 /* ---------- public code */

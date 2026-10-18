@@ -71,6 +71,7 @@ symbols in this file:
 
 #include "network_social.h"
 #include "cseries/cseries.h"
+#include "spawn_menu.h" /* port: port/linux/game/spawn_menu.c */
 #include "cseries/cseries_windows.h"
 #include "ai/ai_profile.h"
 #include "bitmaps/bitmap_group.h"
@@ -385,6 +386,9 @@ void interface_draw_fullscreen_overlays(
 	hud_render_timer();
 	/* port: a map's download (port/linux/game/map_share.c) */
 	map_share_render();
+	/* port: the spawn menu (port/linux/game/spawn_menu.c), beneath the
+	console and the chat */
+	spawn_menu_draw();
 	terminal_draw();
 	chat_draw();
 	main_framerate_render();

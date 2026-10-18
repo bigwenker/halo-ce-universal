@@ -333,6 +333,7 @@ symbols in this file:
 
 #include "network_social.h"
 #include "cseries.h"
+#include "spawn_menu.h" /* port: port/linux/game/spawn_menu.c */
 #include "errors.h"
 #include "cseries/profile.h"
 #include "cseries/cseries_windows.h"
@@ -3591,6 +3592,8 @@ static boolean main_loop_iteration(
 			{
 				terminal_update();
 				chat_update();
+				/* port: the spawn menu (controls.spawn_menu) */
+				spawn_menu_update();
 
 				if (chat_is_active() || !console_update() || main_globals.connection!=_game_connection_local)
 				{

@@ -2076,8 +2076,10 @@ static struct
 	{ "controls.pause", L"PAUSE MENU", 2 },
 	{ "controls.screenshot", L"SCREENSHOT", 2 },
 	{ "controls.spray", L"SPRAY IMAGE", 2 },
-	{ "controls.chat", L"CHAT", 2 },
-	{ "controls.push_to_talk", L"PUSH TO TALK", 2 },
+	/* (OTHER: Actions has rows for seven) */
+	{ "controls.chat", L"CHAT", 3 },
+	{ "controls.push_to_talk", L"PUSH TO TALK", 3 },
+	{ "controls.spawn_menu", L"SPAWN MENU", 3 },
 };
 
 static struct

@@ -857,6 +857,19 @@ short cache_file_read(
 	short request_index = cache_request_next_free_index();
 	struct cache_file_request *request = cache_request_get(request_index);
 
+	/* port: and the reads of a tag the spawn menu loaded from another map,
+	from that map, at once (port/linux/game/spawn_tags.c) */
+	{
+		extern boolean spawn_tags_read(long tag_index, long offset, long size, void *buffer, boolean *failed);
+		boolean failed = FALSE;
+
+		if (spawn_tags_read(tag_index, offset, size, buffer, &failed))
+		{
+			*completion_flag_reference = failed ? _cache_file_read_failed : TRUE;
+
+			return request_index;
+		}
+	}
 	/* port: the reads of a Halo Custom Edition map are served in place, at
 	once; the request stays free (port/linux/game/custom_edition_cache.c) */
 	if (custom_edition_cache_tags_loaded())

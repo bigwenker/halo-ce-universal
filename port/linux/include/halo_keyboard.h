@@ -40,6 +40,8 @@ enum halo_keyboard_action
 	halo_push_to_talk_held) */
 	HALO_KEYBOARD_PUSH_TO_TALK,
 	HALO_KEYBOARD_CHAT,
+	/* (the spawn menu's: halo_spawn_menu_requested) */
+	HALO_KEYBOARD_SPAWN_MENU,
 	NUMBER_OF_HALO_KEYBOARD_ACTIONS
 };
 
@@ -51,5 +53,9 @@ unsigned long halo_keyboard_actions(short controller_index);
 game and in the menus alike */
 int halo_push_to_talk_held(void);
 int halo_chat_requested(void);
+/* whether controls.spawn_menu was pressed since the last call: it opens and
+closes the spawn menu (port/linux/game/spawn_menu.c); its pause key, while
+the menu is open, closes it too */
+int halo_spawn_menu_requested(void);
 
 #endif

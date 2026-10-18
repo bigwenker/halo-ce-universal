@@ -46,6 +46,7 @@ data and which the game takes as models (tag_schema_custom_edition_groups).
 #include "tag_schema.h"
 
 #include <stdarg.h>
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -1229,6 +1230,35 @@ boolean tag_validate_tags(
 	}
 
 	return validate_tag_table(&validation, header->instances, header->tag_count);
+}
+
+boolean tag_validate_tags_aside(
+	void *tag_header,
+	long tag_data_size,
+	long file_length,
+	char const *map_name)
+{
+	void *globals = malloc(sizeof(tag_validate_globals));
+	void *claims = malloc(sizeof(tag_validate_claims));
+	boolean result;
+
+	if (!globals || !claims)
+	{
+		if (globals)
+			free(globals);
+		if (claims)
+			free(claims);
+		return FALSE;
+	}
+	memcpy(globals, &tag_validate_globals, sizeof(tag_validate_globals));
+	memcpy(claims, tag_validate_claims, sizeof(tag_validate_claims));
+	result = tag_validate_tags(tag_header, tag_data_size, file_length, map_name);
+	memcpy(&tag_validate_globals, globals, sizeof(tag_validate_globals));
+	memcpy(tag_validate_claims, claims, sizeof(tag_validate_claims));
+	free(globals);
+	free(claims);
+
+	return result;
 }
 
 boolean tag_validate_custom_edition_tags(

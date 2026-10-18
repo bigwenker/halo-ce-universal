@@ -7,6 +7,7 @@
 #include "network_distributed.h"
 #include "network_extensions.h"
 #include "network_aim_assist.h"
+#include "network_spawn.h"
 #include <string.h>
 
 boolean network_distributed_client_send_reliably(void *, word);
@@ -14,7 +15,10 @@ short network_distributed_server_machines(long *, short);
 enum
 {
     EXT_AIM = 1, EXT_SUICIDE = 2, EXT_DEATH = 4, EXT_SOCIAL = 8,
-    EXT_SPRAY = 16, EXT_ALL = 31, EXT_REVISION = 1
+    EXT_SPRAY = 16, EXT_SPAWN = 32, EXT_ALL = 63, EXT_REVISION = 1,
+    /* what hosts before the spawn menu take: they ignore a hello with a
+       feature they do not know, so every other hello offers only these */
+    EXT_LEGACY = 31
 };
 #define EXT_MAGIC 0x45544C45UL /* ELTE */
 struct extension_message
@@ -26,6 +30,7 @@ struct extension_message
 static boolean host_available, hello_sent;
 static word host_features, machine_features[HALO_PORT_MAXIMUM_NETWORK_MACHINES];
 static unsigned long last_hello;
+static unsigned short hellos;
 
 void network_extensions_select_host(boolean available)
 {
@@ -38,6 +43,7 @@ void network_extensions_reset(void)
     host_features = 0;
     hello_sent = FALSE;
     last_hello = 0;
+    hellos = 0;
     memset(machine_features, 0, sizeof(machine_features));
 }
 
@@ -58,6 +64,7 @@ word network_extensions_feature(byte type)
     case _distributed_message_social_line:
     case _distributed_message_social_scores: return EXT_SOCIAL;
     case 250: return EXT_SPRAY; /* spray_share.h's private extension */
+    case 251: return EXT_SPAWN; /* network_spawn.c's private extension */
     default: return 0;
     }
 }
@@ -85,12 +92,13 @@ void network_extensions_update(void)
     message.header.game_time = game_time_get();
     message.magic = EXT_MAGIC;
     message.revision = EXT_REVISION;
-    message.features = EXT_ALL;
+    message.features = (hellos & 1) ? EXT_LEGACY : EXT_ALL;
     build_message_header(&message.header.header, sizeof(message), 2, 0);
     if (network_distributed_client_send_reliably(&message, sizeof(message)))
     {
         hello_sent = TRUE;
         last_hello = now;
+        hellos++;
     }
 }
 
@@ -113,6 +121,8 @@ void network_extensions_handle(long machine, word const *data, word size, boolea
         distributed_send_to_machine_reliably(machine, &message,
             _distributed_message_fork_capabilities, 1, sizeof(message));
         network_aim_assist_send_policy(machine);
+        if (message.features & EXT_SPAWN)
+            network_spawn_machine_ready(machine);
     }
     else if (game_connection() == _game_connection_network_client && machine == NONE &&
         host_available && hello_sent)

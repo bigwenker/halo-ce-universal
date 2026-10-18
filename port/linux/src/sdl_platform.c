@@ -85,8 +85,18 @@ not to the aim and the triggers. Another right click, or the scoreboard
 closing, takes the mouse back for the aim. */
 static BOOL scoreboard_pointer_offered;
 static struct platform_ui_pointer scoreboard_pointer;
+/* the spawn menu's pointer (platform_spawn_menu_pointer): while the game has
+the menu open (port/linux/game/spawn_menu.c), the mouse is freed and its
+motion, clicks and wheel go to the menu, not to the aim and the triggers;
+started and stopped here, on the event thread, as the game asks */
+static BOOL spawn_menu_pointer_wanted;
+static struct platform_ui_pointer spawn_menu_pointer;
+static float spawn_menu_pointer_wheel;
 #endif
 static BOOL scoreboard_pointer_active;
+static BOOL spawn_menu_pointer_active;
+/* a pointer of the game's own has the mouse (the mouse is not the aim's) */
+#define GAME_POINTER_ACTIVE() (scoreboard_pointer_active || spawn_menu_pointer_active)
 
 /* debug keyboard queue */
 #define KEYSTROKE_QUEUE_SIZE 64
@@ -1312,7 +1322,54 @@ static void scoreboard_pointer_stop(void)
 		return;
 	scoreboard_pointer_active = FALSE;
 	memset(&scoreboard_pointer, 0, sizeof(scoreboard_pointer));
-	platform_mouse_capture(!input_state.mouse_released && !input_state.ui_pointer);
+	platform_mouse_capture(!input_state.mouse_released && !input_state.ui_pointer && !GAME_POINTER_ACTIVE());
+}
+
+/* (under input_lock, on the event thread) the spawn menu's pointer on: the
+mouse freed, at the window's middle, and nothing held for the triggers */
+static void spawn_menu_pointer_start(void)
+{
+	int width, height;
+
+	spawn_menu_pointer_active = TRUE;
+	scoreboard_pointer_stop();
+	memset(&spawn_menu_pointer, 0, sizeof(spawn_menu_pointer));
+	spawn_menu_pointer_wheel = 0.0f;
+	memset(input_state.mouse_buttons, 0, sizeof(input_state.mouse_buttons));
+	memset(mouse_buttons_pressed, 0, sizeof(mouse_buttons_pressed));
+	input_state.mouse_dx = input_state.mouse_dy = 0.0f;
+	input_state.mouse_wheel = 0.0f;
+	platform_mouse_capture(FALSE);
+	SDL_GetWindowSize(platform_window, &width, &height);
+	SDL_WarpMouseInWindow(platform_window, width * 0.5f, height * 0.5f);
+	spawn_menu_pointer.x = width * 0.5f;
+	spawn_menu_pointer.y = height * 0.5f;
+}
+
+/* ... off: the mouse the aim's again (unless freed: F12, or the menus) */
+static void spawn_menu_pointer_stop(void)
+{
+	if (!spawn_menu_pointer_active)
+		return;
+	spawn_menu_pointer_active = FALSE;
+	memset(&spawn_menu_pointer, 0, sizeof(spawn_menu_pointer));
+	platform_mouse_capture(!input_state.mouse_released && !input_state.ui_pointer && !GAME_POINTER_ACTIVE());
+}
+
+BOOL platform_spawn_menu_pointer(BOOL open, struct platform_ui_pointer *pointer)
+{
+	BOOL active;
+
+	pthread_mutex_lock(&input_lock);
+	spawn_menu_pointer_wanted = open;
+	active = spawn_menu_pointer_active && open;
+	*pointer = spawn_menu_pointer;
+	spawn_menu_pointer.moved = FALSE;
+	spawn_menu_pointer.left_clicks = 0;
+	spawn_menu_pointer.right_clicks = 0;
+	spawn_menu_pointer.wheel_steps = 0;
+	pthread_mutex_unlock(&input_lock);
+	return active;
 }
 
 BOOL platform_scoreboard_pointer(BOOL offered, struct platform_ui_pointer *pointer)
@@ -1425,9 +1482,19 @@ void platform_pump_events(void)
 #ifndef HALO_ANDROID
 	/* (the scoreboard closed, or no longer offering it: the pointer goes) */
 	if (scoreboard_pointer_active && (SDL_GetTicks() >= scoreboard_open_until_ms || !scoreboard_pointer_offered ||
-		input_state.ui_pointer))
+		input_state.ui_pointer || spawn_menu_pointer_active))
 	{
 		scoreboard_pointer_stop();
+	}
+	/* (the spawn menu opened or closed; the menus take the pointer first) */
+	if (spawn_menu_pointer_wanted && !input_state.ui_pointer)
+	{
+		if (!spawn_menu_pointer_active)
+			spawn_menu_pointer_start();
+	}
+	else if (!spawn_menu_pointer_wanted || input_state.ui_pointer)
+	{
+		spawn_menu_pointer_stop();
 	}
 #endif
 	while (SDL_PollEvent(&event))
@@ -1467,7 +1534,7 @@ void platform_pump_events(void)
 			{
 				input_state.mouse_released = !input_state.mouse_released;
 				platform_mouse_capture(!input_state.mouse_released && !input_state.ui_pointer &&
-					!scoreboard_pointer_active);
+					!GAME_POINTER_ACTIVE());
 			}
 #ifndef HALO_ANDROID
 			/* F11 switches between fullscreen and the window (SDL keeps the
@@ -1480,6 +1547,13 @@ void platform_pump_events(void)
 			break;
 		case SDL_EVENT_MOUSE_MOTION:
 #ifndef HALO_ANDROID
+			if (spawn_menu_pointer_active)
+			{
+				spawn_menu_pointer.x = event.motion.x;
+				spawn_menu_pointer.y = event.motion.y;
+				spawn_menu_pointer.moved = TRUE;
+				break;
+			}
 			if (scoreboard_pointer_active)
 			{
 				scoreboard_pointer.x = event.motion.x;
@@ -1518,6 +1592,21 @@ void platform_pump_events(void)
 				break;
 			}
 #ifndef HALO_ANDROID
+			/* the spawn menu's pointer: its clicks spawn, and fire nothing */
+			if (spawn_menu_pointer_active)
+			{
+				if (event.button.down && event.button.button == SDL_BUTTON_LEFT)
+				{
+					spawn_menu_pointer.left_clicks++;
+					spawn_menu_pointer.click_x = event.button.x;
+					spawn_menu_pointer.click_y = event.button.y;
+				}
+				else if (event.button.down && event.button.button == SDL_BUTTON_RIGHT)
+				{
+					spawn_menu_pointer.right_clicks++;
+				}
+				break;
+			}
 			/* the open scoreboard's pointer: a right click frees it (and
 			fires nothing), and another takes it back; its clicks pick */
 			if (!input_state.ui_pointer && SDL_GetTicks() < scoreboard_open_until_ms && scoreboard_pointer_offered &&
@@ -1572,6 +1661,24 @@ void platform_pump_events(void)
 				binding_captured_input = event.wheel.y > 0.0f ? INPUT_WHEEL_UP : INPUT_WHEEL_DOWN;
 				break;
 			}
+#ifndef HALO_ANDROID
+			/* (the spawn menu's wheel scrolls its items, in whole notches) */
+			if (spawn_menu_pointer_active)
+			{
+				spawn_menu_pointer_wheel += event.wheel.y;
+				while (spawn_menu_pointer_wheel >= 1.0f)
+				{
+					spawn_menu_pointer.wheel_steps++;
+					spawn_menu_pointer_wheel -= 1.0f;
+				}
+				while (spawn_menu_pointer_wheel <= -1.0f)
+				{
+					spawn_menu_pointer.wheel_steps--;
+					spawn_menu_pointer_wheel += 1.0f;
+				}
+				break;
+			}
+#endif
 			if (SDL_GetTicks() < scoreboard_open_until_ms)
 			{
 				/* whole notches, up (away) scrolling up */
@@ -1624,7 +1731,7 @@ void platform_pump_events(void)
 			input_state.focused = TRUE;
 			look_at_clipboard = TRUE;
 #ifndef HALO_ANDROID
-			if (!input_state.mouse_released && !input_state.ui_pointer && !scoreboard_pointer_active)
+			if (!input_state.mouse_released && !input_state.ui_pointer && !GAME_POINTER_ACTIVE())
 				platform_mouse_capture(TRUE);
 #endif
 			break;

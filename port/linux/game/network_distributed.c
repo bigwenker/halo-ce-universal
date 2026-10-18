@@ -81,6 +81,7 @@ machine (their datum identifiers need not be).
 #include "network_extensions.h"
 #include "network_aim_assist.h"
 #include "network_suicide.h"
+#include "network_spawn.h"
 #include "network_killfeed.h"
 #include "halo_spray.h"
 #include "map_share.h"
@@ -4050,6 +4051,12 @@ void network_distributed_handle_message(
 		}
 		if (!network_extensions_allows(machine_index, header.type))
 			return;
+	}
+	/* (the spawn menu's: network_spawn.c) */
+	if (network_spawn_handles_message(message, size))
+	{
+		network_spawn_handle_message(machine_index, message, size);
+		return;
 	}
 	/* (voice chat's, in the lobby too: network_voice.c) */
 	if(network_spray_handles_message(message,size))

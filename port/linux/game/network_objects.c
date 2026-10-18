@@ -2178,6 +2178,18 @@ static void distributed_client_create_failed(
 	objects_client_retry_ticks = MIN(2 * objects_client_retry_ticks, CLIENT_RETRY_MAXIMUM_TICKS);
 }
 
+/* the host's objects all again, at once (asked, flagged): tags the spawn
+menu loaded from another map have come, which some of them need
+(network_spawn.c) */
+void network_objects_client_ask_again(
+	void)
+{
+	objects_client_ask_again = TRUE;
+	objects_client_synchronized = FALSE;
+	objects_client_ready_time = NONE;
+	objects_client_ready_interval = CLIENT_READY_INTERVAL_TICKS;
+}
+
 /* whether the object is this machine's own player's unit or the vehicle it
 drives (where they are is its own) */
 static boolean distributed_client_own_object(

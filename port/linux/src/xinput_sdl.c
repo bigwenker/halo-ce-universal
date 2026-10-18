@@ -59,6 +59,8 @@ extern unsigned char network_aim_assist_block_mouse(void);
 /* main/console.c */
 extern unsigned char console_is_active(void);
 extern unsigned char chat_is_active(void);
+/* port/linux/game/spawn_menu.c */
+extern unsigned char spawn_menu_is_open(void);
 /* port/linux/game/menu_functions.c: two or more players on this machine
 (co-op, or split screen in a network game) */
 extern unsigned char pc_menu_split_players(void);
@@ -288,7 +290,7 @@ static void mouse_poll(const struct platform_input_state *input)
 		mouse_pending_x = 0.0f;
 		mouse_pending_y = 0.0f;
 	}
-	if (chat_is_active())
+	if (chat_is_active() || spawn_menu_is_open())
 	{
 		mouse_pending_x = mouse_pending_y = mouse_wheel_accumulated = 0;
 	}
@@ -449,6 +451,7 @@ static const char *const binding_settings[NUMBER_OF_HALO_KEYBOARD_ACTIONS] =
 	"controls.spray",
 	"controls.push_to_talk",
 	"controls.chat",
+	"controls.spawn_menu",
 };
 
 static const struct
@@ -623,6 +626,38 @@ static void keyboard_chat(unsigned long held, BOOL gameplay)
 	BOOL down = (held & (1UL << HALO_KEYBOARD_CHAT)) != 0;
 	if (down && !was_down && gameplay) SDL_SetAtomicInt(&chat_requested, 1);
 	was_down = down;
+}
+
+/* One toggle per press of controls.spawn_menu; while the menu is open, the
+pause key closes it instead of pausing (keyboard_spawn_menu_held). */
+static SDL_AtomicInt spawn_menu_requested;
+/* the pause key pressed while the menu was open, held since: it pauses
+nothing until let go of, once the menu has closed too */
+static BOOL spawn_menu_pause_held;
+int halo_spawn_menu_requested(void) { return SDL_CompareAndSwapAtomicInt(&spawn_menu_requested, 1, 0); }
+static void keyboard_spawn_menu(unsigned long held, BOOL gameplay)
+{
+	static BOOL was_down, pause_was_down;
+	BOOL down = (held & (1UL << HALO_KEYBOARD_SPAWN_MENU)) != 0;
+	BOOL pause_down = (held & (1UL << HALO_KEYBOARD_PAUSE)) != 0;
+	BOOL pause_pressed = pause_down && !pause_was_down && spawn_menu_is_open();
+
+	if (!pause_down)
+		spawn_menu_pause_held = FALSE;
+	else if (pause_pressed)
+		spawn_menu_pause_held = TRUE;
+	if (gameplay && ((down && !was_down) || pause_pressed))
+		SDL_SetAtomicInt(&spawn_menu_requested, 1);
+	was_down = down;
+	pause_was_down = pause_down;
+}
+
+/* the actions held while the spawn menu is open: the keyboard's movement and
+the rest stay, but not the pause (it closes the menu), and the mouse's
+buttons and wheel click and scroll the menu (sdl_platform.c) */
+static unsigned long keyboard_spawn_menu_held(unsigned long held)
+{
+	return spawn_menu_is_open() || spawn_menu_pause_held ? held & ~(1UL << HALO_KEYBOARD_PAUSE) : held;
 }
 
 /* in the game: the actions held, and Start/Back for pause/scores */
@@ -1039,15 +1074,20 @@ DWORD WINAPI XInputGetState(HANDLE device, PXINPUT_STATE state)
 		keyboard_screenshot(held);
 		keyboard_spray(held, !console_active && !input.menus);
 		keyboard_chat(held, !console_active && !input.menus);
+		keyboard_spawn_menu(held, !console_active && !input.menus);
 		if (!console_active)
 		{
 			if (input.menus)
 				keyboard_gamepad(&input, &state->Gamepad);
 			else
-				keyboard_controls(held, &state->Gamepad);
+				keyboard_controls(keyboard_spawn_menu_held(held), &state->Gamepad);
 		}
 		if (port_gamepad(gamepads, count, 0))
 			sdl_gamepad_state(gamepads[0], &state->Gamepad);
+		/* (the spawn menu holds the view still: the right stick does not
+		turn it, as the mouse does not, which moves the menu's pointer) */
+		if (!input.menus && spawn_menu_is_open())
+			state->Gamepad.sThumbRX = state->Gamepad.sThumbRY = 0;
 		test_input_gamepad(&state->Gamepad);
 		touch_input_gamepad(&state->Gamepad);
 #if defined(HALO_ANDROID) || defined(HALO_WEB)

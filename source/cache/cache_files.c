@@ -607,6 +607,14 @@ void scenario_tags_unload(
 		loose_sounds_tags_unloaded();
 	}
 	texture_cache_close();
+	/* port: the spawn menu's tags loaded from other maps go
+	(port/linux/game/spawn_tags.c): after the caches, which write to the
+	bitmaps and sounds they have loaded as they close, theirs among them */
+	{
+		extern void spawn_tags_map_unloaded(void);
+
+		spawn_tags_map_unloaded();
+	}
 	/* port: the menus' tags go, and the map's own table comes back
 	(port/linux/game/menu_tags.c): after the texture cache, which writes to
 	the bitmaps it has loaded as it closes, theirs among them */
@@ -1321,6 +1329,13 @@ long scenario_tags_load(
 				extern void loose_sounds_tags_loaded(void);
 
 				loose_sounds_tags_loaded();
+			}
+			/* port: the spawn menu's loads from other maps start afresh
+			(port/linux/game/spawn_tags.c) */
+			{
+				extern void spawn_tags_map_loaded(void);
+
+				spawn_tags_map_loaded();
 			}
 			result = cache_file_globals.tag_header->scenario_tag_index;
 		}

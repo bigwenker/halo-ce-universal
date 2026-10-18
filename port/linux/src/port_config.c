@@ -316,6 +316,9 @@ static const struct config_setting config_settings[] =
 		"Open match chat; Enter sends, Escape cancels, Tab completes; / runs a console command." },
 	{ "controls.push_to_talk", _config_string, "\"V\"", "HALO_KEY_PUSH_TO_TALK", _environment_value, _platform_all,
 		"Voice chat: talk while it is held (audio.voice_chat \"push_to_talk\")." },
+	{ "controls.spawn_menu", _config_string, "\"F6\"", "HALO_KEY_SPAWN_MENU", _environment_value, _platform_all,
+		"Open the spawn menu (weapons, ammunition, equipment, health, characters\n"
+		"and vehicles, spawned where you look); press again to close it." },
 
 	{ "game.console_log", _config_string, "\"important\"", "HALO_CONSOLE_LOG", _environment_value, _platform_all,
 		"What the game's console shows on screen of what it logs: \"important\"\n"
@@ -599,6 +602,12 @@ static const struct config_setting config_settings[] =
 		"\"no\" or \"never\" (do not ask again, confirmed); empty asks." },
 	{ "debug.exit_after", _config_real, "0.0", "HALO_EXIT_AFTER", _environment_value, _platform_all,
 		"Quit this many seconds after the window opens; 0 never." },
+	{ "debug.spawn_test", _config_string, "\"\"", "HALO_SPAWN_TEST", _environment_value, _platform_all,
+		"The spawn menu's automated tests: tag paths, separated by commas, each\n"
+		"spawned in turn every few seconds where the player looks, as a click on\n"
+		"its box would (through the host on a client), \"wait\" a turn without\n"
+		"one, \"menu\", \"tab:<n>\", \"faction:<n>\" and \"shot\" to open the\n"
+		"menu, show a tab or faction and save a screenshot; empty for none." },
 	{ "debug.hidden_window", _config_boolean, "false", "HALO_HIDDEN_WINDOW", _environment_set_is_true, _platform_desktop,
 		"Keep the window hidden (and never fullscreen)." },
 	{ "debug.voice_test", _config_boolean, "false", "HALO_VOICE_TEST", _environment_set_is_true, _platform_all,

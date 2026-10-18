@@ -619,6 +619,26 @@ static struct tag_schema_field const model_geometry_part_fields[] =
 static struct tag_schema_definition const model_geometry_part_schema =
 	TAG_SCHEMA_DEFINITION(model_geometry_part, struct model_geometry_part, model_geometry_part_fields);
 
+boolean tag_schema_is_model_geometry_part(
+	struct tag_schema_definition const *definition)
+{
+	return definition == &model_geometry_part_schema;
+}
+
+short tag_schema_model_geometry_part_pointers(
+	void *base,
+	void **pointers[TAG_SCHEMA_MODEL_GEOMETRY_PART_POINTERS])
+{
+	struct model_geometry_part *part = base;
+
+	pointers[0] = &part->vertex_buffer.hardware_format;
+	pointers[1] = &part->triangle_buffer.hardware_format;
+	pointers[2] = &part->vertex_buffer.base_address;
+	pointers[3] = &part->triangle_buffer.base_address;
+
+	return TAG_SCHEMA_MODEL_GEOMETRY_PART_POINTERS;
+}
+
 static struct tag_schema_field const model_geometry_fields[] =
 {
 	TAG_SCHEMA_BLOCK(struct model_geometry, parts, model_geometry_part_schema, MAXIMUM_PARTS_PER_MODEL_GEOMETRY),

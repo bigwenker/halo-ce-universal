@@ -45,4 +45,10 @@ not the menus' centered 640); 0 while it is not; -1 where there is none
 (Android) */
 int halo_scoreboard_pointer_update(int offered, struct halo_ui_pointer *pointer);
 
+/* the spawn menu's pointer (port/linux/game/spawn_menu.c), the menu open or
+not: 1 once the freed mouse is its, with where it is and what it did since
+the last call, in the screen's coordinates (as the scoreboard's); 0 while it
+is not yet (or the menu is closed); -1 where there is none (Android) */
+int halo_spawn_menu_pointer_update(int open, struct halo_ui_pointer *pointer);
+
 #endif

@@ -2024,6 +2024,31 @@ int halo_scoreboard_pointer_update(int offered, struct halo_ui_pointer *pointer)
 }
 #endif
 
+#ifdef HALO_ANDROID
+int halo_spawn_menu_pointer_update(int open, struct halo_ui_pointer *pointer)
+{
+	(void)open;
+	memset(pointer, 0, sizeof(*pointer));
+	return -1;
+}
+#else
+int halo_spawn_menu_pointer_update(int open, struct halo_ui_pointer *pointer)
+{
+	struct platform_ui_pointer state;
+
+	memset(pointer, 0, sizeof(*pointer));
+	if (!platform_spawn_menu_pointer(open != 0, &state) || !device.gl_ready)
+		return 0;
+	ui_point_from_window_on(state.x, state.y, FALSE, &pointer->x, &pointer->y);
+	ui_point_from_window_on(state.click_x, state.click_y, FALSE, &pointer->click_x, &pointer->click_y);
+	pointer->moved = state.moved != FALSE;
+	pointer->left_clicks = (unsigned char)(state.left_clicks < 255 ? state.left_clicks : 255);
+	pointer->right_clicks = (unsigned char)(state.right_clicks < 255 ? state.right_clicks : 255);
+	pointer->wheel_steps = (signed char)(state.wheel_steps < -8 ? -8 : state.wheel_steps > 8 ? 8 : state.wheel_steps);
+	return 1;
+}
+#endif
+
 int halo_ui_pointer_update(int menus_active, struct halo_ui_pointer *pointer)
 {
 	struct platform_ui_pointer state;
