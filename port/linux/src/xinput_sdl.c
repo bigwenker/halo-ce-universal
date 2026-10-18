@@ -58,7 +58,9 @@ extern unsigned char network_aim_assist_block_mouse(void);
 
 /* main/console.c */
 extern unsigned char console_is_active(void);
-extern unsigned char chat_is_active(void);
+/* port/linux/game/network_chat.c: a chat line is typed, which takes the
+keyboard as the console does */
+extern unsigned char network_chat_typing(void);
 /* port/linux/game/menu_functions.c: two or more players on this machine
 (co-op, or split screen in a network game) */
 extern unsigned char pc_menu_split_players(void);
@@ -288,7 +290,7 @@ static void mouse_poll(const struct platform_input_state *input)
 		mouse_pending_x = 0.0f;
 		mouse_pending_y = 0.0f;
 	}
-	if (chat_is_active())
+	if (network_chat_typing())
 	{
 		mouse_pending_x = mouse_pending_y = mouse_wheel_accumulated = 0;
 	}
@@ -419,7 +421,8 @@ static void keys_held_over_switch(struct platform_input_state *input)
 {
 	static unsigned char held[SDL_SCANCODE_COUNT];
 	static int context = -1;
-	int next_context = (input->menus != FALSE) | (text_typing ? 2 : 0) | (console_is_active() ? 4 : 0) | (chat_is_active() ? 8 : 0);
+	int next_context = (input->menus != FALSE) | (text_typing ? 2 : 0) | (console_is_active() ? 4 : 0) |
+		(network_chat_typing() ? 8 : 0);
 	int scancode;
 
 	if (context != next_context)
@@ -447,8 +450,7 @@ static const char *const binding_settings[NUMBER_OF_HALO_KEYBOARD_ACTIONS] =
 	"controls.reload", "controls.zoom", "controls.switch_weapon", "controls.switch_grenade", "controls.action",
 	"controls.flashlight", "controls.scoreboard", "controls.pause", "controls.screenshot",
 	"controls.spray",
-	"controls.push_to_talk",
-	"controls.chat",
+	"controls.push_to_talk", "controls.chat", "controls.team_chat",
 };
 
 static const struct
@@ -612,16 +614,6 @@ static void keyboard_spray(unsigned long held, BOOL gameplay)
 	BOOL down = (held & (1UL << HALO_KEYBOARD_SPRAY)) != 0;
 	if (down && !was_down && gameplay)
 		platform_spray_request();
-	was_down = down;
-}
-
-static SDL_AtomicInt chat_requested;
-int halo_chat_requested(void) { return SDL_CompareAndSwapAtomicInt(&chat_requested, 1, 0); }
-static void keyboard_chat(unsigned long held, BOOL gameplay)
-{
-	static BOOL was_down;
-	BOOL down = (held & (1UL << HALO_KEYBOARD_CHAT)) != 0;
-	if (down && !was_down && gameplay) SDL_SetAtomicInt(&chat_requested, 1);
 	was_down = down;
 }
 
@@ -1034,11 +1026,11 @@ DWORD WINAPI XInputGetState(HANDLE device, PXINPUT_STATE state)
 		wheel_update();
 		keyboard_actions_held = 0;
 		keys_held_over_switch(&input);
-		console_active = console_is_active() || chat_is_active();
+		/* (a chat line typed takes the keyboard as the console does) */
+		console_active = console_is_active() || network_chat_typing();
 		held = console_active ? 0 : keyboard_bound_actions(&input);
 		keyboard_screenshot(held);
 		keyboard_spray(held, !console_active && !input.menus);
-		keyboard_chat(held, !console_active && !input.menus);
 		if (!console_active)
 		{
 			if (input.menus)
@@ -1121,7 +1113,7 @@ DWORD WINAPI XInputDebugGetKeystroke(PXINPUT_DEBUG_KEYSTROKE keystroke)
 		/* key ups always pass, so no key is left latched down; while typing,
 		escape does not (it cancels, as B: the game's own escape leaves the
 		menus, main.c) */
-		if (key_up || next.virtual_key == VK_OEM_3_BACKQUOTE || console_is_active() || chat_is_active() ||
+		if (key_up || next.virtual_key == VK_OEM_3_BACKQUOTE || console_is_active() || network_chat_typing() ||
 			(text_typing && next.virtual_key != 0x1B /* escape */))
 		{
 			keystroke->VirtualKey = next.virtual_key;

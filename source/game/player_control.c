@@ -211,7 +211,7 @@ symbols in this file:
 
 #include "real_math.h"
 #include "network_coop.h" /* port: port/linux/game/network_coop.c */
-#include "network_social.h"
+#include "network_chat.h" /* port: chat owns the local player's input */
 
 /* ---------- constants */
 
@@ -1078,7 +1078,7 @@ static void get_local_player_input_blob(
 	player_action_clear(input);
 	/* Chat owns the primary local player's keyboard, mouse and controller;
 	   other local players and the simulation continue normally. */
-	if (chat_is_active() && local_player_index == 0)
+	if (network_chat_typing() && local_player_index == 0)
 		return;
 	if (player_index != NONE)
 	{

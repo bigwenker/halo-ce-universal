@@ -10,9 +10,9 @@ from harness import build, read, run, mutated, CHECK_FAILED
 def generated(fault=None):
     code = re.sub(r'^#include "[^"\n]+"\n', '', read('port/linux/game/network_social.c'), flags=re.M)
     if fault == 'identity':
-        code = mutated(code, 'p->network_player_data.machine_index != machine', 'FALSE')
+        code = mutated(code, 'entry.identity!=social_identity(p)', 'FALSE')
     elif fault == 'authority':
-        code = mutated(code, 'if (!social_host() || machine == NONE', 'if (FALSE || machine == NONE')
+        code = mutated(code, 'h.type != _distributed_message_social_scores || machine != NONE ||', 'h.type != _distributed_message_social_scores || FALSE ||')
     elif fault == 'headshot':
         code = mutated(code, '1 + (headshot != FALSE)', '1 + 0')
     elif fault == 'chain-players':
@@ -20,13 +20,13 @@ def generated(fault=None):
     return (('under_test.inc', code),)
 
 
-@pytest.mark.parametrize('case', ['chat', 'admission',  'score',  'chain', 'snapshots', 'rate'])
+@pytest.mark.parametrize('case', ['chat', 'retired', 'score', 'chain', 'snapshots'])
 def test_case(case):
     status, output = run(build('network_social', generated()), case)
     assert status == 0, output
 
 
-@pytest.mark.parametrize('fault,case', [('identity','admission'), ('authority','admission'),
+@pytest.mark.parametrize('fault,case', [('identity','snapshots'), ('authority','snapshots'),
                                       ('headshot','score'), ('chain-players','chain')])
 def test_negative(fault, case):
     status, output = run(build('network_social', generated(fault)), case)

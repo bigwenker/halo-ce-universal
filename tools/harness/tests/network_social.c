@@ -49,14 +49,16 @@ static char const *tags[]={"characters\\cyborg\\cyborg","characters\\grunt\\grun
 static char const *tag_get_name(long index){return tags[index];}
 static struct damage_effect_definition *damage_effect_definition_get(long index){return &damage_def;}
 static void unit_kill(long index){killed++;last_killed=index;}
-static void chat_clear(void){}
-static void chat_note_line(char const *text){chatted++;snprintf(chat_text,sizeof(chat_text),"%s",text);}
+enum {_chat_channel_everyone};
+static void network_chat_say(short channel,char const *text){chatted++;snprintf(chat_text,sizeof(chat_text),"%s",text);}
 static void console_warning(char const *text,...){warned++;}
 static void terminal_printf(real_argb_color const *color,char const *format,...){va_list args;va_start(args,format);vsnprintf(shown_text,sizeof(shown_text),format,args);va_end(args);shown++;}
 static void telnet_console_print(char const *text){snprintf(shown_text,sizeof(shown_text),"%s",text);shown++;}
 static void distributed_send(void *message,byte type,byte count,word size,int direction){memcpy(wire,message,size);wire_size=size;sent++;}
 boolean network_distributed_client_send_reliably(void *message,word size){memcpy(wire,message,size);wire_size=size;sent++;return TRUE;}
 static boolean network_extensions_allows(long machine, byte type) { (void)machine; (void)type; return TRUE; }
+/* Retired wire layout, only for proving old chat packets are ignored. */
+struct social_request {byte player,operation;char text[200];};
 #include "under_test.inc"
 static void setup(void){
  for(int i=0;i<128;i++)handles[i]=NONE;for(int i=0;i<20;i++)unit_handles[i]=NONE;
@@ -68,22 +70,27 @@ static void setup(void){
 }
 static void request(byte player,byte operation,char const *text,long machine){struct {struct distributed_message_header h;struct social_request r;}m={0};social_header(&m.h,96,1);m.r.player=player;m.r.operation=operation;snprintf(m.r.text,sizeof(m.r.text),"%s",text);network_social_handle_message(machine,(word*)&m,sizeof(m));}
 int main(int argc,char **argv){CHECK(argc==2,"case");setup();char const *case_name=argv[1];
- CASE("chat") {request(1,0,"Hey guys",1);CHECK(shown==1&&chatted==1&&sent==1&&!strcmp(chat_text,"Quixote : Hey guys"),"host canonical name/chat");role=1;network_social_handle_message(NONE,(word*)wire,wire_size);CHECK(chatted==2,"client receives chat");network_social_chat_send("/kill");CHECK(killed==0&&((struct social_request*)(wire+8))->operation==SOCIAL_CHAT,"remote text must never execute");}
- else CASE("admission") {request(0,1,"",1);CHECK(killed==0,"spoofed host identity accepted");request(1,0,"bad",7);CHECK(shown==0,"wrong stream");role=1;request(1,0,"forged",1);CHECK(shown==0,"client accepted client command");role=2;
-  for(int size=0;size<210;size++){byte bad[216]={0};struct distributed_message_header *h=(void*)bad;social_header(h,96,1);network_social_handle_message(1,(word*)bad,size);}CHECK(killed==0&&shown==0,"truncated packets accepted");
-  struct {struct distributed_message_header h;struct social_request r;}m;memset(&m,0xff,sizeof(m));social_header(&m.h,96,1);m.r.player=1;m.r.operation=0;network_social_handle_message(1,(word*)&m,sizeof(m));CHECK(shown==0,"unterminated text accepted");
+ CASE("chat") {boolean success=FALSE;
+  CHECK(network_social_console_command("say Hey guys",&success)&&success&&chatted==1&&!strcmp(chat_text,"Hey guys"),"say must use upstream chat");
+  CHECK(sent==0&&shown==0,"old chat transport/display still active");
+  CHECK(!network_social_console_command("saywhat",&success),"say prefix collision");
+  role=1;CHECK(network_social_chat_send("/kill")&&chatted==2&&killed==0,"console say must stay text");
+  role=0;CHECK(!network_social_chat_send("offline")&&chatted==2,"offline chat");
+  role=2;menu=TRUE;CHECK(!network_social_chat_send("menu")&&chatted==2,"menu chat");
  }
- else CASE("suicide") {boolean success;CHECK(network_social_console_command("kill",&success)&&success&&killed==1&&last_killed==players[0].unit_index,"host suicide");CHECK(!network_social_console_command("killall",&success),"prefix collided with script");CHECK(network_social_console_command("kill Quixote",&success)&&!success&&killed==1,"takes arguments");role=1;CHECK(network_social_console_command("suicide",&success)&&success&&killed==1&&sent==1,"client must request");role=2;request(1,1,"",1);CHECK(killed==2&&last_killed==players[1].unit_index,"own client unit only");units[1].object.damage_flags=FLAG(_object_dead_bit);request(1,1,"",1);CHECK(killed==2,"dead suicide");playing=FALSE;CHECK(network_social_console_command("kill",&success)&&!success,"main menu guard");}
+ else CASE("retired") {
+  for(int connection=1;connection<=2;connection++)for(int kind=96;kind<=97;kind++)for(int machine=-1;machine<=1;machine++){
+   role=connection;request(1,0,"/kill",machine);
+   for(int size=0;size<216;size++){byte bad[216]={0};struct distributed_message_header *h=(void*)bad;social_header(h,kind,1);network_social_handle_message(machine,(word*)bad,size);}
+  }
+  CHECK(chatted==0&&shown==0&&sent==0&&killed==0,"retired chat bypassed upstream policy");
+ }
  else CASE("score") {struct damage_data d={6,handles[0],unit_handles[0],0};
   for(int tag=1;tag<=4;tag++)for(int head=0;head<2;head++){network_social_reverted();long before=network_social_score(handles[0]);units[2].definition_index=tag;d.flags=head?FLAG(_damage_headshot_bit):0;network_social_note_death(unit_handles[2],&d);long points=1+head+(tag==2||tag==3);CHECK(network_social_score(handles[0])==before+points,"species/headshot points tag%d head%d",tag,head);network_social_note_death(unit_handles[2],&d);CHECK(network_social_score(handles[0])==before+points,"duplicate death");}
   network_social_reverted();units[2].object.owner_team_index=1;long before=network_social_score(handles[0]);network_social_note_death(unit_handles[2],&d);CHECK(network_social_score(handles[0])==before,"ally awarded points");
   handles[0]=0x30000;CHECK(network_social_score(handles[0])==0,"reused player inherited score");
  }
- else CASE("causes") {struct damage_data d={6,NONE,unit_handles[2],0};
-  network_social_note_death(unit_handles[1],&d);CHECK(strstr(shown_text,"Plasma Grenade"),"grenade cause");network_social_reverted();d.definition_index=0;network_social_note_death(unit_handles[1],&d);CHECK(strstr(shown_text,"Grunt"),"grunt cause");network_social_reverted();units[2].definition_index=4;network_social_note_death(unit_handles[1],&d);CHECK(strstr(shown_text,"Combat Flood"),"flood cause");network_social_reverted();units[2].definition_index=5;damage_def.damage.category=9;network_social_note_death(unit_handles[1],&d);CHECK(strstr(shown_text,"ran over by Wraith Tank"),"vehicle collision");network_social_reverted();damage_def.damage.category=1;network_social_note_death(unit_handles[1],&d);CHECK(strstr(shown_text,"died of fall"),"fall");network_social_reverted();d.definition_index=9;network_social_note_death(unit_handles[1],&d);CHECK(strstr(shown_text,"fell out of the world"),"outside world");network_social_reverted();d.owner_player_index=handles[0];network_social_note_death(unit_handles[1],&d);CHECK(strstr(shown_text,"Host")&&strstr(shown_text,"team kill"),"teamkiller identification");
- }
  else CASE("chain") {struct damage_data d={6,NONE,NONE,FLAG(_damage_chain_reaction_bit)};for(int n=25;n<=100;n+=25){percent=n;CHECK(fabsf(network_social_chain_damage_scale(&d,unit_handles[0])-n*.01f)<1e-6,"player scale");CHECK(network_social_chain_damage_scale(&d,unit_handles[2])==1,"AI scaled");}percent=25;d.flags=0;CHECK(network_social_chain_damage_scale(&d,unit_handles[0])==1,"thrown grenade scaled");d.flags=FLAG(_damage_chain_reaction_bit);coop=FALSE;CHECK(network_social_chain_damage_scale(&d,unit_handles[0])==1,"competitive affected");coop=TRUE;role=1;CHECK(network_social_chain_damage_scale(&d,unit_handles[0])==1,"client config affected authoritative replay");role=2;percent=-1;CHECK(network_social_chain_damage_scale(&d,unit_handles[0])==1,"invalid config");}
  else CASE("snapshots") {network_social_score(handles[1]);social_players[1].score=37;network_social_update();CHECK(sent==1,"no snapshot");role=1;social_players[1].score=0;network_social_handle_message(NONE,(word*)wire,wire_size);CHECK(network_social_score(handles[1])==37,"client score missing");social_players[1].score=0;network_social_handle_message(0,(word*)wire,wire_size);CHECK(network_social_score(handles[1])==0,"score accepted from client");players[1].name[0]='Z';network_social_handle_message(NONE,(word*)wire,wire_size);CHECK(network_social_score(handles[1])==0,"stale identity applied");}
- else CASE("rate") {for(int i=0;i<20;i++)request(1,0,"Hey",1);CHECK(shown==4,"unbounded spam");clock_ms+=500;request(1,0,"Hey",1);CHECK(shown==5,"token refill");}
  else return 2;return 0;
 }

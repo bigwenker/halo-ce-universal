@@ -386,6 +386,7 @@ symbols in this file:
 #include "network_extensions.h" /* port: port/linux/game/network_extensions.c */
 #include "network_aim_assist.h" /* port: port/linux/game/network_aim_assist.c */
 #include "halo_spray.h"
+#include "network_chat.h" /* port: port/linux/game/network_chat.c */
 #include "map_share.h" /* port: port/linux/game/map_share.c */
 #include "profile_sections.h" /* port: port/linux/include/profile_sections.h */
 #ifdef HALO_PROFILE
@@ -1173,7 +1174,7 @@ void set_window_camera_values(
 				1.0f));
 
 		if (window->local_player_index != NONE &&
-			!console_is_active() && !chat_is_active() &&
+			!console_is_active() && !network_chat_typing() &&
 			!game_time_get_paused() &&
 			director_get_perspective(window->local_player_index) !=
 				_director_perspective_neutral)
@@ -3537,6 +3538,8 @@ static boolean main_loop_iteration(
 			network_spray_update();
 			/* port: map sharing, in the lobby and in game (port/linux/game/map_share.c) */
 			map_share_update();
+			/* port: network games' text chat (port/linux/game/network_chat.c) */
+			network_chat_update();
 			profile_scope_enter(main_network_start_frame_section)
 			connection = main_globals.connection;
 			if (connection==_game_connection_network_client)
@@ -3593,15 +3596,13 @@ static boolean main_loop_iteration(
 			if (game_in_progress())
 			{
 				terminal_update();
-				chat_update();
 
-				if (chat_is_active() || !console_update() || main_globals.connection!=_game_connection_local)
+				if (!console_update() || main_globals.connection!=_game_connection_local)
 				{
-					if (!chat_is_active())
-					{
+					/* port: not while a chat line is typed (its K plays an animation) */
+					if (!network_chat_typing())
 						debug_keys_update();
-						cheats_update();
-					}
+					cheats_update();
 					player_control_update((real)main_globals.halt_time_scale*main_globals.seconds_elapsed);
 
 					connection = main_globals.connection;
