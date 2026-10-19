@@ -284,6 +284,7 @@
 		<string text="75%"/>
 		<string text="50%"/>
 		<string text="25%"/>
+		<string text="OFF"/>
 	</strings>
 	<widget name="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_extra_enemies" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
 		<child widget="main_menu/multiplayer_type_select/server_settings/coop_options/coop_extra_enemies_label"/>
@@ -408,6 +409,7 @@
 		<string text="Player damage from grenades triggered by a chain\nreaction. Thrown grenades and enemies are unchanged."/>
 		<string text="Player damage from grenades triggered by a chain\nreaction. Thrown grenades and enemies are unchanged."/>
 		<string text="Player damage from grenades triggered by a chain\nreaction. Thrown grenades and enemies are unchanged."/>
+		<string text="Loose grenades cannot be set off by damage.\nThrown grenades still explode normally."/>
 		<string text="Enemy squads grow with the players: by the value of\n'Per Player' for each player past the first."/>
 		<string text="Enemy squads use 'Multiplier', however many players\nthere are."/>
 		<string text="Enemy squads are as the campaign has them."/>

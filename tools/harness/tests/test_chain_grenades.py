@@ -19,7 +19,7 @@ def generated(fault=None):
     if fault=='instigator':helper=mutated(helper,'saved->object_index = item->object.owner_object_index;','saved->object_index = owner_index;')
     return (('items.inc',code),('capture.inc',capture),('blast.inc',blast),('helpers.inc',helper))
 
-@pytest.mark.parametrize('case',['chain','ordinary','guards','reuse','restore'])
+@pytest.mark.parametrize('case',['chain','ordinary','guards','reuse','restore','off','other-equipment'])
 def test_case(case):
     status,output=run(build('chain_grenades',generated()),case)
     assert status==0,output

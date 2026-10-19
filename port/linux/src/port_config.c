@@ -494,7 +494,9 @@ static const struct config_setting config_settings[] =
 		"as a percentage: 100 (Default), 125, 150, 200 or 300. Headshots and\n"
 		"instant kills keep the campaign's rules. Other values use Default." },
 	{ "network.coop_chain_reaction_damage", _config_integer, "100", "HALO_NET_COOP_CHAIN_REACTION_DAMAGE", _environment_value,
-		_platform_all, "Host: player damage from chain-triggered loose grenades, as a percentage: 100 (Default), 75, 50 or 25." },
+		_platform_all, "Host: player damage from chain-triggered loose grenades, as a percentage:\n"
+		"100 (Default), 75, 50 or 25. 0 (Off) prevents loose grenades from being\n"
+		"set off by damage. Thrown grenades still explode normally." },
 	{ "network.coop_player_collisions", _config_boolean, "true", "HALO_NET_COOP_PLAYER_COLLISIONS", _environment_value,
 		_platform_all,
 		"Whether the players of an online co-op game bump into each other;\n"

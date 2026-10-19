@@ -5572,8 +5572,8 @@ static struct gametype_option const gametype_options[] =
 	COOP_SETUP_SCREENS; coop_enemies.c) */
 	{ "coop_friendly_fire_spinner", _option_setting, 0, 0, 4, { 0 }, "network.coop_friendly_fire",
 		{ "on", "half_damage", "quarter_damage", "off" } },
-	{ "coop_chain_damage_spinner", _option_setting, 0, 0, 4, { 0 }, "network.coop_chain_reaction_damage",
-		{ "100", "75", "50", "25" } },
+	{ "coop_chain_damage_spinner", _option_setting, 0, 0, 5, { 0 }, "network.coop_chain_reaction_damage",
+		{ "100", "75", "50", "25", "0" } },
 	{ "coop_extra_enemies_spinner", _option_setting, 0, 0, 3, { 0 }, "network.coop_enemies_mode",
 		{ "per_player", "multiplier", "none" } },
 	{ "coop_enemy_health_spinner", _option_setting, 0, 0, 5, { 0 }, "network.coop_enemy_health",

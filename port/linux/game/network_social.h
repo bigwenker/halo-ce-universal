@@ -11,5 +11,6 @@ boolean network_social_chat_send(char const *text);
 void network_social_note_death(long unit_index, struct damage_data const *damage);
 long network_social_score(long player_index);
 real network_social_chain_damage_scale(struct damage_data const *damage, long object_index);
+boolean network_social_grenade_chain_reactions_enabled(void);
 void network_social_reverted(void);
 #endif

@@ -140,6 +140,11 @@ void network_social_note_death(long unit_index, struct damage_data const *damage
         social_players[social_slot(killer_index)].score = score > LONG_MAX - points ? LONG_MAX : score + points;
     }
 }
+boolean network_social_grenade_chain_reactions_enabled(void)
+{
+    return !social_host() || !network_coop_active() ||
+        config_integer("network.coop_chain_reaction_damage") != 0;
+}
 real network_social_chain_damage_scale(struct damage_data const *damage, long index)
 {
     struct unit_datum *unit;

@@ -70,6 +70,7 @@ symbols in this file:
 #include "items/item_definitions.h"
 #include "items.h"
 #include "equipment_definitions.h"
+#include "network_social.h" /* port: the co-op host can disable loose-grenade chain reactions */
 #include "physics/breakable_surfaces.h"
 #include "physics/collision_bsp_definitions.h"
 #include "physics/collision_usage.h"
@@ -277,9 +278,14 @@ void item_accelerate_from_damage(long index, real_vector3d const *acceleration, 
         item->object.type == _object_type_equipment) {
         struct equipment_definition *definition = (struct equipment_definition *)tag_get('eqip',item->definition_index);
         if (definition->equipment.grenade_type >= 0 && definition->equipment.grenade_type < 2) {
-            item->object.owner_player_index = damage->owner_player_index;
-            item->object.owner_object_index = damage->owner_object_index;
-            item->object.owner_team_index = damage->owner_team_index;
+            /* port: keep the blast's impulse without starting a grenade's fuse. */
+            if (!network_social_grenade_chain_reactions_enabled())
+                detonates = FALSE;
+            else {
+                item->object.owner_player_index = damage->owner_player_index;
+                item->object.owner_object_index = damage->owner_object_index;
+                item->object.owner_team_index = damage->owner_team_index;
+            }
         }
     }
     item_accelerate(index,acceleration,detonates);

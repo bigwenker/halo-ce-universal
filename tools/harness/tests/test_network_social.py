@@ -20,7 +20,7 @@ def generated(fault=None):
     return (('under_test.inc', code),)
 
 
-@pytest.mark.parametrize('case', ['chat', 'retired', 'score', 'chain', 'snapshots'])
+@pytest.mark.parametrize('case', ['chat', 'retired', 'score', 'chain', 'chain-policy', 'snapshots'])
 def test_case(case):
     status, output = run(build('network_social', generated()), case)
     assert status == 0, output
@@ -37,7 +37,8 @@ def test_integration():
     import port_settings as ps
     rows=ps.COOP_SETUP_SCREENS[0][3]
     chain=next(row for row in rows if row[0]=='coop_chain_damage')
-    assert chain[2]==['DEFAULT','75%','50%','25%']
+    assert chain[2]==['DEFAULT','75%','50%','25%','OFF']
+    assert len(chain[3])==len(chain[2])
     # Widget instances keep only 31 characters of the leaf name. A longer
     # spinner silently stops matching its config binding at runtime.
     for key, *_ in rows:
