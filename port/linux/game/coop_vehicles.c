@@ -30,6 +30,7 @@ it must not manufacture homes or budgets from coop_vehicle_homes in an unknown s
 #include "units/vehicle_definitions.h"
 #include "network_coop.h"
 #include "coop_vehicles.h"
+#include "coop_vehicle_effects.h"
 
 char const *config_string(char const *name);
 long config_integer(char const *name);
@@ -312,6 +313,7 @@ void coop_vehicles_update(void)
 		home->current = copy;
 		home->copies++;
 		home->entered = FALSE;
+		coop_vehicle_respawn_effect(copy);
 		/* Only one allocation per tick, outside object/physics iteration. */
 		break;
 	}

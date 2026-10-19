@@ -149,6 +149,7 @@ enum
 	_distributed_message_coop_death = 243,
 	/* Optional co-op death countdown; core player state is unchanged. */
 	_distributed_message_coop_respawn = 247,
+	_distributed_message_coop_vehicle_effect = 248,
 	/* Optional host Needler rules, only after capability negotiation. */
 	_distributed_message_needler_policy = 253,
 	/* Optional host assault rifle rules, independently negotiated. */

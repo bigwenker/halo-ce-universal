@@ -19,6 +19,8 @@ struct data_iterator {long datum_index;int cursor;};
 static struct player_datum people[2];static void *player_data;
 static long tick=100, role=2;static boolean coop=TRUE,capable=TRUE,paused,cinematic,playing=TRUE,menu;
 static int beeps,go,sends;
+static void coop_vehicle_effects_reset(void){}
+static void coop_vehicle_effects_update(void){}
 static long game_time_get(void){return tick;}
 static boolean game_time_get_paused(void){return paused;}
 static boolean cinematic_in_progress(void){return cinematic;}

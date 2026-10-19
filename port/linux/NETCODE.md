@@ -891,3 +891,7 @@ countdowns. Only the host chooses the timer and spawns players. A timer names
 the player's identity and full salted corpse, so it cannot carry into a new
 life or a reused slot. Upstream peers receive only existing object/player
 state, without new payloads or a changed protocol version (29).
+
+The same capability enables private message 248 for extra-vehicle teleport
+effects. Clients wait up to three seconds for the matching full vehicle
+handle and definition, then use the local campaign respawn effect.

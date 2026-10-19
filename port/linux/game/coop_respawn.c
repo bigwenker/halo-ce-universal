@@ -11,6 +11,7 @@
 #include "network_distributed.h"
 #include "network_extensions.h"
 #include "coop_respawn.h"
+#include "coop_vehicle_effects.h"
 #include <string.h>
 
 long config_integer(char const *name);
@@ -49,6 +50,7 @@ boolean coop_respawn_active(void)
 void coop_respawn_reset(void)
 {
     memset(respawn_clocks, 0, sizeof(respawn_clocks));
+    coop_vehicle_effects_reset();
 }
 static struct respawn_clock *respawn_clock_for(long index, struct player_datum *player)
 {
@@ -110,6 +112,7 @@ void coop_respawn_update(void)
     long now = game_time_get();
     boolean host = game_connection() == _game_connection_network_server;
     if (!coop_respawn_active()) return;
+    coop_vehicle_effects_update();
     data_iterator_new(&iterator, player_data);
     while ((player = data_iterator_next(&iterator)) != NULL)
     {

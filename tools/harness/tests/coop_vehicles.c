@@ -54,6 +54,8 @@ static struct {long actual_count;} headers,*object_header_data=&headers;
 static short global_structure_bsp_index;
 static int enabled,connection,coop,percent,multiplier,blocked,sphere_blocked,floor_present,allocation_failed,nearby;
 static long now,new_count,last_copy;
+static int effect_count;
+static void coop_vehicle_respawn_effect(long index){CHECK(index==last_copy,"effect on wrong object");effect_count++;}
 static boolean collision_model_instance_new(struct collision_model_instance *p,long index) {(void)p;(void)index;return TRUE;}
 static boolean collision_model_test_sphere(struct collision_model_instance const *p,real_point3d const *c,float r) {(void)p;(void)c;(void)r;return blocked;}
 
@@ -111,7 +113,7 @@ static long reset(void) {
  memset(definitions,0,sizeof(definitions));
  for(i=0;i<8;i++){definitions[i].type=i;definitions[i].object.physics.index=0;definitions[i].object.bounding_radius=1;}
  enabled=coop=floor_present=1;connection=2;percent=50;multiplier=2;mode="per_player";blocked=sphere_blocked=allocation_failed=nearby=0;
- headers.actual_count=1;global_structure_bsp_index=0;now=new_count=0;for(i=0;i<5;i++)game.players[i]=1;
+ headers.actual_count=1;global_structure_bsp_index=0;now=new_count=0;effect_count=0;for(i=0;i<5;i++)game.players[i]=1;
  physics.mass_points.count=1;physics.mass_points.address=&mass_point;mass_point.radius=.2f;
  index=make(0,1);make(9,1);coop_vehicles_new_game();coop_vehicles_register(index,&sources[0]);return index;
 }
@@ -149,7 +151,7 @@ static void driving(void) {
   get(index)->object.position.x=0;get(index)->object.bounding_sphere_center.x=0;
   drive(index,(threshold-.01f)*3.048f);CHECK(!new_count,"before buffered clearance radius %f",radii[i]);
   get(index)->object.bounding_sphere_center.x=threshold+.01f;
-  coop_vehicles_update();CHECK(new_count==1,"after buffered clearance radius %f",radii[i]);
+  coop_vehicles_update();CHECK(new_count==1&&effect_count==1,"after buffered clearance radius %f",radii[i]);
  }
  reset();settle();identifiers[0]+=0x10000;coop_vehicles_update();CHECK(!new_count,"reused slot accepted");
 }
@@ -173,7 +175,7 @@ static void blocked_test(void) {
  blocked=0;sphere_blocked=1;coop_vehicles_update();CHECK(!new_count,"wall");
  sphere_blocked=0;global_structure_bsp_index=1;coop_vehicles_update();CHECK(!new_count,"wrong BSP");
  global_structure_bsp_index=0;headers.actual_count=MAXIMUM_OBJECTS_PER_MAP-512;coop_vehicles_update();CHECK(!new_count,"capacity");
- headers.actual_count=1;allocation_failed=1;coop_vehicles_update();CHECK(!new_count&&!coop_vehicle_homes.homes[0].copies,"failed allocation consumed budget");
+ headers.actual_count=1;allocation_failed=1;coop_vehicles_update();CHECK(!effect_count&&!new_count&&!coop_vehicle_homes.homes[0].copies,"failed allocation consumed budget");
  allocation_failed=0;nearby=1;coop_vehicles_update();CHECK(new_count==1,"unblocked pad never retried");
 }
 static void checkpoint(void) {
