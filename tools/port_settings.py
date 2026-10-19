@@ -1247,6 +1247,8 @@ COOP_SETUP_SCREENS = [
             "Players bump into each other, as in the campaign.",
             "Players walk through each other, so that no one\\nblocks a doorway. The AI's characters still block.",
         ]),
+        ("coop_respawn_time", "RESPAWN TIME:", ["3 SECONDS", "5 SECONDS", "10 SECONDS", "15 SECONDS", "20 SECONDS", "30 SECONDS", "60 SECONDS"],
+         ["Time before a dead player rejoins.\\nA clear spawn location must still be available."] * 7),
     ]),
     ("voice_options", "VOICE AND VOTING", "Voice chat, text chat and votes to kick a player,\\nfor this game.",
      TEAMPLAY_ROWS),
@@ -1281,6 +1283,8 @@ def _setup_option_screen(base: str, key: str, rows: list) -> list:
     "port setup options init" and "port setup options save", OK), each
     choice's help shown as the gametype's are ("game settings lists text
     update": the help strings, each spinner's choices' in turn)"""
+    spacing = 26 if len(rows) > 9 else 30
+    row_height = 26 if len(rows) > 9 else 28
     lines = _widget(f"{base}/{key}_screen", [("width", 640), ("height", 480),
                                             ("flags", "pass_unhandled_to_focused_child"),
                                             ("bitmap", "bitmaps/gradient")],
@@ -1295,7 +1299,7 @@ def _setup_option_screen(base: str, key: str, rows: list) -> list:
     for row_key, *_ in rows:
         if row_key not in SETUP_OPTION_SAME_PLACE:
             place += 1
-        children.append(f'<child widget="{base}/op_{row_key}" x="54" y="{73 + 30 * place}"/>')
+        children.append(f'<child widget="{base}/op_{row_key}" x="54" y="{73 + spacing * place}"/>')
     children.append(f'<child widget="{base}/{key}_button_bar" y="414"/>')
     lines += _widget(f"{base}/{key}_menu", [("type", "column_list"), ("width", 640), ("height", 480),
                                            ("flags", "pass_unhandled_to_focused_child up_down_tabs_children"),
@@ -1307,7 +1311,7 @@ def _setup_option_screen(base: str, key: str, rows: list) -> list:
     lines += _button(f"{base}/{key}_button_ok", 1, ['<on event="a" run="port setup options save" back="true"/>',
                                                      '<on event="start" run="port setup options save" back="true"/>'])
     for index, (row_key, label, strings, _) in enumerate(rows):
-        lines += _widget(f"{base}/op_{row_key}", [("width", 512), ("height", 28),
+        lines += _widget(f"{base}/op_{row_key}", [("width", 512), ("height", row_height),
                                                  ("flags", "pass_unhandled_to_focused_child"),
                                                  ("bitmap", "bitmaps/option_bkds"), ("color", "#FF2896FF")],
                          [f'<child widget="{base}/{row_key}_label"/>',

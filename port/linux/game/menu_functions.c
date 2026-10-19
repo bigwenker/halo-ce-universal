@@ -5570,6 +5570,8 @@ static struct gametype_option const gametype_options[] =
 	{ "text_chat_spinner", _option_setting, 0, 0, 3, { 0 }, "network.text_chat", { "on", "links", "off" } },
 	/* co-op's options (Server Setup's CO-OP OPTIONS: tools/port_settings.py's
 	COOP_SETUP_SCREENS; coop_enemies.c) */
+	{ "coop_respawn_time_spinner", _option_setting, 0, 0, 7, { 0 }, "network.coop_respawn_time",
+		{ "3", "5", "10", "15", "20", "30", "60" } },
 	{ "coop_friendly_fire_spinner", _option_setting, 0, 0, 4, { 0 }, "network.coop_friendly_fire",
 		{ "on", "half_damage", "quarter_damage", "off" } },
 	{ "coop_chain_damage_spinner", _option_setting, 0, 0, 5, { 0 }, "network.coop_chain_reaction_damage",
@@ -6159,12 +6161,13 @@ static void gametype_option_help(struct widget_instance *list)
 		with it when widget_instance_render_recursive draws and notes targets. */
 		{
 			short y = 73;
+			short spacing = named(list, "coop_respawn_time_spinner", 0) ? 26 : 30;
 
 			for (row = list->child; row; row = row->next)
 				if (row->visible && !strncmp(row->name, "op_coop_", 8))
 				{
 					row->vertical_offset = y;
-					y += 30;
+					y += spacing;
 				}
 		}
 	}

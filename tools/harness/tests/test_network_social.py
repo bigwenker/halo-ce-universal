@@ -44,7 +44,7 @@ def test_integration():
     for key, *_ in rows:
         assert len(key+'_spinner')<=31
     # Eight rows fit above the buttons, even before runtime compaction.
-    assert 73+(len(rows)-1)*30+28<414
+    assert 73+(len(rows)-1)*26+26<341
     assert 'network_social_note_death(unit_index, damage_data);' in read('source/units/units.c')
     flags=read('port/linux/game/network_damage.c').split('#define REPORT_DAMAGE_FLAGS',1)[1].split('\n\n',1)[0]
     assert '_damage_chain_reaction_bit' not in flags and '_damage_headshot_bit' not in flags

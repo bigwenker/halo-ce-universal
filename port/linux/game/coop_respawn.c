@@ -12,6 +12,8 @@
 #include "coop_respawn.h"
 #include <string.h>
 
+long config_integer(char const *name);
+
 #define COOP_RESPAWN_MAX_TICKS (60 * TICKS_PER_SECOND)
 struct respawn_clock
 {
@@ -71,7 +73,7 @@ void coop_respawn_died(long index)
     clock = respawn_clock_for(index, player);
     if (!clock) return;
     clock->corpse = player->dead_unit_index;
-    clock->remaining = 10 * TICKS_PER_SECOND;
+    clock->remaining = PIN(config_integer("network.coop_respawn_time"), 3, 60) * TICKS_PER_SECOND;
     clock->last_tick = game_time_get();
     clock->sounds = 0;
     clock->heard = FALSE;

@@ -4,6 +4,9 @@ typedef unsigned short word;
 #define HALO_PORT_MAXIMUM_NETWORK_PLAYERS 128
 #define TICKS_PER_SECOND 30
 #define NUMBEROF(a) (sizeof(a)/sizeof((a)[0]))
+#define PIN(a,b,c) MAX((b),MIN((a),(c)))
+static long seconds=10;
+static long config_integer(char const *name){return seconds;}
 #define MIN(a,b) ((a)<(b)?(a):(b))
 #define MAX(a,b) ((a)>(b)?(a):(b))
 #define GET_MESSAGE_TYPE(h) (((h)>>2)&3)

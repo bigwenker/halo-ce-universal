@@ -44,7 +44,7 @@ def test_menu():
     row = rows[names.index('coop_enemy_health')]
     assert row[2] == ['DEFAULT', '1.25X', '1.5X', '2X', '3X']
     assert len(row[3]) == 5
-    assert len(rows) <= 9  # Last row ends at help's y=341, including both amount rows.
+    assert 73 + len(rows) * 26 <= 341  # Ten rows fit above help, including both amounts.
     source = read('port/linux/game/menu_functions.c')
     option = source.split('{ "coop_enemy_health_spinner"', 1)[1].split('\n\t{', 1)[0]
     assert '"network.coop_enemy_health"' in option

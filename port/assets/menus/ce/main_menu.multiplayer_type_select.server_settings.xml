@@ -235,14 +235,15 @@
 		<data input="game settings lists text update"/>
 		<on event="created" run="port setup options init"/>
 		<child widget="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_friendly_fire" x="54" y="73"/>
-		<child widget="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_chain_damage" x="54" y="103"/>
-		<child widget="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_extra_enemies" x="54" y="133"/>
-		<child widget="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_enemy_health" x="54" y="163"/>
-		<child widget="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_extra_pickups" x="54" y="193"/>
-		<child widget="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_extra_vehicles" x="54" y="223"/>
-		<child widget="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_enemies_multiplier" x="54" y="253"/>
-		<child widget="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_enemies_per_player" x="54" y="283"/>
-		<child widget="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_player_collisions" x="54" y="313"/>
+		<child widget="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_chain_damage" x="54" y="99"/>
+		<child widget="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_extra_enemies" x="54" y="125"/>
+		<child widget="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_enemy_health" x="54" y="151"/>
+		<child widget="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_extra_pickups" x="54" y="177"/>
+		<child widget="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_extra_vehicles" x="54" y="203"/>
+		<child widget="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_enemies_multiplier" x="54" y="229"/>
+		<child widget="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_enemies_per_player" x="54" y="255"/>
+		<child widget="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_player_collisions" x="54" y="281"/>
+		<child widget="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_respawn_time" x="54" y="307"/>
 		<child widget="main_menu/multiplayer_type_select/server_settings/coop_options/coop_options_button_bar" y="414"/>
 	</widget>
 	<widget name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_options_button_bar" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items">
@@ -255,7 +256,7 @@
 		<on event="start" run="port setup options save" back="true"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_friendly_fire" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
+	<widget name="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_friendly_fire" width="512" height="26" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
 		<child widget="main_menu/multiplayer_type_select/server_settings/coop_options/coop_friendly_fire_label"/>
 		<child widget="main_menu/multiplayer_type_select/server_settings/coop_options/coop_friendly_fire_spinner" x="286" y="1"/>
 	</widget>
@@ -270,7 +271,7 @@
 		<string text="75% LESS"/>
 		<string text="OFF"/>
 	</strings>
-	<widget name="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_chain_damage" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
+	<widget name="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_chain_damage" width="512" height="26" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
 		<child widget="main_menu/multiplayer_type_select/server_settings/coop_options/coop_chain_damage_label"/>
 		<child widget="main_menu/multiplayer_type_select/server_settings/coop_options/coop_chain_damage_spinner" x="286" y="1"/>
 	</widget>
@@ -286,7 +287,7 @@
 		<string text="25%"/>
 		<string text="OFF"/>
 	</strings>
-	<widget name="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_extra_enemies" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
+	<widget name="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_extra_enemies" width="512" height="26" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
 		<child widget="main_menu/multiplayer_type_select/server_settings/coop_options/coop_extra_enemies_label"/>
 		<child widget="main_menu/multiplayer_type_select/server_settings/coop_options/coop_extra_enemies_spinner" x="286" y="1"/>
 	</widget>
@@ -300,7 +301,7 @@
 		<string text="STATIC MULTIPLIER"/>
 		<string text="NONE"/>
 	</strings>
-	<widget name="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_enemy_health" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
+	<widget name="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_enemy_health" width="512" height="26" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
 		<child widget="main_menu/multiplayer_type_select/server_settings/coop_options/coop_enemy_health_label"/>
 		<child widget="main_menu/multiplayer_type_select/server_settings/coop_options/coop_enemy_health_spinner" x="286" y="1"/>
 	</widget>
@@ -316,7 +317,7 @@
 		<string text="2X"/>
 		<string text="3X"/>
 	</strings>
-	<widget name="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_extra_pickups" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
+	<widget name="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_extra_pickups" width="512" height="26" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
 		<child widget="main_menu/multiplayer_type_select/server_settings/coop_options/coop_extra_pickups_label"/>
 		<child widget="main_menu/multiplayer_type_select/server_settings/coop_options/coop_extra_pickups_spinner" x="286" y="1"/>
 	</widget>
@@ -330,7 +331,7 @@
 		<string text="STATIC MULTIPLIER"/>
 		<string text="NONE"/>
 	</strings>
-	<widget name="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_extra_vehicles" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
+	<widget name="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_extra_vehicles" width="512" height="26" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
 		<child widget="main_menu/multiplayer_type_select/server_settings/coop_options/coop_extra_vehicles_label"/>
 		<child widget="main_menu/multiplayer_type_select/server_settings/coop_options/coop_extra_vehicles_spinner" x="286" y="1"/>
 	</widget>
@@ -344,7 +345,7 @@
 		<string text="STATIC MULTIPLIER"/>
 		<string text="NONE"/>
 	</strings>
-	<widget name="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_enemies_multiplier" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
+	<widget name="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_enemies_multiplier" width="512" height="26" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
 		<child widget="main_menu/multiplayer_type_select/server_settings/coop_options/coop_enemies_multiplier_label"/>
 		<child widget="main_menu/multiplayer_type_select/server_settings/coop_options/coop_enemies_multiplier_spinner" x="286" y="1"/>
 	</widget>
@@ -360,7 +361,7 @@
 		<string text="16X"/>
 		<string text="32X"/>
 	</strings>
-	<widget name="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_enemies_per_player" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
+	<widget name="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_enemies_per_player" width="512" height="26" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
 		<child widget="main_menu/multiplayer_type_select/server_settings/coop_options/coop_enemies_per_player_label"/>
 		<child widget="main_menu/multiplayer_type_select/server_settings/coop_options/coop_enemies_per_player_spinner" x="286" y="1"/>
 	</widget>
@@ -376,7 +377,7 @@
 		<string text="150%"/>
 		<string text="200%"/>
 	</strings>
-	<widget name="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_player_collisions" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
+	<widget name="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_player_collisions" width="512" height="26" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
 		<child widget="main_menu/multiplayer_type_select/server_settings/coop_options/coop_player_collisions_label"/>
 		<child widget="main_menu/multiplayer_type_select/server_settings/coop_options/coop_player_collisions_spinner" x="286" y="1"/>
 	</widget>
@@ -389,6 +390,24 @@
 		<string text="ON"/>
 		<string text="OFF"/>
 	</strings>
+	<widget name="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_respawn_time" width="512" height="26" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
+		<child widget="main_menu/multiplayer_type_select/server_settings/coop_options/coop_respawn_time_label"/>
+		<child widget="main_menu/multiplayer_type_select/server_settings/coop_options/coop_respawn_time_spinner" x="286" y="1"/>
+	</widget>
+	<widget name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_respawn_time_label" type="text" controller="1" width="300" height="22" string_list="main_menu/multiplayer_type_select/server_settings/coop_options/coop_options_labels" string_index="9" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
+	</widget>
+	<widget name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_respawn_time_spinner" type="spinner" top="2" width="206" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="main_menu/multiplayer_type_select/server_settings/coop_options/var_coop_respawn_time" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" list_flags="items_from_strings" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="7 -13 19 -7" footer_bounds="7 208 19 214">
+		<on event="left_mouse" run="mouse spinner 1wide click"/>
+	</widget>
+	<strings name="main_menu/multiplayer_type_select/server_settings/coop_options/var_coop_respawn_time">
+		<string text="3 SECONDS"/>
+		<string text="5 SECONDS"/>
+		<string text="10 SECONDS"/>
+		<string text="15 SECONDS"/>
+		<string text="20 SECONDS"/>
+		<string text="30 SECONDS"/>
+		<string text="60 SECONDS"/>
+	</strings>
 	<strings name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_options_labels">
 		<string text="FRIENDLY FIRE:"/>
 		<string text="CHAIN-REACTION DAMAGE:"/>
@@ -399,6 +418,7 @@
 		<string text="MULTIPLIER:"/>
 		<string text="PER PLAYER:"/>
 		<string text="PLAYER COLLISIONS:"/>
+		<string text="RESPAWN TIME:"/>
 	</strings>
 	<strings name="main_menu/multiplayer_type_select/server_settings/coop_options/cap_coop_options">
 		<string text="Friendly hits deal normal damage."/>
@@ -436,6 +456,13 @@
 		<string text="For each player past the first, enemy squads, pickups\nand vehicles get this much more (100%: as many again)."/>
 		<string text="Players bump into each other, as in the campaign."/>
 		<string text="Players walk through each other, so that no one\nblocks a doorway. The AI's characters still block."/>
+		<string text="Time before a dead player rejoins.\nA clear spawn location must still be available."/>
+		<string text="Time before a dead player rejoins.\nA clear spawn location must still be available."/>
+		<string text="Time before a dead player rejoins.\nA clear spawn location must still be available."/>
+		<string text="Time before a dead player rejoins.\nA clear spawn location must still be available."/>
+		<string text="Time before a dead player rejoins.\nA clear spawn location must still be available."/>
+		<string text="Time before a dead player rejoins.\nA clear spawn location must still be available."/>
+		<string text="Time before a dead player rejoins.\nA clear spawn location must still be available."/>
 	</strings>
 	<widget name="main_menu/multiplayer_type_select/server_settings/voice_options/voice_options_screen" width="640" height="480" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/gradient">
 		<child widget="main_menu/multiplayer_type_select/server_settings/voice_options/header_voice_options"/>
