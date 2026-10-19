@@ -14,6 +14,7 @@ static boolean coop=TRUE,host=TRUE,deleted,tag_present=TRUE,pc_preferred=TRUE,sp
 static int transitions,quits,closed,resets,keepalives,paused;
 static long network_game_client_late_join_time=123;
 static boolean network_game_client_late_join_clock_pending=TRUE;
+static boolean network_game_client_start_pending=TRUE;
 static char const *opened;
 static boolean network_coop_active(void){return coop;}
 static void *global_network_game_server_get(void){return host?(void*)1:NULL;}

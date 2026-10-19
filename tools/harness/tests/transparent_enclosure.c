@@ -128,7 +128,7 @@ static void draw_frame(void)
     struct render_skinning skinning = {NULL, 1};
     char permutation_indices[] = {0};
     submissions = 0;
-    render_model_parts(&model, permutation_indices, 1, &skinning, 1, 0, FALSE, FALSE, 0, 0);
+    render_model_parts(&model, permutation_indices, 1, &skinning, 1, 0, _model_detail_rules_stock, 0, 0);
     CHECK(submissions == 2, "two transparent parts");
     CHECK(next[0] == 1 && previous[1] == 0, "native links must include part zero");
     CHECK(glass_material.flags == FLAG(_shader_transparent_glass_flag_two_sided_bit), "retail two-sided glass retained");
@@ -139,6 +139,8 @@ int main(int argc, char **argv)
     const char *case_name = argc > 1 ? argv[1] : "closed";
     int i;
     initialize();
+    /* display.model_detail's levels for each permutation (model_detail.c), as
+    render_model_parts draws them: from eltanschauung's #282 */
     if (!strncmp(case_name, "lod-", 4)) {
         struct model_region regions[2];
         struct model_region_permutation permutations[2];
@@ -146,10 +148,11 @@ int main(int argc, char **argv)
         struct model_geometry_part solid_parts[4];
         struct render_skinning skinning = {NULL, 1};
         char choices[2] = {0, 0};
-        boolean full_detail = strcmp(case_name, "lod-off") != 0;
+        boolean stock = !strcmp(case_name, "lod-off");
         boolean interior = !strncmp(case_name, "lod-interior-", 13);
         boolean inside = strstr(case_name, "inside") != NULL;
         boolean shadow = strstr(case_name, "shadow") != NULL;
+        short rules = stock ? _model_detail_rules_stock : inside ? _model_detail_rules_inside : _model_detail_rules_outside;
         memset(regions, 0, sizeof(regions));
         memset(solid_parts, 0, sizeof(solid_parts));
         for (i = 0; i < 4; i++) {
@@ -176,9 +179,9 @@ int main(int argc, char **argv)
         if (!strcmp(case_name, "lod-invalid")) permutations[0].geometry_indices[4] = 99;
         model.regions.count = 2; model.regions.address = regions;
         model.geometries.count = 4; model.geometries.address = geometries;
-        render_model_parts(&model, choices, 2, &skinning, 1, 4, full_detail, inside, 0,
+        render_model_parts(&model, choices, 2, &skinning, 1, 4, rules, 0,
             shadow ? FLAG(_render_model_shadow_bit) : 0);
-        if (!full_detail) CHECK(!solid_draws && !shadow_draws, "off preserves absent top-level geometry");
+        if (stock) CHECK(!solid_draws && !shadow_draws, "stock keeps the top level's missing geometry");
         else if (!strcmp(case_name, "lod-empty") || !strcmp(case_name, "lod-invalid"))
             CHECK(solid_draws == 1 && selected_geometry[0] == 3, "absent or corrupt geometry remains rejected");
         else if (interior) {
@@ -187,8 +190,8 @@ int main(int argc, char **argv)
                 "interior geometry requires an inside camera, including shadows");
         }
         else {
-            CHECK((shadow ? shadow_draws : solid_draws) == 2, "both regions draw with different highest available LODs");
-            CHECK(selected_geometry[0] == 1 && selected_geometry[1] == 3, "per-region fallback preserves geometry choice");
+            CHECK((shadow ? shadow_draws : solid_draws) == 2, "both regions draw with different highest available levels");
+            CHECK(selected_geometry[0] == 1 && selected_geometry[1] == 3, "each permutation's own highest level");
         }
         return 0;
     }

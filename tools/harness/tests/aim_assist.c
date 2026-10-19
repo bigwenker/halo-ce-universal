@@ -3,7 +3,8 @@
 #include <string.h>
 typedef unsigned short word;
 enum { _game_connection_local, _game_connection_network_client, _game_connection_network_server };
-enum { _distributed_message_aim_assist_policy = 83, _distributed_to_clients_reliably };
+#include "message_ids.inc"
+enum { _distributed_to_clients_reliably };
 struct distributed_message_header { word header; byte type,count; long game_time; };
 #define GET_MESSAGE_TYPE(h) (((h)>>2)&3)
 static int connection=2,playing=1,menu=0,block=0,preference=1;
@@ -25,7 +26,7 @@ static void distributed_send_to_machine_reliably(long machine,void *data,byte ty
 #include "policy.inc"
 #include "input.inc"
 static void receive(int from,int value,int count,int size){
- struct aim_assist_policy_message m={{8,83,count,0},value};
+ struct aim_assist_policy_message m={{8,_distributed_message_aim_assist_policy,count,0},value};
  network_aim_assist_handle_message(from,(word*)&m,size);
 }
 int main(int argc,char **argv){CHECK(argc==2,"case");char const *case_name=argv[1];network_aim_assist_reset();
@@ -34,6 +35,6 @@ int main(int argc,char **argv){CHECK(argc==2,"case");char const *case_name=argv[
  else CASE("scope") {block=1;connection=0;CHECK(!halo_linux_mouse_aiming(0),"singleplayer affected");connection=2;menu=1;CHECK(!network_aim_assist_block_mouse(),"main menu affected");menu=0;playing=0;CHECK(!network_aim_assist_block_mouse(),"loading affected");}
  else CASE("replication") {block=1;network_aim_assist_update();CHECK(sends==1&&wire_size==12,"wire layout");network_aim_assist_update();CHECK(sends==1,"unchanged spam");connection=1;block=0;network_aim_assist_handle_message(NONE,(word*)wire,wire_size);CHECK(network_aim_assist_block_mouse(),"client preference beat host");connection=2;network_aim_assist_send_policy(7);CHECK(sends==2,"late join policy missing");block=0;network_aim_assist_update();CHECK(sends==3,"changed policy missing");connection=1;network_aim_assist_handle_message(NONE,(word*)wire,wire_size);CHECK(!network_aim_assist_block_mouse(),"Allowed not restored");}
  else CASE("admission") {connection=1;receive(NONE,0,1,12);CHECK(!network_aim_assist_block_mouse(),"valid policy");unreliable=1;receive(NONE,1,1,12);CHECK(!network_aim_assist_block_mouse(),"datagram spoof");unreliable=0;receive(3,1,1,12);CHECK(!network_aim_assist_block_mouse(),"client spoof");receive(NONE,1,0,12);CHECK(!network_aim_assist_block_mouse(),"count accepted");receive(NONE,2,1,12);CHECK(!network_aim_assist_block_mouse(),"invalid policy accepted");for(int n=0;n<12;n++)receive(NONE,1,1,n);CHECK(!network_aim_assist_block_mouse(),"truncation accepted");receive(NONE,1,1,13);CHECK(!network_aim_assist_block_mouse(),"trailing bytes accepted");connection=2;receive(NONE,1,1,12);connection=1;CHECK(!network_aim_assist_block_mouse(),"host accepted policy");}
- else CASE("reset") {connection=1;receive(NONE,0,1,12);CHECK(!network_aim_assist_block_mouse(),"setup");network_aim_assist_reset();CHECK(!network_aim_assist_block_mouse(),"upstream default changed");receive(NONE,0,1,12);CHECK(!network_aim_assist_block_mouse(),"Allowed inaccessible");}
+ else CASE("reset") {connection=1;receive(NONE,0,1,12);CHECK(!network_aim_assist_block_mouse(),"setup");network_aim_assist_reset();CHECK(network_aim_assist_block_mouse(),"previous host rule retained");receive(NONE,0,1,12);CHECK(!network_aim_assist_block_mouse(),"Allowed inaccessible");}
  else return 2;return 0;
 }

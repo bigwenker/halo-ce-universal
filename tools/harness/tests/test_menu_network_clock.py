@@ -13,11 +13,11 @@ CASES = ['shell-local', 'shell-browser', 'shell-host', 'shell-joined',
 CONTROLS = {
     'shell-uses-network-queues': ('game_time_update', 'if (main_menu)\n', 'if (FALSE)\n', 'shell-host'),
     'shell-stops-on-reset': ('network_game_reset_for_next_round', 'if (!main_menu_is_active())', 'if (TRUE)', 'shell-round-reset'),
-    'shell-sends-game-updates': ('game_time_update', 'if (!main_menu) /* port: no gameplay replication from a shell tick */',
+    'shell-sends-game-updates': ('game_time_update', 'if (!game_time_menu_scene())',
                                'if (TRUE)', 'shell-browser'),
     'shell-client-authority': ('network_game_distributed_client', ' && !main_menu_is_active()', '', 'shell-browser'),
-    'shell-clock-held': ('game_time_held', 'main_menu_is_active() || ', '', 'shell-browser'),
-    'game-no-longer-waits': ('game_time_held', 'if (main_menu_is_active() ||', 'if (TRUE ||', 'game-client-wait'),
+    'shell-clock-held': ('game_time_held', 'game_time_menu_scene() || ', '', 'shell-browser'),
+    'game-no-longer-waits': ('game_time_held', 'if (game_time_menu_scene() ||', 'if (TRUE ||', 'game-client-wait'),
 }
 
 

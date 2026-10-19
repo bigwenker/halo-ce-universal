@@ -27,6 +27,7 @@ static boolean input_key_is_down(short n){return FALSE;}
 static void director_process_variables(short n,unsigned long flags,real delta){}
 static void director_inhibit_input(short n){input_inhibited++;}
 static void director_inhibit_facing(short n){facing_inhibited++;}
+static boolean passenger_camera_enabled(short n){return FALSE;}
 #include "under_test.inc"
 int main(int argc,char **argv){char const *case_name=argc>1?argv[1]:"";struct camera_control controls;
  if(!strcmp(case_name,"third-person"))view.camera_proc=third_person_camera_update;

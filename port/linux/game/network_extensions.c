@@ -65,7 +65,6 @@ word network_extensions_feature(byte type)
     {
     case _distributed_message_coop_respawn:
     case _distributed_message_coop_vehicle_effect: return EXT_RESPAWN;
-    case _distributed_message_aim_assist_policy: return EXT_AIM;
     case _distributed_message_suicide_request: return EXT_SUICIDE;
     case _distributed_message_coop_death: return EXT_DEATH;
     case _distributed_message_social_request:

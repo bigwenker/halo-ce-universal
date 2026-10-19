@@ -28,6 +28,8 @@ static long scenario_leaf_index_from_point(real_point3d const *p) { return 0; }
 #include "config.inc"
 static struct distributed_own_position distributed_own_positions[1][64];
 static real distributed_own_round_trip;
+/* (the latency meter's timing of the host's echo: not under test) */
+static void distributed_note_own_round_trip(long time) { (void)time; }
 static boolean distributed_apply_state(long i, struct distributed_unit_state const *s,
     real_point3d const *p, real tolerance, real b, real speed, real fall) {
     real dx = p->x - objects[i].object.position.x, dy = p->y - objects[i].object.position.y,
@@ -54,6 +56,7 @@ int main(int argc, char **argv) {
     if (!strcmp(case_name,"other-elevator")) objects[1].biped.elevator_object_index = 3;
     if (!strcmp(case_name,"on-foot")) own->elevator_index = NONE;
     if (!strcmp(case_name,"teleport")) s.position.x = 10;
+    if (!strcmp(case_name,"far")) s.position.z = -10;
     if (!strcmp(case_name,"unpredicted")) {s.flags = 0; s.position.z = 0;}
     if (!strcmp(case_name,"no-history")) {own->time = NONE; s.position.z = 0;}
     distributed_correct_own_unit(&p,1,&s);

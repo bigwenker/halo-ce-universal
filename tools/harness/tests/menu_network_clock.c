@@ -22,6 +22,8 @@ static short connection = _game_connection_local;
 static long ticks, frames, local_updates, host_updates, distributed_ticks, queue_time, queue_reads;
 static long shell_loads;
 static boolean main_menu_is_active(void) { return shell; }
+static boolean game_time_menu_scene(void) { return shell; }
+static int halo_fixed_step(void){return 0;}
 static short game_connection(void) { return connection; }
 static void game_connection_set(short mode) { connection = mode; }
 static struct network_game_client *global_network_game_client_get(void) { return client_exists ? &client : NULL; }

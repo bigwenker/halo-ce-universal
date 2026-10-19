@@ -18,8 +18,6 @@ symbols in this file:
 
 #include "camera/director.h"
 #include "cseries/cseries.h"
-/* port: full detail retains small particles except small projections. */
-#include "render_lod.h"
 #include "cseries/profile.h"
 #include "effects/particles.h"
 #include "game/players.h"
@@ -41,7 +39,9 @@ enum
 	without a bound check, so it must stay the size of the native builds'
 	particle pool (effects/particles.c, halo_port_capacity.h) */
 	MAXIMUM_RENDERED_PARTICLES = HALO_PORT_MAXIMUM_PARTICLES,
-	MAXIMUM_RENDERED_PARTICLE_GROUPS = 512,
+	/* the native builds' (halo_port_capacity.h: the Xbox's 512 on Android
+	and the Xbox builds) */
+	MAXIMUM_RENDERED_PARTICLE_GROUPS = HALO_PORT_MAXIMUM_RENDERED_PARTICLE_GROUPS,
 };
 
 /* ---------- macros */
@@ -320,7 +320,7 @@ void render_particles(
 									&position,
 									radius);
 
-							if (render_lod_particle_visible(diameter, definition->lod_cutoff))
+							if (diameter > definition->lod_cutoff)
 							{
 								real fade;
 								real scale;

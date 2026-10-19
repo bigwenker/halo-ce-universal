@@ -91,7 +91,7 @@ int main(int argc,char **argv){CHECK(argc==2,"case");char const *case_name=argv[
   CHECK(network_extensions_needler_matches()&&network_extensions_balance_matches(_distributed_message_assault_rifle_policy),"new peer did not enable both balances");
   CHECK(!network_extensions_balance_matches(_distributed_message_player_prediction),"core type accepted as balance");
  } else CASE("partial") {
-  negotiate(EXT_SUICIDE);CHECK(network_extensions_allows(1,_distributed_message_suicide_request),"missing selected feature");CHECK(!network_extensions_allows(1,_distributed_message_aim_assist_policy)&&!policies,"unselected feature enabled");
+  negotiate(EXT_SUICIDE);CHECK(network_extensions_allows(1,_distributed_message_suicide_request),"missing selected feature");CHECK(network_extensions_allows(1,_distributed_message_aim_assist_policy)&&policies==1,"core aim policy requires fork negotiation");
   CHECK(!network_extensions_allows(2,_distributed_message_suicide_request),"other machine enabled");
  } else CASE("admission") {
   struct extension_message m=hello();

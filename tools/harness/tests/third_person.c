@@ -1,6 +1,8 @@
 #include "harness.h"
 #include <math.h>
 #include <wchar.h>
+#define MAXIMUM_NUMBER_OF_LOCAL_PLAYERS 4
+static boolean passenger_camera_enabled(short n){return FALSE;}
 #define PIN(n,a,b) ((n)<(a)?(a):(n)>(b)?(b):(n))
 #define csmemset memset
 #define ABS(v) ((v)<0?-(v):(v))

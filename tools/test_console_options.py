@@ -36,6 +36,8 @@ static void console_printf(int b,const char *f,...) {(void)b;(void)f;}
 static void console_warning(const char *f,...) {(void)f;}
 static int fail_save,fail_rename;
 static const char *SDL_GetBasePath(void){return "./";}
+typedef struct {unsigned long long size; long long modify_time;} SDL_PathInfo;
+static int SDL_GetPathInfo(const char *p,SDL_PathInfo *info){FILE *f=fopen(p,"rb");if(!f)return 0;if(info){fseek(f,0,SEEK_END);info->size=ftell(f);info->modify_time=0;}fclose(f);return 1;}
 static void SDL_free(void*p){free(p);}
 static void *SDL_LoadFile(const char *p,size_t *n){FILE*f=fopen(p,"rb");if(!f)return NULL;fseek(f,0,SEEK_END);*n=ftell(f);rewind(f);void*b=malloc(*n+1);if(fread(b,1,*n,f)!=*n)abort();fclose(f);((char*)b)[*n]=0;return b;}
 static int SDL_SaveFile(const char *p,const void*b,size_t n){FILE*f=fopen(p,"wb");if(!f)return 0;int ok=fwrite(b,1,fail_save?n/2:n,f)==n;fclose(f);return ok;}

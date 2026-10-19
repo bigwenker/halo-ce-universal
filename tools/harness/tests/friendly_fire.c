@@ -18,6 +18,7 @@ static boolean network_coop_active(void) { return coop; }
 static struct network_game *network_game_get_game(void) { return has_game ? &network_game : NULL; }
 static void *object_try_and_get_and_verify_type(long index, long mask) { return valid_unit ? &victim : NULL; }
 static void *datum_try_and_get(void *data, long index) { return valid_attacker ? &attacker : NULL; }
+static boolean network_coop_players_friendly_fire(long attacker_index,long victim_index) { return TRUE; }
 #include "policy.inc"
 
 #define SET_FLAG(v,b,on) ((v) = ((v) & ~(1u << (b))) | ((on) ? 1u << (b) : 0))

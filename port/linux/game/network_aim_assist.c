@@ -2,6 +2,7 @@
    stays intact; a controller or touch aiming takes its usual path. */
 #include "cseries.h"
 #include "game/game.h"
+#include "interface/ui_widget.h"
 #include "main/main.h"
 #include "networking/network_game_globals.h"
 #include "network_distributed.h"
@@ -9,7 +10,7 @@
 #include <string.h>
 
 int config_boolean(char const *name);
-static boolean client_blocks_mouse = FALSE;
+static boolean client_blocks_mouse = TRUE;
 static short sent_policy = NONE;
 struct aim_assist_policy_message
 {
@@ -20,8 +21,8 @@ struct aim_assist_policy_message
 
 void network_aim_assist_reset(void)
 {
-    /* Upstream hosts have no fork policy; preserve their normal behavior. */
-    client_blocks_mouse = FALSE;
+    /* Until the host's reliable policy arrives, a client cannot opt in. */
+    client_blocks_mouse = TRUE;
     sent_policy = NONE;
 }
 

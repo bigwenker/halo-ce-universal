@@ -30,7 +30,7 @@ def test_negative():
 
 def test_protocol_and_unique_ids():
     limits = read('port/linux/include/halo_port_limits.h')
-    assert '#define HALO_PORT_NETWORK_VERSION 29' in limits
+    assert '#define HALO_PORT_NETWORK_VERSION 32' in limits
     # The production enum is compiled by every test: duplicate private/core IDs
     # would also duplicate the cases below and fail compilation.
     h = read('port/linux/game/network_distributed.h')

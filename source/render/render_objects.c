@@ -84,8 +84,6 @@ symbols in this file:
 /* ---------- headers */
 
 #include "cseries.h"
-/* port: optional full-detail lighting updates and shadow size. */
-#include "render_lod.h"
 #include "cseries/errors.h"
 #include "cseries/profile.h"
 #include "memory/data.h"
@@ -379,6 +377,8 @@ boolean first_person_legs_wanted(long object_index);
 real_matrix4x3 const *first_person_legs_node_matrices(long object_index, real_matrix4x3 const *nodes);
 /* port: port/linux/game/shield_color.c */
 real_rgb_color const *shield_color_colors(long unit_index, real_rgb_color const *colors);
+/* port: port/linux/game/overshield_effect.c */
+real const *overshield_effect_values(long unit_index, real const *values, boolean arms);
 
 void render_object_shadows(
 	void)
@@ -542,8 +542,12 @@ static void render_object_list(
 								TEST_FLAG(_object_mask_unit, object->object.type) ?
 									shield_color_colors(object_index, object->object.outgoing_change_colors) :
 									object->object.outgoing_change_colors;
+							/* port: an overshield as it rises and lasts
+							(port/linux/game/overshield_effect.c) */
 							model_effect.modifier_animation.values =
-								object->object.outgoing_function_values;
+								TEST_FLAG(_object_mask_unit, object->object.type) ?
+									overshield_effect_values(object_index, object->object.outgoing_function_values, FALSE) :
+									object->object.outgoing_function_values;
 						}
 						else
 						{
@@ -1138,7 +1142,7 @@ static void render_object(
 			level_of_detail_pixels = object_get_level_of_detail_pixels(data->object_index);
 			shadow_darkness = 1.f - real_rgb_color_brightness(&data->lighting->shadow_color);
 
-			if ((render_lod_disabled() || level_of_detail_pixels > OBJECT_SHADOW_MINIMUM_PIXELS) &&
+			if (level_of_detail_pixels > OBJECT_SHADOW_MINIMUM_PIXELS &&
 				shadow_darkness > OBJECT_SHADOW_MINIMUM_DARKNESS)
 			{
 				real size_fraction =
@@ -1147,9 +1151,6 @@ static void render_object(
 					(shadow_darkness - OBJECT_SHADOW_MINIMUM_DARKNESS) * 9.0909081f;
 
 				size_fraction = PIN(size_fraction, 0.f, 1.f);
-				/* port: remove only distance/detail fading, not lighting. */
-				if (render_lod_disabled())
-					size_fraction = 1.f;
 				darkness_fraction = PIN(darkness_fraction, 0.f, 1.f);
 
 				if (render_object_shadow_begin(data, darkness_fraction * size_fraction))
