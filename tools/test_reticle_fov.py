@@ -15,6 +15,10 @@ PRELUDE += r'''
 typedef unsigned pixel32;
 typedef struct {short x,y;} point2d;
 typedef struct {real x,y;} real_point2d;
+#define SHORT_MAX 32767
+#define MIN(a,b) ((a)<(b)?(a):(b))
+static short hud_draw_last_left;
+static void passenger_camera_reticle_offset(point2d *point){(void)point;}
 typedef struct {real i,j;} real_vector2d;
 typedef struct {real x0,y0,x1,y1;} real_rectangle2d;
 struct bitmap_data {short width,height;point2d registration_point;};
