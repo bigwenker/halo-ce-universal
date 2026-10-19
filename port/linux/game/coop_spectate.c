@@ -27,6 +27,7 @@ It also draws the line telling players about the vote to skip a cutscene
 #include "units/units.h"
 
 #include "coop_spectate.h"
+#include "halo_keyboard.h"
 #include "coop_respawn.h"
 #include "network_coop.h"
 
@@ -64,52 +65,54 @@ byte input_abstraction_port_accept(short controller_index);
 
 /* ---------- private code */
 
-/* The next living player after `after` (or the first, if `after` is NONE),
-skipping `self` and wrapping around. NONE if nobody else is alive. */
-static long next_living_player(long self, long after)
+/* Full player and unit handles are checked before camera use. Player datum
+   order also works for split-screen: one machine can own several players. */
+static boolean spectate_player_alive(struct player_datum const *player)
+{
+	struct unit_datum *unit = player && !player->quit_out_of_game ? unit_try_and_get(player->unit_index) : NULL;
+	return unit && !TEST_FLAG(unit->object.damage_flags, _object_dead_bit);
+}
+static long cycle_living_player(long self, long after, short direction)
 {
 	struct data_iterator iterator;
 	struct player_datum *player;
-	long first = NONE;
-	boolean passed = after == NONE;
-
+	long best = NONE, wrap = NONE;
+	long rank = after == NONE ? (direction > 0 ? -1 : 65536) : DATUM_INDEX_TO_ABSOLUTE_INDEX(after);
 	data_iterator_new(&iterator, player_data);
 	while ((player = data_iterator_next(&iterator)) != NULL)
 	{
-		if (iterator.datum_index == after)
-		{
-			passed = TRUE;
-			continue;
-		}
-		if (iterator.datum_index == self || player->unit_index == NONE)
-			continue;
-		if (passed)
-			return iterator.datum_index;
-		if (first == NONE)
-			first = iterator.datum_index;
+		long slot = DATUM_INDEX_TO_ABSOLUTE_INDEX(iterator.datum_index);
+		if (iterator.datum_index == self || !spectate_player_alive(player)) continue;
+		if (wrap == NONE || (direction > 0 ? slot < DATUM_INDEX_TO_ABSOLUTE_INDEX(wrap) :
+			slot > DATUM_INDEX_TO_ABSOLUTE_INDEX(wrap))) wrap = iterator.datum_index;
+		if ((direction > 0 ? slot > rank : slot < rank) &&
+			(best == NONE || (direction > 0 ? slot < DATUM_INDEX_TO_ABSOLUTE_INDEX(best) :
+				slot > DATUM_INDEX_TO_ABSOLUTE_INDEX(best)))) best = iterator.datum_index;
 	}
-
-	return first;
+	return best != NONE ? best : wrap;
 }
-
-/* Returns TRUE once per press of A (or jump on the keyboard), however long
-it is held. The buttons count ticks, and one tick can span several frames,
-so testing "held" alone would switch more than once. */
-static boolean next_pressed(short controller_index)
+static long next_living_player(long self, long after)
+{
+	return cycle_living_player(self, after, 1);
+}
+/* One change per physical press, even when a simulation tick spans frames.
+   Prime the held state on a new death so a held fire button cannot cycle. */
+static short direction_pressed(short controller_index, boolean initialize)
 {
 	static boolean held[MAXIMUM_GAMEPADS];
+	static byte mouse_held[MAXIMUM_GAMEPADS];
 	struct gamepad_state const *gamepad;
-	boolean down;
-	boolean pressed;
-
-	if (controller_index < 0 || controller_index >= MAXIMUM_GAMEPADS)
-		return FALSE;
+	boolean down, next, previous;
+	byte mouse;
+	if (controller_index < 0 || controller_index >= MAXIMUM_GAMEPADS) return 0;
 	gamepad = input_get_gamepad_state(controller_index);
 	down = (gamepad && gamepad->buttons[FIRST_GAMEPAD_ANALOG_BUTTON + _gamepad_analog_button_a] > 0) ||
 		input_abstraction_port_accept(controller_index) > 0;
-	pressed = down && !held[controller_index];
-	held[controller_index] = down;
-	return pressed;
+	mouse = halo_spectate_mouse_buttons(controller_index);
+	next = (down && !held[controller_index]) || ((mouse & 1) && !(mouse_held[controller_index] & 1));
+	previous = (mouse & 2) && !(mouse_held[controller_index] & 2);
+	held[controller_index] = down; mouse_held[controller_index] = mouse;
+	return initialize || (next && previous) ? 0 : previous ? -1 : next ? 1 : 0;
 }
 
 /* whether the unit rides in a vehicle it isn't driving */
@@ -133,25 +136,22 @@ boolean coop_spectating(
 long coop_spectate_unit(
 	short local_player_index)
 {
-	long self = local_player_get_player_index(local_player_index);
-	long *watched = &coop_spectate_watched[local_player_index];
+	static long last_self[MAXIMUM_LOCAL_PLAYERS], last_corpse[MAXIMUM_LOCAL_PLAYERS];
+	long self, *watched;
 	struct player_datum *player;
-
-	boolean next;
-
-	if (self == NONE)
-		return NONE;
-	player = player_get(self);
-	/* checked every frame so a press is never missed or counted twice */
-	next = next_pressed(player->network_player_data.controller_index);
-	/* alive: keep `watched`, so the next death starts on the same teammate */
-	if (player->unit_index != NONE)
-		return NONE;
-	if (*watched == NONE || !player_try_and_get(*watched) || player_get(*watched)->unit_index == NONE || next)
-	{
-		*watched = next_living_player(self, *watched);
-	}
-
+	short direction;
+	boolean initialize;
+	if (local_player_index < 0 || local_player_index >= MAXIMUM_LOCAL_PLAYERS) return NONE;
+	self = local_player_get_player_index(local_player_index);
+	player = player_try_and_get(self);
+	if (!player) return NONE;
+	watched = &coop_spectate_watched[local_player_index];
+	initialize = last_self[local_player_index] != self || last_corpse[local_player_index] != player->dead_unit_index;
+	last_self[local_player_index] = self; last_corpse[local_player_index] = player->dead_unit_index;
+	direction = direction_pressed(player->network_player_data.controller_index, initialize);
+	if (player->unit_index != NONE) return NONE;
+	if (!spectate_player_alive(player_try_and_get(*watched)) || direction)
+		*watched = cycle_living_player(self, *watched, direction < 0 ? -1 : 1);
 	return *watched != NONE ? player_get(*watched)->unit_index : NONE;
 }
 
@@ -167,7 +167,7 @@ boolean coop_spectate_watching_rider(
 		return FALSE;
 	/* the scripted camera may have been running since before this player
 	died, so nobody has been picked to watch yet */
-	if (watched == NONE || !player_try_and_get(watched) || player_get(watched)->unit_index == NONE)
+	if (!spectate_player_alive(player_try_and_get(watched)))
 		watched = next_living_player(self, NONE);
 	unit_index = watched != NONE ? player_get(watched)->unit_index : NONE;
 	if (unit_index == NONE || !unit_is_passenger(unit_index))

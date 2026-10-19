@@ -740,6 +740,23 @@ unsigned long halo_keyboard_actions(short controller_index)
 	return controller_index == 0 ? keyboard_actions_held : 0;
 }
 
+/* Suppress clicks held over a menu, console, chat or released mouse until
+   released. Camera selection reads these physical buttons independently
+   of the player's fire/grenade bindings. */
+static unsigned char spectate_mouse_buttons, spectate_mouse_suppressed;
+static void mouse_spectate_update(struct platform_input_state const *input, BOOL blocked)
+{
+	unsigned char raw = (input->mouse_buttons[SDL_BUTTON_LEFT] ? 1 : 0) |
+		(input->mouse_buttons[SDL_BUTTON_RIGHT] ? 2 : 0);
+	if (blocked || input->mouse_released) spectate_mouse_suppressed |= raw;
+	spectate_mouse_suppressed &= raw;
+	spectate_mouse_buttons = blocked || input->mouse_released ? 0 : raw & ~spectate_mouse_suppressed;
+}
+unsigned char halo_spectate_mouse_buttons(short controller_index)
+{
+	return controller_index == 0 ? spectate_mouse_buttons : 0;
+}
+
 /* ---------- the third-person camera's keys (third_person.c) */
 
 static BOOL third_person_key_down;
@@ -1250,6 +1267,7 @@ DWORD WINAPI XInputGetState(HANDLE device, PXINPUT_STATE state)
 		keys_held_over_switch(&input);
 		/* (a chat line typed takes the keyboard as the console does) */
 		console_active = console_is_active() || network_chat_typing();
+		mouse_spectate_update(&input, console_active || input.menus || text_typing);
 		third_person_keys_update(&input, !console_active && !input.menus);
 		held = console_active ? 0 : keyboard_bound_actions(&input);
 		keyboard_screenshot(held);
