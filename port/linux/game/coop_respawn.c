@@ -3,6 +3,7 @@
    A negotiated extension leaves upstream's messages and protocol intact. */
 #include "cseries.h"
 #include "game/game.h"
+#include "cutscene/cinematics.h"
 #include "game/players.h"
 #include "memory/data.h"
 #include "main/main.h"
@@ -20,7 +21,7 @@ struct respawn_clock
     long player, corpse, remaining, last_tick;
     unsigned long identity;
     byte sounds;
-    boolean active, heard;
+    boolean active, observed;
 };
 struct respawn_message
 {
@@ -74,9 +75,11 @@ void coop_respawn_died(long index)
     if (!clock) return;
     clock->corpse = player->dead_unit_index;
     clock->remaining = PIN(config_integer("network.coop_respawn_time"), 3, 60) * TICKS_PER_SECOND;
+    /* This decision is made once, after the dying unit was detached. */
+    if (players_coop_all_survivors_safe()) clock->remaining = 3 * TICKS_PER_SECOND;
     clock->last_tick = game_time_get();
     clock->sounds = 0;
-    clock->heard = FALSE;
+    clock->observed = FALSE;
     clock->active = TRUE;
     player->respawn_timer = clock->remaining;
 }
@@ -121,7 +124,7 @@ void coop_respawn_update(void)
                that unit, but never apply it to a later life or reused slot. */
             if (clock->active && clock->corpse != player->unit_index)
             {
-                if (player->local_player_index != NONE && clock->heard)
+                if (player->local_player_index != NONE && clock->observed)
                     game_engine_respawn_sound(TRUE);
                 clock->active = FALSE;
             }
@@ -133,6 +136,7 @@ void coop_respawn_update(void)
         if (!clock->active || clock->corpse != player->dead_unit_index) continue;
         elapsed = now >= clock->last_tick ? now - clock->last_tick : 0;
         clock->last_tick = now;
+        if (player->local_player_index != NONE) clock->observed = TRUE;
         old = clock->remaining;
         if (!game_time_get_paused() && !cinematic_in_progress())
             clock->remaining = MAX(0, old - elapsed);
@@ -150,7 +154,6 @@ void coop_respawn_update(void)
                     if (clock->remaining > threshold - TICKS_PER_SECOND && !cinematic_in_progress())
                     {
                         game_engine_respawn_sound(FALSE);
-                        clock->heard = TRUE;
                     }
                 }
             }
@@ -185,7 +188,7 @@ void coop_respawn_handle(long machine, word const *data, word size, boolean reli
     else
     {
         clock->sounds = 0;
-        clock->heard = FALSE;
+        clock->observed = FALSE;
         clock->remaining = message.remaining;
     }
     clock->active = TRUE;

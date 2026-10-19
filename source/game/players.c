@@ -2668,6 +2668,26 @@ static boolean players_coop_unit_safe(
 		!players_coop_danger_near(unit_index);
 }
 
+/* port: choose the short countdown only when every survivor is safe on
+this death's tick. No survivors (a wipe) must use the normal countdown. */
+boolean players_coop_all_survivors_safe(void)
+{
+	struct data_iterator iterator;
+	struct player_datum *player;
+	boolean found = FALSE;
+	data_iterator_new(&iterator, player_data);
+	while ((player = data_iterator_next(&iterator)) != NULL)
+	{
+		struct unit_datum *unit;
+		if (player->quit_out_of_game || player->unit_index == NONE) continue;
+		unit = unit_try_and_get(player->unit_index);
+		if (!unit || TEST_FLAG(unit->object.damage_flags, _object_dead_bit) ||
+			!players_coop_unit_safe(player->unit_index)) return FALSE;
+		found = TRUE;
+	}
+	return found;
+}
+
 /* the unit of a living player that passes `test`, the host's first (the
 team follows the host: its players are the host machine's local ones), or
 NONE. A game of COOP_MAJORITY_PLAYERS or more respawns with

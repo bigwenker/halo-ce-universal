@@ -34,6 +34,12 @@ static void data_iterator_new(struct data_iterator *i,void *d){i->cursor=0;}
 static struct player_datum *data_iterator_next(struct data_iterator *i){if(i->cursor==2)return NULL;i->datum_index=i->cursor;return people+i->cursor++;}
 static void game_engine_respawn_sound(boolean respawn){if(respawn)go++;else beeps++;}
 static void distributed_send_to_machine_reliably(long machine,void *data,byte type,short count,word size){sends++;}
+enum {_object_dead_bit=2};
+static struct unit_datum {struct {unsigned long damage_flags;} object;} survivor;
+static boolean safe=TRUE;
+static struct unit_datum *unit_try_and_get(long index){return index==11?&survivor:NULL;}
+static boolean players_coop_unit_safe(long index){return safe;}
+#include "safety.inc"
 #include "under_test.inc"
 static void step(int count){while(count--){tick++;coop_respawn_update();}}
 static void setup(void){for(int i=0;i<2;i++){people[i].unit_index=NONE;people[i].dead_unit_index=10+i;people[i].local_player_index=i;
@@ -47,6 +53,14 @@ int main(int argc,char **argv){char const *case_name=argc>1?argv[1]:"";setup();
   coop_respawn_update();CHECK(beeps==2,"render/frame duplicate");step(89);CHECK(!coop_respawn_ready(0),"early ready");
   step(1);CHECK(coop_respawn_ready(0)&&beeps==6&&go==0,"countdown not complete");
   people[0].unit_index=20;step(1);CHECK(go==1,"spawn sound absent");step(10);CHECK(go==1,"repeated spawn sound");
+ } else CASE("safe") {
+  people[1].unit_index=11;coop_respawn_died(0);CHECK(people[0].respawn_timer==90,"safe death not three seconds");
+  safe=FALSE;step(90);CHECK(coop_respawn_ready(0),"changed safety lengthened snapshot");
+  coop_respawn_died(0);CHECK(people[0].respawn_timer==300,"unsafe death shortened");safe=TRUE;step(1);
+  CHECK(people[0].respawn_timer==299,"later safety shortened a death");
+  survivor.object.damage_flags=4;CHECK(!players_coop_all_survivors_safe(),"dying survivor safe");survivor.object.damage_flags=0;
+  people[1].quit_out_of_game=TRUE;CHECK(!players_coop_all_survivors_safe(),"no survivors was safe");
+  people[1].quit_out_of_game=FALSE;people[1].unit_index=12;CHECK(!players_coop_all_survivors_safe(),"stale unit safe");
  } else CASE("pause") {
   coop_respawn_died(0);paused=TRUE;step(500);CHECK(people[0].respawn_timer==300&&!beeps,"pause advanced");
   paused=FALSE;cinematic=TRUE;step(500);CHECK(people[0].respawn_timer==300&&!beeps,"cutscene advanced");

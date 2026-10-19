@@ -1248,7 +1248,7 @@ COOP_SETUP_SCREENS = [
             "Players walk through each other, so that no one\\nblocks a doorway. The AI's characters still block.",
         ]),
         ("coop_respawn_time", "RESPAWN TIME:", ["3 SECONDS", "5 SECONDS", "10 SECONDS", "15 SECONDS", "20 SECONDS", "30 SECONDS", "60 SECONDS"],
-         ["Time before a dead player rejoins.\\nA clear spawn location must still be available."] * 7),
+         ["Time before a dead player rejoins (3 seconds when all\\nsurvivors were safe at death). A clear spawn is required."] * 7),
     ]),
     ("voice_options", "VOICE AND VOTING", "Voice chat, text chat and votes to kick a player,\\nfor this game.",
      TEAMPLAY_ROWS),

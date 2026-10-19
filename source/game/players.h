@@ -383,6 +383,8 @@ were at the last checkpoint, and respawn everyone there. Players other than
 the first are held back from spawning on a new level: until its opening
 cutscene ends and a teammate has been free on foot a few seconds (not
 riding a vehicle, nor held by the scripts). */
+/* port: the existing grounded/combat/projectile safety test, for all survivors */
+boolean players_coop_all_survivors_safe(void);
 boolean players_coop_waiting_to_start(
 	long player_index);
 /* port: the co-op host's bringto command: everyone comes to the host */

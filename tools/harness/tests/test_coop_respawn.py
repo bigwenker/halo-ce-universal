@@ -4,15 +4,15 @@ import sys
 from pathlib import Path
 import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from harness import build, read, run, CHECK_FAILED, mutated
+from harness import build, read, run, CHECK_FAILED, mutated, function
 
 def generated(fault=None):
     code = re.sub(r'^#include.*\n', '', read('port/linux/game/coop_respawn.c'), flags=re.M)
     if fault:
         code = mutated(code, *fault)
-    return (('under_test.inc', code),)
+    return (('under_test.inc', code), ('safety.inc', function(read('source/game/players.c'), 'players_coop_all_survivors_safe')))
 
-@pytest.mark.parametrize('case', ['timing', 'pause', 'client', 'packets', 'reuse', 'legacy'])
+@pytest.mark.parametrize('case', ['timing', 'safe', 'pause', 'client', 'packets', 'reuse', 'legacy'])
 def test_case(case):
     status, output = run(build('coop_respawn', generated()), case)
     assert status == 0, output
