@@ -594,6 +594,7 @@ void scenario_tags_unload(
 {
 	/* port: discard the fork's cached weapon-tag pointers before freeing tags. */
 	{ extern void needler_balance_tags_unloaded(void); needler_balance_tags_unloaded(); }
+	{ extern void assault_rifle_balance_tags_unloaded(void); assault_rifle_balance_tags_unloaded(); } /* port: same lifetime */
 	/* port: the high-res HUD forgets this map's bitmaps (port/linux/game/hud_hires_tags.c) */
 	{
 		extern void hud_hires_tags_unloaded(void);
@@ -1220,6 +1221,7 @@ long scenario_tags_load(
 				mods_tags_loaded(stripped_scenario_name);
 				/* port: capture the map's stock weapon rules before play. */
 				{ extern void needler_balance_tags_loaded(void); needler_balance_tags_loaded(); }
+				{ extern void assault_rifle_balance_tags_loaded(void); assault_rifle_balance_tags_loaded(); } /* port: optional AR rules */
 			}
 			result = cache_file_globals.tag_header->scenario_tag_index;
 		}
@@ -1335,6 +1337,7 @@ long scenario_tags_load(
 				mods_tags_loaded(stripped_scenario_name);
 				/* port: after PAL normalization and cosmetic tag overlays. */
 				{ extern void needler_balance_tags_loaded(void); needler_balance_tags_loaded(); }
+				{ extern void assault_rifle_balance_tags_loaded(void); assault_rifle_balance_tags_loaded(); } /* port: optional AR rules */
 			}
 			result = cache_file_globals.tag_header->scenario_tag_index;
 		}

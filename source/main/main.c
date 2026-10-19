@@ -3533,6 +3533,8 @@ static boolean main_loop_iteration(
 			network_extensions_update();
 			/* port: stock Needler in mixed lobbies (port/linux/game/needler_balance.c). */
 			{ extern void needler_balance_update(void); needler_balance_update(); }
+			/* port: negotiate the assault rifle buff separately from the Needler. */
+			{ extern void assault_rifle_balance_update(void); assault_rifle_balance_update(); }
 			network_aim_assist_update();
 			network_social_update();
 			network_profile_rgb_update(); /* port: optional cosmetic colors */

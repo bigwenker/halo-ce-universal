@@ -24,6 +24,8 @@ static void network_suicide_handle_message(long i,const void *m,word n,boolean r
 static boolean distributed_handling_stream_message, distributed_handling_batch;
 #define _distributed_message_fork_capabilities 240
 #define _distributed_message_needler_policy 253
+#define _distributed_message_assault_rifle_policy 254
+static void assault_rifle_balance_handle(long i, word const *m, word n, boolean r) {}
 static void needler_balance_handle(long i, word const *m, word n, boolean r) {}
 #define csmemcpy memcpy
 static boolean network_connection_last_read_was_unreliable(void){return FALSE;}

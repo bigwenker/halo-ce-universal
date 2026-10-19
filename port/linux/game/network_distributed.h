@@ -149,6 +149,8 @@ enum
 	_distributed_message_coop_death = 243,
 	/* Optional host Needler rules, only after capability negotiation. */
 	_distributed_message_needler_policy = 253,
+	/* Optional host assault rifle rules, independently negotiated. */
+	_distributed_message_assault_rifle_policy = 254,
 
 	NUMBER_OF_DISTRIBUTED_MESSAGES
 };

@@ -9,4 +9,5 @@ void network_extensions_handle(long machine, word const *data, word size, boolea
 word network_extensions_feature(byte type);
 boolean network_extensions_allows(long machine, byte type);
 boolean network_extensions_needler_matches(void);
+boolean network_extensions_balance_matches(byte type);
 #endif
