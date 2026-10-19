@@ -2347,6 +2347,14 @@ void network_damage_note_grenade(
 	damage_players[player_index].throw_types[slot] = grenade_type;
 }
 
+/* A negotiated balance change invalidates rates/reach, not damage history. */
+void network_damage_invalidate_tag_cache(void)
+{
+	short index;
+	for (index = 0; index < DAMAGE_RATE_CACHE_SIZE; index++)
+		damage_rate_cache[index].source_index = NONE;
+}
+
 void network_damage_new_game(
 	void)
 {
