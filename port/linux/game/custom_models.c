@@ -21,6 +21,14 @@
 #include <string.h>
 #include <math.h>
 
+/* Allow the bundled desktop catalogue to coexist without raising the
+   memory allowance of the mobile and browser ports. */
+#if defined(HALO_ANDROID) || defined(HALO_WEB)
+#define CUSTOM_MODEL_MEMORY_BUDGET 0x8000000UL
+#else
+#define CUSTOM_MODEL_MEMORY_BUDGET 0xC000000UL
+#endif
+
 void *cache_files_tag_instances(long *count);
 void cache_files_set_tag_instances(void *instances,long count);
 void platform_log(char const *format,...);
@@ -340,7 +348,7 @@ static boolean geometry_part_make(struct custom_asset *asset,short slot,short sh
     struct custom_part *part=&asset->parts[slot];
     unsigned short *indices;
     long i;unsigned long bytes=3*(mesh->vertex_count*sizeof(*compressed)+mesh->triangle_count*6);
-    if(bytes>0x8000000UL-geometry_bytes)return FALSE;
+    if(bytes>CUSTOM_MODEL_MEMORY_BUDGET-geometry_bytes)return FALSE;
     vertices=zero_allocate(mesh->vertex_count*sizeof(*vertices));compressed=malloc(mesh->vertex_count*sizeof(*compressed));
     if(!vertices || !compressed){if(vertices)free(vertices);if(compressed)free(compressed);return FALSE;}
     for(i=0;i<mesh->vertex_count;i++)
@@ -436,7 +444,7 @@ static boolean material_make(struct custom_asset *asset,short index,short materi
     for(i=0;i<2;i++)
     {
         unsigned long bytes=asset->bitmaps[material][i]->width*asset->bitmaps[material][i]->height*12UL;
-        if(bytes>0x8000000UL-geometry_bytes)return FALSE;
+        if(bytes>CUSTOM_MODEL_MEMORY_BUDGET-geometry_bytes)return FALSE;
         geometry_bytes+=bytes;asset->memory_bytes+=bytes;
     }
     memcpy(shader,tag_get('soso',stock_shader),sizeof(*shader));
