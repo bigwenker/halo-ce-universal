@@ -10,6 +10,7 @@
 #include "network_aim_assist.h"
 #include "network_profile_rgb.h"
 #include "needler_balance.h"
+#include "assault_rifle_balance.h"
 #include <string.h>
 
 boolean network_distributed_client_send_reliably(void *, word);
@@ -17,7 +18,8 @@ short network_distributed_server_machines(long *, short);
 enum
 {
     EXT_AIM = 1, EXT_SUICIDE = 2, EXT_DEATH = 4, EXT_SOCIAL = 8,
-    EXT_SPRAY = 16, EXT_MODELS = 32, EXT_NEEDLER = 64, EXT_ALL = 127, EXT_REVISION = 1
+    EXT_SPRAY = 16, EXT_MODELS = 32, EXT_NEEDLER = 64, EXT_ASSAULT_RIFLE = 128,
+    EXT_ALL = 255, EXT_REVISION = 1
 };
 #define EXT_MAGIC 0x45544C45UL /* ELTE */
 struct extension_message
@@ -45,6 +47,7 @@ void network_extensions_reset(void)
     hello_attempts = 0;
     memset(machine_features, 0, sizeof(machine_features));
     needler_balance_reset();
+    assault_rifle_balance_reset();
 }
 
 void network_extensions_machine_joined(long machine)
@@ -68,27 +71,34 @@ word network_extensions_feature(byte type)
     case 252: return EXT_MODELS; /* optional model selection IDs */
     case 250: return EXT_SPRAY; /* spray_share.h's private extension */
     case _distributed_message_needler_policy: return EXT_NEEDLER;
+    case _distributed_message_assault_rifle_policy: return EXT_ASSAULT_RIFLE;
     default: return 0;
     }
 }
 
 /* Unknown peers, including a reused slot, always mean stock rules. */
-boolean network_extensions_needler_matches(void)
+boolean network_extensions_balance_matches(byte type)
 {
+    word feature = network_extensions_feature(type);
     long machines[HALO_PORT_MAXIMUM_NETWORK_MACHINES];
     long player_index = local_player_get_player_index(0);
     struct player_datum *player = player_index == NONE ? NULL : player_try_and_get(player_index);
     short i, count;
-    if (game_connection() != _game_connection_network_server || !player) return FALSE;
+    if (!feature || game_connection() != _game_connection_network_server || !player) return FALSE;
     count = network_distributed_server_machines(machines, NUMBEROF(machines));
     for (i = 0; i < count; i++)
     {
         /* The server's loopback client is in this list too; it needs no hello. */
         if (machines[i] == player->network_player_data.machine_index) continue;
         if (machines[i] < 0 || machines[i] >= HALO_PORT_MAXIMUM_NETWORK_MACHINES ||
-            !(machine_features[machines[i]] & EXT_NEEDLER)) return FALSE;
+            !(machine_features[machines[i]] & feature)) return FALSE;
     }
     return TRUE;
+}
+
+boolean network_extensions_needler_matches(void)
+{
+    return network_extensions_balance_matches(_distributed_message_needler_policy);
 }
 
 boolean network_extensions_allows(long machine, byte type)
@@ -115,12 +125,12 @@ void network_extensions_update(void)
     message.magic = EXT_MAGIC;
     message.revision = EXT_REVISION;
     /* Older forks reject unknown bits: retry their original feature set. */
-    message.features = hello_attempts < 2 ? EXT_ALL : hello_attempts < 4 ? 63 : 31;
+    message.features = hello_attempts < 2 ? EXT_ALL : hello_attempts < 4 ? 127 : hello_attempts < 6 ? 63 : 31;
     build_message_header(&message.header.header, sizeof(message), 2, 0);
     if (network_distributed_client_send_reliably(&message, sizeof(message)))
     {
         hello_sent = TRUE;
-        if (hello_attempts < 4) hello_attempts++;
+        if (hello_attempts < 6) hello_attempts++;
         last_hello = now;
     }
 }

@@ -55,6 +55,7 @@ machine (their datum identifiers need not be).
 #include "network_social.h"
 #include "network_profile_rgb.h"
 #include "needler_balance.h"
+#include "assault_rifle_balance.h"
 #include "custom_models.h"
 #include "cseries.h"
 #include "cseries/errors.h"
@@ -4055,6 +4056,11 @@ void network_distributed_handle_message(
 		}
 		if (!network_extensions_allows(machine_index, header.type))
 			return;
+		if (header.type == _distributed_message_assault_rifle_policy)
+		{
+			assault_rifle_balance_handle(machine_index, message, size, reliable && !distributed_handling_batch);
+			return;
+		}
 		if (header.type == _distributed_message_needler_policy)
 		{
 			needler_balance_handle(machine_index, message, size, reliable && !distributed_handling_batch);
