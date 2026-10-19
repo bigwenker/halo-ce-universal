@@ -42,6 +42,7 @@ enum _distributed_actor_super_camouflaged_bit 5
 enum _distributed_message_actor_damage 73
 enum _distributed_message_actor_states 64
 enum _distributed_message_aim_assist_policy 241
+enum _distributed_message_assault_rifle_policy 254
 enum _distributed_message_batch 16
 enum _distributed_message_chat_config 89
 enum _distributed_message_chat_down 88
@@ -56,9 +57,11 @@ enum _distributed_message_coop_object_looks 74
 enum _distributed_message_coop_object_names 69
 enum _distributed_message_coop_object_transforms 72
 enum _distributed_message_coop_presentation 66
+enum _distributed_message_coop_respawn 247
 enum _distributed_message_coop_screen_effect 76
 enum _distributed_message_coop_skip_vote 70
 enum _distributed_message_coop_sounds_retired 67
+enum _distributed_message_coop_vehicle_effect 248
 enum _distributed_message_damage_animations 75
 enum _distributed_message_damage_events 10
 enum _distributed_message_fork_capabilities 240
@@ -69,6 +72,7 @@ enum _distributed_message_map_share_offer 84
 enum _distributed_message_map_share_progress 86
 enum _distributed_message_map_share_request 83
 enum _distributed_message_map_share_sources 85
+enum _distributed_message_needler_policy 253
 enum _distributed_message_notice 17
 enum _distributed_message_object_changes 5
 enum _distributed_message_object_states 6

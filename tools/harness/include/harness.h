@@ -8,6 +8,16 @@ that refuse when full, CHECK (exits CHECK_FAILED, 1) and CASE.
 #ifndef HARNESS_H
 #define HARNESS_H
 
+/* Fixtures intentionally retain counters written by extracted code even
+   when a particular case does not inspect them, as with unused variables
+   and functions in the harness compiler flags. New Clang versions diagnose
+   these globals separately. Production compilation is unchanged. */
+#ifdef __clang__
+#if __has_warning("-Wunused-but-set-global")
+#pragma clang diagnostic ignored "-Wunused-but-set-global"
+#endif
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
