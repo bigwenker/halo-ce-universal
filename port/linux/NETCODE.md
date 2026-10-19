@@ -883,3 +883,11 @@ not.
 The fork uses upstream chat messages for both typed lines and console `say`.
 The former fork chat message slots remain reserved and ignored; scores keep
 their existing slot. Completion and local slash commands change no wire data.
+
+### Fork co-op respawn countdown
+
+This fork negotiates capability 256 and private message 247 for co-op death
+countdowns. Only the host chooses the timer and spawns players. A timer names
+the player's identity and full salted corpse, so it cannot carry into a new
+life or a reused slot. Upstream peers receive only existing object/player
+state, without new payloads or a changed protocol version (29).

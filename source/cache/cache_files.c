@@ -616,6 +616,8 @@ void scenario_tags_unload(
 	{
 		extern void menu_tags_unloaded(void);
 
+		/* port: restore appended respawn sounds before cosmetic model tags. */
+		{ extern void coop_respawn_audio_unloaded(void); coop_respawn_audio_unloaded(); }
 		/* port: restore the menus' tag table before they restore the map's. */
 		{ extern void custom_models_unloaded(void); custom_models_unloaded(); }
 		menu_tags_unloaded();
@@ -1213,6 +1215,8 @@ long scenario_tags_load(
 				menu_tags_loaded(cache_file_globals.header.name);
 				/* port: append cosmetic model tags after the menus. */
 				{ extern void custom_models_loaded(void); custom_models_loaded(); }
+				/* port: campaign maps borrow multiplayer respawn audio. */
+				{ extern void coop_respawn_audio_loaded(void); coop_respawn_audio_loaded(); }
 			}
 			/* (and the mods' tags, as below) */
 			{
@@ -1320,6 +1324,8 @@ long scenario_tags_load(
 				menu_tags_loaded(cache_file_globals.header.name);
 				/* port: append cosmetic model tags after the menus. */
 				{ extern void custom_models_loaded(void); custom_models_loaded(); }
+				/* port: campaign maps borrow multiplayer respawn audio. */
+				{ extern void coop_respawn_audio_loaded(void); coop_respawn_audio_loaded(); }
 			}
 			/* port: the bitmaps the high-res HUD stands for (port/linux/game/hud_hires_tags.c) */
 			{

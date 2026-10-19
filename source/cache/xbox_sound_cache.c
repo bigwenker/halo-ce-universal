@@ -610,8 +610,10 @@ static void sound_cache_start_loading_sound(
 		at once (port/linux/game/mod_sounds.c) */
 		{
 			extern boolean mod_sounds_read(struct sound_permutation const *permutation, void *buffer);
+			/* port: campaign countdown samples borrowed from a multiplayer map. */
+			extern boolean coop_respawn_audio_read(struct sound_permutation const *permutation, void *buffer);
 
-			if (mod_sounds_read(sound, cache_address))
+			if (coop_respawn_audio_read(sound, cache_address) || mod_sounds_read(sound, cache_address))
 			{
 				cache_sound->loaded = TRUE;
 			}

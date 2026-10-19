@@ -236,6 +236,7 @@ symbols in this file:
 #include "camera/observer.h"
 #include "data.h"
 #include "devices/devices.h"
+#include "coop_respawn.h" /* port: timed network co-op respawns */
 #include "network_coop.h" /* port: port/linux/game/network_coop.c */
 #include "cutscene/cinematics.h" /* port: network co-op's first spawns */
 #include "editor/editor_stubs.h"
@@ -834,6 +835,8 @@ void player_died(
 		if (other_player->unit_index != NONE)
 			players_globals->all_dead = FALSE;
 	}
+	/* port: snapshot this death before the next simulation tick. */
+	coop_respawn_died(player_index);
 
 	return;
 }
@@ -2535,7 +2538,7 @@ static long player_spawnable_beside(
 static boolean player_place_beside_teammate(
 	long player_index);
 static long players_coop_respawn_unit(
-	void);
+	boolean timed);
 static boolean players_coop_respawn_beside(
 	long player_index,
 	long anchor_unit_index);
@@ -2757,7 +2760,7 @@ player outside the group does not win. A dead host has no unit, so the same
 count applies to them. NONE while the group is still unsafe, or while
 nobody alive is standing in the BSP. */
 static long players_coop_respawn_unit(
-	void)
+	boolean timed) /* port: the countdown already paid the safety wait */
 {
 	long unit_indices[NETWORK_GAME_MAXIMUM_PLAYER_COUNT];
 	real_point3d positions[NETWORK_GAME_MAXIMUM_PLAYER_COUNT];
@@ -2776,7 +2779,7 @@ static long players_coop_respawn_unit(
 		long host_index = players_coop_unit_where(players_coop_unit_safe);
 
 		if (host_index == NONE &&
-			game_time_get() + 1 - players_coop_state.respawn_wait_since >= COOP_RESPAWN_FALLBACK_TICKS)
+			(timed || game_time_get() + 1 - players_coop_state.respawn_wait_since >= COOP_RESPAWN_FALLBACK_TICKS))
 		{
 			host_index = players_coop_unit_where(players_coop_unit_grounded);
 		}
@@ -2827,7 +2830,7 @@ static long players_coop_respawn_unit(
 	}
 	if (safe_index >= 0)
 		return unit_indices[safe_index];
-	if (game_time_get() + 1 - players_coop_state.respawn_wait_since >= COOP_RESPAWN_FALLBACK_TICKS)
+	if ((timed || game_time_get() + 1 - players_coop_state.respawn_wait_since >= COOP_RESPAWN_FALLBACK_TICKS))
 	{
 		short fallback_index = -1;
 		short fallback_count = 0;
@@ -2915,9 +2918,20 @@ static boolean players_respawn_network_coop(
 		players_coop_state.respawn_wait_since = game_time_get() + 1;
 	/* main.c calls this every tick while someone is dead; the safety test
 	walks all the map's projectiles, so twice a second is enough */
-	if (game_time_get() % COOP_RESPAWN_CHECK_TICKS != 0)
+	if ((first_spawn || !coop_respawn_active()) && game_time_get() % COOP_RESPAWN_CHECK_TICKS != 0)
 		return FALSE;
-	safe_unit_index = players_coop_respawn_unit();
+	/* port: do the placement search only after a player's countdown. */
+	if (!first_spawn && coop_respawn_active())
+	{
+		boolean ready = FALSE;
+		data_iterator_new(&iterator, player_data);
+		while ((player = data_iterator_next(&iterator)) != NULL)
+			if (player->unit_index == NONE && !player->quit_out_of_game &&
+				!players_coop_waiting_to_start(iterator.datum_index) && coop_respawn_ready(iterator.datum_index))
+				ready = TRUE;
+		if (!ready) return FALSE;
+	}
+	safe_unit_index = players_coop_respawn_unit(!first_spawn && coop_respawn_active());
 	if (safe_unit_index == NONE)
 		return FALSE;
 	data_iterator_new(&iterator, player_data);
@@ -2937,6 +2951,12 @@ static boolean players_respawn_network_coop(
 		}
 		else if (players_coop_waiting_to_start(iterator.datum_index))
 		{
+			continue;
+		}
+		/* port: each death keeps its own timer, including simultaneous deaths. */
+		if (!first_spawn && !coop_respawn_ready(iterator.datum_index))
+		{
+			result = FALSE;
 			continue;
 		}
 		players_coop_spawn_beside_index = safe_unit_index;
@@ -3322,6 +3342,8 @@ void players_respawn_at_checkpoint(
 
 		if (player->unit_index != NONE || player->quit_out_of_game)
 			continue;
+		/* port: all-dead recovery obeys the same countdown. */
+		if (!coop_respawn_ready(iterator.datum_index)) continue;
 		player_spawn(iterator.datum_index);
 		position = players_checkpoint_position(iterator.datum_index);
 		unplaced[DATUM_INDEX_TO_ABSOLUTE_INDEX(iterator.datum_index)] = player->unit_index != NONE &&
@@ -4755,6 +4777,8 @@ void players_update_before_game(
 	short action_index;
 
 	profile_enter(PLAYERS_UPDATE_BEFORE_GAME_PROFILE);
+	/* port: one countdown update per simulation tick, never per frame. */
+	coop_respawn_update();
 	players_coop_note_on_foot();
 	players_coop_rescue_stranded();
 	if (update_client_dequeue(actions))

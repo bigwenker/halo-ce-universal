@@ -332,6 +332,7 @@ symbols in this file:
 /* ---------- headers */
 
 #include "network_social.h"
+#include "coop_respawn.h" /* port: timed network co-op respawns */
 #include "network_profile_rgb.h" /* port: optional profile RGB colors */
 #include "cseries.h"
 #include "errors.h"
@@ -2175,6 +2176,19 @@ static boolean main_death_timer_expired(
 static void main_lost_map_private(
 	void)
 {
+	/* port: all-dead co-op uses each player's timer, then the existing
+	checkpoint placement; script-requested mission failures still revert. */
+	if (game_connection() == _game_connection_network_server && coop_respawn_active() && players_are_all_dead())
+	{
+		if (!game_time_get_paused() && !cinematic_in_progress())
+			players_respawn_at_checkpoint();
+		if (!players_are_all_dead())
+		{
+			main_globals.lost_map = FALSE;
+			main_globals.loss_timer = 0;
+		}
+		return;
+	}
 	if (main_death_timer_expired(
 		&main_globals.loss_timer, &main_loss_last_tick,
 		!game_time_get_paused()))
@@ -2196,9 +2210,10 @@ static void main_lost_map_private(
 static void main_respawn_private(
 	void)
 {
-	if (main_death_timer_expired(
-		&main_globals.respawn_timer, &main_respawn_last_tick,
-		!game_time_get_paused() && !cinematic_in_progress()) &&
+	/* port: co-op owns its per-player timer; local campaign keeps its gate. */
+	if ((coop_respawn_active() ? !game_time_get_paused() && !cinematic_in_progress() :
+		main_death_timer_expired(&main_globals.respawn_timer, &main_respawn_last_tick,
+			!game_time_get_paused() && !cinematic_in_progress())) &&
 		players_respawn_coop())
 	{
 		main_globals.respawn = FALSE;

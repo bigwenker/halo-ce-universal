@@ -27,6 +27,7 @@ It also draws the line telling players about the vote to skip a cutscene
 #include "units/units.h"
 
 #include "coop_spectate.h"
+#include "coop_respawn.h"
 #include "network_coop.h"
 
 #include <math.h>
@@ -248,6 +249,9 @@ void coop_spectate_draw(
 	long watched = coop_spectate_watched[local_player_index];
 	wchar_t text[96];
 	wchar_t const *hint;
+
+	/* Timed deaths use only the normal multiplayer countdown HUD. */
+	if (coop_respawn_active()) return;
 
 	/* nobody to watch yet (still joining): network_coop.c shows the host's
 	view from behind instead */

@@ -537,6 +537,7 @@ symbols in this file:
 /* ---------- headers */
 
 #include "network_social.h"
+#include "coop_respawn.h" /* port: co-op uses the multiplayer death HUD */
 #include "cseries.h"
 #include "network_profile_rgb.h" /* port: optional profile RGB colors */
 #include "cseries_windows.h"
@@ -3220,7 +3221,8 @@ static boolean multiplayer_message_internal(
 {
 	boolean result = FALSE;
 
-	if (game_engine->format_message)
+	/* port: campaign co-op shares the generic formatter without an engine. */
+	if (game_engine && game_engine->format_message)
 	{
 		result = game_engine->format_message(
 			player_index,
@@ -9224,6 +9226,21 @@ boolean game_engine_get_state_message(
 	long respawn_timer;
 	boolean result = FALSE;
 
+	/* port: reuse multiplayer's localized countdown and HUD location. */
+	if (coop_respawn_active())
+	{
+		player = player_get(player_index);
+		if (!player->quit_out_of_game && player->unit_index == NONE && player->statistics.deaths != 0)
+		{
+			multiplayer_message_internal(player_index, _game_engine_message_respawn_timer,
+				MAX(0, player->respawn_timer) / TICKS_PER_SECOND, message, message_character_count);
+			/* Campaign caches need not contain multiplayer's string list. */
+			if (!message[0]) usnprintf(message, message_character_count, L"Rejoin in %d",
+				MAX(0, player->respawn_timer) / TICKS_PER_SECOND);
+			return TRUE;
+		}
+		return FALSE;
+	}
 	if (game_engine)
 	{
 		player = player_get(player_index);
@@ -9291,6 +9308,19 @@ boolean game_engine_get_state_message(
 (network_player_attach_unit), but their respawn countdown runs here as it
 does on the host (game_engine_should_spawn_player), for the hud's count and
 its sounds: it stops a tick short, where the host's unit ends it */
+/* port: share multiplayer's exact countdown and respawn sound selection. */
+void game_engine_respawn_sound(boolean respawn)
+{
+	struct game_globals *globals = scenario_get_game_globals();
+	if (globals && globals->multiplayer_information.count)
+		game_engine_play_multiplayer_sound(respawn ? _multiplayer_sound_respawn : _multiplayer_sound_countdown_for_respawn);
+	else
+	{
+		extern void coop_respawn_audio_play(boolean respawn);
+		coop_respawn_audio_play(respawn);
+	}
+}
+
 void game_engine_client_respawn_countdown(
 	long player_index)
 {

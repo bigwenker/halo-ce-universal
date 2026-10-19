@@ -3,6 +3,7 @@
 static void network_profile_rgb_machine_joined(long machine) { (void)machine; }
 static void needler_balance_reset(void) {}
 static void assault_rifle_balance_reset(void) {}
+static void coop_respawn_reset(void) {}
 typedef unsigned short word;
 #define HALO_PORT_MAXIMUM_NETWORK_MACHINES 128
 #define NUMBEROF(a) (sizeof(a)/sizeof((a)[0]))
@@ -55,13 +56,15 @@ int main(int argc,char **argv){CHECK(argc==2,"case");char const *case_name=argv[
   role=1;network_extensions_handle(NONE,(word*)wire[1],sizes[1],TRUE);CHECK(network_extensions_allows(NONE,250),"client ack");network_extensions_update();CHECK(sends==2,"hello spam");
  } else CASE("model_capability") {
   role=1;network_extensions_select_host(TRUE);network_extensions_update();
-  CHECK(((struct extension_message *)wire[0])->features==255,"new AR feature not advertised");
+  CHECK(((struct extension_message *)wire[0])->features==511,"co-op respawn feature not advertised");
   now+=2001;network_extensions_update();now+=2001;network_extensions_update();
-  CHECK(((struct extension_message *)wire[2])->features==127,"Needler fork fallback missing");
+  CHECK(((struct extension_message *)wire[2])->features==255,"old AR fork fallback missing");
   now+=2001;network_extensions_update();now+=2001;network_extensions_update();
-  CHECK(((struct extension_message *)wire[4])->features==63,"model fork fallback missing");
+  CHECK(((struct extension_message *)wire[4])->features==127,"Needler fork fallback missing");
   now+=2001;network_extensions_update();now+=2001;network_extensions_update();
-  CHECK(((struct extension_message *)wire[6])->features==31,"old fork fallback missing");
+  CHECK(((struct extension_message *)wire[6])->features==63,"model fork fallback missing");
+  now+=2001;network_extensions_update();now+=2001;network_extensions_update();
+  CHECK(((struct extension_message *)wire[8])->features==31,"old fork fallback missing");
   CHECK(!network_extensions_allows(NONE,252),"model feature enabled without acknowledgement");
   role=2;negotiate(31);CHECK(!network_extensions_allows(1,252),"model sent to old fork");
   network_extensions_reset();negotiate(63);CHECK(network_extensions_allows(1,252),"model feature not enabled");
@@ -96,7 +99,7 @@ int main(int argc,char **argv){CHECK(argc==2,"case");char const *case_name=argv[
   network_extensions_handle(1,(word*)&m,17,TRUE);network_extensions_handle(1,(word*)&m,16,FALSE);
   network_extensions_handle(NONE,(word*)&m,16,TRUE);network_extensions_handle(3,(word*)&m,16,TRUE);
   m.magic++;network_extensions_handle(1,(word*)&m,16,TRUE);m=hello();m.revision++;network_extensions_handle(1,(word*)&m,16,TRUE);
-  m=hello();m.features=256;network_extensions_handle(1,(word*)&m,16,TRUE);m=hello();m.header.count=2;network_extensions_handle(1,(word*)&m,16,TRUE);
+  m=hello();m.features=512;network_extensions_handle(1,(word*)&m,16,TRUE);m=hello();m.header.count=2;network_extensions_handle(1,(word*)&m,16,TRUE);
   CHECK(!sends&&!network_extensions_allows(1,250),"malformed negotiation accepted");
   role=1;m=hello();network_extensions_select_host(TRUE);network_extensions_handle(NONE,(word*)&m,16,TRUE);CHECK(!network_extensions_allows(NONE,250),"unsolicited ack");
  } else CASE("reset") {

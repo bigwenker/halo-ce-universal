@@ -7,6 +7,7 @@
 #include "main/main.h"
 #include "network_distributed.h"
 #include "network_extensions.h"
+#include "coop_respawn.h"
 #include "network_aim_assist.h"
 #include "network_profile_rgb.h"
 #include "needler_balance.h"
@@ -19,7 +20,7 @@ enum
 {
     EXT_AIM = 1, EXT_SUICIDE = 2, EXT_DEATH = 4, EXT_SOCIAL = 8,
     EXT_SPRAY = 16, EXT_MODELS = 32, EXT_NEEDLER = 64, EXT_ASSAULT_RIFLE = 128,
-    EXT_ALL = 255, EXT_REVISION = 1
+    EXT_RESPAWN = 256, EXT_ALL = 511, EXT_REVISION = 1
 };
 #define EXT_MAGIC 0x45544C45UL /* ELTE */
 struct extension_message
@@ -41,6 +42,7 @@ void network_extensions_select_host(boolean available)
 
 void network_extensions_reset(void)
 {
+    coop_respawn_reset();
     host_features = 0;
     hello_sent = FALSE;
     last_hello = 0;
@@ -61,6 +63,7 @@ word network_extensions_feature(byte type)
 {
     switch (type)
     {
+    case _distributed_message_coop_respawn: return EXT_RESPAWN;
     case _distributed_message_aim_assist_policy: return EXT_AIM;
     case _distributed_message_suicide_request: return EXT_SUICIDE;
     case _distributed_message_coop_death: return EXT_DEATH;
@@ -125,12 +128,12 @@ void network_extensions_update(void)
     message.magic = EXT_MAGIC;
     message.revision = EXT_REVISION;
     /* Older forks reject unknown bits: retry their original feature set. */
-    message.features = hello_attempts < 2 ? EXT_ALL : hello_attempts < 4 ? 127 : hello_attempts < 6 ? 63 : 31;
+    message.features = hello_attempts < 2 ? EXT_ALL : hello_attempts < 4 ? 255 : hello_attempts < 6 ? 127 : hello_attempts < 8 ? 63 : 31;
     build_message_header(&message.header.header, sizeof(message), 2, 0);
     if (network_distributed_client_send_reliably(&message, sizeof(message)))
     {
         hello_sent = TRUE;
-        if (hello_attempts < 6) hello_attempts++;
+        if (hello_attempts < 8) hello_attempts++;
         last_hello = now;
     }
 }

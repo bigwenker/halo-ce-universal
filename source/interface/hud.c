@@ -107,7 +107,8 @@ symbols in this file:
 #include "sound/game_sound.h"
 #include "tag_files/tag_files.h"
 #include "text/draw_string.h"
-#include "coop_spectate.h" /* port: port/linux/game/coop_spectate.c */
+#include "coop_spectate.h"
+#include "coop_respawn.h" /* port: network co-op countdown replaces safe-place text */ /* port: port/linux/game/coop_spectate.c */
 #include "network_coop.h" /* port: port/linux/game/network_coop.c */
 #include "network_chat.h" /* port: port/linux/game/network_chat.c */
 #include "text/font_group.h"
@@ -343,7 +344,7 @@ static void hud_show_action_response(
 	short respawn_failure = players_get_respawn_failure();
 	short item_name_index;
 
-	if (respawn_failure != _player_respawn_failure_none &&
+	if (!coop_respawn_active() && respawn_failure != _player_respawn_failure_none &&
 		player->unit_index == NONE)
 	{
 		switch (respawn_failure)

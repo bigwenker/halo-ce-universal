@@ -147,6 +147,8 @@ enum
 	_distributed_message_suicide_request = 242,
 	/* co-op death text in the normal multiplayer HUD (reliable, host only) */
 	_distributed_message_coop_death = 243,
+	/* Optional co-op death countdown; core player state is unchanged. */
+	_distributed_message_coop_respawn = 247,
 	/* Optional host Needler rules, only after capability negotiation. */
 	_distributed_message_needler_policy = 253,
 	/* Optional host assault rifle rules, independently negotiated. */
