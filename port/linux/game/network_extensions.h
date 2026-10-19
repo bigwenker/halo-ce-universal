@@ -8,4 +8,5 @@ void network_extensions_update(void);
 void network_extensions_handle(long machine, word const *data, word size, boolean reliable);
 word network_extensions_feature(byte type);
 boolean network_extensions_allows(long machine, byte type);
+boolean network_extensions_needler_matches(void);
 #endif

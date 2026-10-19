@@ -147,6 +147,8 @@ enum
 	_distributed_message_suicide_request = 242,
 	/* co-op death text in the normal multiplayer HUD (reliable, host only) */
 	_distributed_message_coop_death = 243,
+	/* Optional host Needler rules, only after capability negotiation. */
+	_distributed_message_needler_policy = 253,
 
 	NUMBER_OF_DISTRIBUTED_MESSAGES
 };
@@ -418,6 +420,7 @@ short network_objects_send_period(long machine_index, real_point3d const *positi
 /* ---------- prototypes/NETWORK_DAMAGE.C */
 
 void network_damage_new_game(void);
+void network_damage_invalidate_tag_cache(void);
 /* the host: a grenade a player's unit threw (units.c), whose damage that
 player's machine reports */
 void network_damage_note_grenade(long unit_index, short grenade_type);

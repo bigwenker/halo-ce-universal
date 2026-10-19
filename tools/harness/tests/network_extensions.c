@@ -1,6 +1,7 @@
 #include "harness.h"
 #include <string.h>
 static void network_profile_rgb_machine_joined(long machine) { (void)machine; }
+static void needler_balance_reset(void) {}
 typedef unsigned short word;
 #define HALO_PORT_MAXIMUM_NETWORK_MACHINES 128
 #define NUMBEROF(a) (sizeof(a)/sizeof((a)[0]))
@@ -11,6 +12,10 @@ struct distributed_message_header { word header; byte type, count; long game_tim
 #include "messages.inc"
 #include "api.inc"
 static int role=2, playing=1, menu, sends, policies;
+static int include_self;
+static struct player_datum {struct {short machine_index;}network_player_data;}local_player={{7}};
+static long local_player_get_player_index(short local){return 0;}
+static struct player_datum *player_try_and_get(long index){return &local_player;}
 static unsigned long now=1000;
 static byte wire[16][256];
 static long recipients[16];
@@ -26,7 +31,7 @@ static void record(long peer,void const *data,word size){CHECK(sends<16,"send ov
 boolean network_distributed_client_send_reliably(void *data,word size){record(NONE,data,size);return TRUE;}
 static void network_distributed_server_send_to_machine_reliably(long peer,void *data,word size){record(peer,data,size);}
 static void network_distributed_server_send_to_all_reliably(void *data,word size){record(1,data,size);record(2,data,size);}
-short network_distributed_server_machines(long *out,short maximum){out[0]=1;out[1]=2;return 2;}
+short network_distributed_server_machines(long *out,short maximum){out[0]=1;out[1]=2;if(include_self){out[2]=7;return 3;}return 2;}
 static short distributed_client_machines(long *out,short maximum){return network_distributed_server_machines(out,maximum);}
 static void distributed_batch_add(short peer,void const *data,word size,word entry_size){record(peer,data,size);}
 static void network_aim_assist_send_policy(long machine){if(network_extensions_allows(machine,_distributed_message_aim_assist_policy))policies++;}
@@ -49,12 +54,25 @@ int main(int argc,char **argv){CHECK(argc==2,"case");char const *case_name=argv[
   role=1;network_extensions_handle(NONE,(word*)wire[1],sizes[1],TRUE);CHECK(network_extensions_allows(NONE,250),"client ack");network_extensions_update();CHECK(sends==2,"hello spam");
  } else CASE("model_capability") {
   role=1;network_extensions_select_host(TRUE);network_extensions_update();
-  CHECK(((struct extension_message *)wire[0])->features==63,"new model feature not advertised");
+  CHECK(((struct extension_message *)wire[0])->features==127,"new Needler feature not advertised");
   now+=2001;network_extensions_update();now+=2001;network_extensions_update();
-  CHECK(((struct extension_message *)wire[2])->features==31,"old fork fallback missing");
+  CHECK(((struct extension_message *)wire[2])->features==63,"model fork fallback missing");
+  now+=2001;network_extensions_update();now+=2001;network_extensions_update();
+  CHECK(((struct extension_message *)wire[4])->features==31,"old fork fallback missing");
   CHECK(!network_extensions_allows(NONE,252),"model feature enabled without acknowledgement");
   role=2;negotiate(31);CHECK(!network_extensions_allows(1,252),"model sent to old fork");
   network_extensions_reset();negotiate(63);CHECK(network_extensions_allows(1,252),"model feature not enabled");
+ } else CASE("needler") {
+  include_self=1;
+  CHECK(!network_extensions_needler_matches(),"unknown peers enabled Needler");
+  negotiate(EXT_ALL);CHECK(network_extensions_allows(1,_distributed_message_needler_policy),"missing Needler capability");
+  CHECK(!network_extensions_allows(2,_distributed_message_needler_policy)&&!network_extensions_needler_matches(),"upstream peer enabled Needler");
+  struct extension_message m=hello();network_extensions_handle(2,(word*)&m,sizeof(m),TRUE);
+  CHECK(network_extensions_needler_matches(),"matching lobby stayed stock");
+  network_extensions_machine_joined(2);CHECK(!network_extensions_needler_matches(),"late/reused peer kept Needler");
+  m.features=63;network_extensions_handle(2,(word*)&m,sizeof(m),TRUE);
+  CHECK(!network_extensions_needler_matches(),"old fork enabled Needler");
+  role=1;CHECK(!network_extensions_needler_matches(),"client decided host rules");
  } else CASE("partial") {
   negotiate(EXT_SUICIDE);CHECK(network_extensions_allows(1,_distributed_message_suicide_request),"missing selected feature");CHECK(!network_extensions_allows(1,_distributed_message_aim_assist_policy)&&!policies,"unselected feature enabled");
   CHECK(!network_extensions_allows(2,_distributed_message_suicide_request),"other machine enabled");
@@ -64,7 +82,7 @@ int main(int argc,char **argv){CHECK(argc==2,"case");char const *case_name=argv[
   network_extensions_handle(1,(word*)&m,17,TRUE);network_extensions_handle(1,(word*)&m,16,FALSE);
   network_extensions_handle(NONE,(word*)&m,16,TRUE);network_extensions_handle(3,(word*)&m,16,TRUE);
   m.magic++;network_extensions_handle(1,(word*)&m,16,TRUE);m=hello();m.revision++;network_extensions_handle(1,(word*)&m,16,TRUE);
-  m=hello();m.features=64;network_extensions_handle(1,(word*)&m,16,TRUE);m=hello();m.header.count=2;network_extensions_handle(1,(word*)&m,16,TRUE);
+  m=hello();m.features=128;network_extensions_handle(1,(word*)&m,16,TRUE);m=hello();m.header.count=2;network_extensions_handle(1,(word*)&m,16,TRUE);
   CHECK(!sends&&!network_extensions_allows(1,250),"malformed negotiation accepted");
   role=1;m=hello();network_extensions_select_host(TRUE);network_extensions_handle(NONE,(word*)&m,16,TRUE);CHECK(!network_extensions_allows(NONE,250),"unsolicited ack");
  } else CASE("reset") {

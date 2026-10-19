@@ -119,6 +119,7 @@ symbols in this file:
 
 #include "projectiles_callbacks.h"
 #include "projectile_definitions.h"
+#include "needler_balance.h" /* port: port/linux/game/needler_balance.c */
 
 #include "ai/ai.h"
 #include "cseries/profile.h"
@@ -1346,9 +1347,11 @@ static void projectile_detonate(
 	real_vector3d marker_forwards[2];
 	real_vector3d up;
 	long effect_definition_index;
+	short combining_limit; /* port: this fork's Needler, other projectiles unchanged */
 
 	projectile = projectile_get(projectile_index);
 	definition = projectile_definition_get(projectile->definition_index);
+	combining_limit = needler_balance_combining_limit(projectile->definition_index, MAXIMUM_COMBINING_PROJECTILES);
 
 	marker_names[0] = "";
 	marker_names[1] = "gravity";
@@ -1377,7 +1380,7 @@ static void projectile_detonate(
 
 		if (parent->object.type == _object_type_biped &&
 			(biped_get(projectile->object.parent_object_index)->unit.player_index == NONE || game_engine_running()) &&
-			combining_projectile_count > MAXIMUM_COMBINING_PROJECTILES)
+			combining_projectile_count > combining_limit)
 		{
 			real_point3d parent_origin;
 			real_point3d known_good_point;
@@ -1392,7 +1395,7 @@ static void projectile_detonate(
 				{
 					struct projectile_datum *child_projectile = projectile_get(child_index);
 
-					if (combining_projectile_count <= MAXIMUM_COMBINING_PROJECTILES)
+					if (combining_projectile_count <= combining_limit)
 					{
 						SET_FLAG(child_projectile->projectile.flags, _projectile_already_super_exploded_bit, TRUE);
 						child_projectile->projectile.detonation_timer *= real_random();
@@ -1519,9 +1522,11 @@ static void projectile_collision(
 	long effect_definition_index;
 	short material_type;
 	short response;
+	short combining_limit; /* port: match detonation's per-projectile threshold */
 
 	projectile = projectile_get(projectile_index);
 	definition = projectile_definition_get(projectile->definition_index);
+	combining_limit = needler_balance_combining_limit(projectile->definition_index, MAXIMUM_COMBINING_PROJECTILES);
 	material_type = collision->material_type;
 	effect_scale = 1.0f;
 	material_effect_scale = 0.0f;
@@ -1818,7 +1823,7 @@ static void projectile_collision(
 					combining_projectile_count++;
 				}
 
-				if (combining_projectile_count >= MAXIMUM_COMBINING_PROJECTILES)
+				if (combining_projectile_count >= combining_limit)
 				{
 					SET_FLAG(projectile->projectile.flags, _projectile_will_super_explode_bit, TRUE);
 					break;
